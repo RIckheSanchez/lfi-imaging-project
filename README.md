@@ -9,10 +9,10 @@ Supervisor: Karl Bertling
 
 | Part | Module | Responsible | Branch | Status |
 |------|--------|-------------|---------|--------|
-| Part 1 | Data Import & Management | Zeyu Wang | `zeyu/part1-data` | ✅ **Complete** |
+| Part 1 | Data Import & Management | Zeyu Wang | `zeyu/part1-data` | ✅ Complete |
 | Part 2 | Signal Pre-processing | Yu Haobo | `haobo/part2-preprocess` | 🔄 In Progress |
-| Part 3 | Image Generation & Reconstruction | Tang Mingxuan | `mingxuan/part3-reconstruction` | ⏳ Waiting |
-| Part 4 | UI Design & Usability Evaluation | He Zhenyu (Vincent) | `vincent/part4-ui` | ⏳ Waiting |
+| Part 3 | Image Generation & Reconstruction | Tang Mingxuan | `mingxuan/part3-reconstruction` | ⏳ Pending |
+| Part 4 | UI Design & Usability Evaluation | He Zhenyu (Vincent) | `vincent/part4-ui` | ⏳ Pending |
 
 ## Project Structure
 
