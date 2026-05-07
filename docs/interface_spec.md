@@ -29,12 +29,23 @@ All team members must follow these specifications to ensure smooth integration.
 
 **Example:**
 ```python
-from part1_data import load_single_scan
+from part1_data.loader import load_single_scan
 
 data = load_single_scan('datasets/Chip_001.h5')
-print(data.signal.shape)  # (1000, 1000)
-print(data.target_type)   # 'Chip'
+print(data.amplitude.shape)  # (70, 1400, 400)
+print(data.phase.shape)      # (70, 1400, 400)
+print(data.num_z_slices)     # 70
+print(data.xy_resolution)    # (1400, 400)
+print(data.target_type)      # 'Chip'
 ```
+
+**Data Format:**
+- `amplitude`: numpy array with shape (70, 1400, 400)
+  - 70 z-depth slices
+  - 1400 x 400 XY scan resolution
+- `phase`: numpy array with shape (70, 1400, 400)
+  - Same dimensions as amplitude
+  - Phase information from LFI
 
 #### `load_multiple_scans(directory: str, target_type: str = None) -> List[LFIRawData]`
 
