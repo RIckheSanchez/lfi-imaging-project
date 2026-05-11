@@ -1,0 +1,95 @@
+# Default configuration for the THz LFI pre-processing pipeline.
+#
+# Layout
+# ------
+# Top-level sections give the **base defaults** applied to every scan.
+# Optional `[targets.<name>...]` sub-tables override base values for
+# specific `target_type` strings (matched case-insensitively).
+#
+# Algorithm choices are guided by proposal §3.2.2; per-target overrides
+# implement §3.2.6 ("Shared scope versus individual contribution")
+# without forking the code.
+
+[noise_reduction]
+# Method dispatch: choose one of
+#   "median2d"     — 2D median over (H, W) per z-slice (image-level)
+#   "gaussian2d"   — 2D Gaussian over (H, W) per z-slice
+#   "savgol_1d"    — Savitzky–Golay along z (sweep axis, requires n_z > 1)
+#   "bandpass_1d"  — Digital IIR band-pass along z (requires n_z > 1)
+#   "none"         — pass-through
+method = "median2d"
+
+# --- median2d ---
+median_window = 3  # pixels (odd integer)
+
+# --- gaussian2d ---
+gaussian_sigma = 1.0  # pixels
+
+# --- savgol_1d (along z) ---
+savgol_window = 11  # samples (odd integer)
+savgol_polyorder = 3
+
+# --- bandpass_1d (along z) ---
+# Cutoffs are expressed as a fraction of the Nyquist frequency so the
+# defaults are sampling-rate independent. Override with `sampling_hz`
+# in a derived config to specify physical Hz.
+bandpass_low_norm = 0.02   # = 0.02 * Nyquist
+bandpass_high_norm = 0.45  # = 0.45 * Nyquist
+bandpass_order = 4
+
+[normalisation]
+# Method dispatch: choose one of
+#   "baseline"   — subtract per-z-slice baseline (percentile)
+#   "zscore"     — z-score per z-slice (robust if `robust = true`)
+#   "none"       — pass-through
+method = "baseline"
+robust = true                 # zscore uses MAD instead of std when true
+baseline_percentile = 5.0     # used by "baseline"
+
+[phase_unwrapping]
+# Method dispatch: choose one of
+#   "skimage_2d" — quality-guided 2D unwrap per z-slice (skimage)
+#   "itoh_1d"    — Itoh-style 1D unwrap along z (requires n_z > 1)
+#   "none"       — pass-through (wrapped phase passes through)
+enabled = false
+method = "skimage_2d"
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Per-target overrides
+# ─────────────────────────────────────────────────────────────────────
+
+[targets.skin]
+# Image-level (n_z == 1): only 2D operators meaningful.
+[targets.skin.noise_reduction]
+method = "median2d"
+median_window = 3
+[targets.skin.normalisation]
+method = "baseline"
+baseline_percentile = 5.0
+[targets.skin.phase_unwrapping]
+enabled = true
+method = "skimage_2d"
+
+[targets.leaf]
+# Sweep-axis volumetric (n_z >> 1): 1D operators along z are appropriate.
+[targets.leaf.noise_reduction]
+method = "savgol_1d"
+savgol_window = 11
+savgol_polyorder = 3
+[targets.leaf.normalisation]
+method = "zscore"
+robust = true
+[targets.leaf.phase_unwrapping]
+enabled = true
+method = "itoh_1d"
+
+[targets.chip]
+# Mirrors leaf defaults until chip-specific characterisation is available.
+[targets.chip.noise_reduction]
+method = "savgol_1d"
+[targets.chip.normalisation]
+method = "zscore"
+[targets.chip.phase_unwrapping]
+enabled = true
+method = "itoh_1d"

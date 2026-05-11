@@ -12,10 +12,13 @@ dependencies = [
     "numpy>=1.24",
     "scipy>=1.10",
     "scikit-image>=0.21",
+    "h5py>=3.8",
+    "tomli>=2.0; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "pytest-cov"]
+demo = ["matplotlib>=3.7"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

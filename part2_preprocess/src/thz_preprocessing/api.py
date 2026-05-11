@@ -1,62 +1,84 @@
 """Public API for the THz LFI pre-processing pipeline.
 
-The pipeline chains four operations in order:
-    raw signal -> noise reduction -> normalisation -> phase unwrapping -> output
+Pipeline order (proposal §3.2.2):
 
-All operations are driven by a configuration dict so that processing is
-repeatable and comparable across datasets.
+    LFIRawData -> noise reduction -> normalisation -> phase unwrapping -> LFIRawData
+
+The pipeline is intentionally type-stable: input and output are both
+:class:`thz_preprocessing.io.LFIRawData` objects so downstream
+consumers (image-generation, visualisation) see one consistent
+interface regardless of which scan type is processed.
+
+All operations are driven by a configuration dict — see
+:mod:`thz_preprocessing.config` — so that processing is repeatable
+and comparable across datasets (proposal §3.2.4 repeatability
+criterion).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import time
 from typing import Any
 
-import numpy as np
-
 from thz_preprocessing import (
-    config,
+    config as _config,
     noise_reduction,
     normalisation,
     phase_unwrapping,
 )
+from thz_preprocessing.io import LFIRawData
 
-
-@dataclass
-class PreprocessingResult:
-    """Container for a processed signal plus its processing metadata."""
-
-    signal: np.ndarray
-    metadata: dict[str, Any]
+__all__ = ["run_pipeline"]
 
 
 def run_pipeline(
-    raw_signal: np.ndarray,
+    data: LFIRawData,
     config_path: str | None = None,
-) -> PreprocessingResult:
+    config_overrides: dict[str, Any] | None = None,
+) -> LFIRawData:
     """Run the full pre-processing pipeline on a single scan.
 
     Parameters
     ----------
-    raw_signal : np.ndarray
-        Raw self-mixing waveform array, shape (n_pixels, n_samples) or
-        (height, width, n_samples) for 2D rasters.
-    config_path : str, optional
-        Path to a TOML config file. If None, defaults are used.
+    data
+        Input scan as produced by the data-import module (or by one of
+        the temporary loaders in :mod:`thz_preprocessing.io`).
+    config_path
+        Optional path to a TOML config file. If ``None``, the
+        repository's ``config/default.toml`` is used. Per-target
+        overrides keyed on ``data.target_type`` are merged on top.
+    config_overrides
+        Optional dict merged on top of the loaded config. Useful in
+        unit tests to nudge a single parameter without writing a TOML.
 
     Returns
     -------
-    PreprocessingResult
-        Cleaned signal plus metadata describing the parameters used.
+    LFIRawData
+        Cleaned, normalised, and (where enabled) phase-unwrapped scan.
+        ``metadata["pipeline"]`` carries an ordered list of the stages
+        that were applied, with the parameters used for each — this is
+        the self-describing output required by proposal §3.2.2.
     """
-    cfg = config.load(config_path)
+    cfg = _config.load(path=config_path, target_type=data.target_type)
+    if config_overrides:
+        from thz_preprocessing.config import _deep_merge  # type: ignore[attr-defined]
 
-    # TODO: implement each stage
-    step1 = noise_reduction.apply(raw_signal, cfg["noise_reduction"])
+        cfg = _deep_merge(cfg, config_overrides)
+
+    t0 = time.perf_counter()
+    step1 = noise_reduction.apply(data, cfg["noise_reduction"])
+    t1 = time.perf_counter()
     step2 = normalisation.apply(step1, cfg["normalisation"])
+    t2 = time.perf_counter()
     step3 = phase_unwrapping.apply(step2, cfg["phase_unwrapping"])
+    t3 = time.perf_counter()
 
-    return PreprocessingResult(
-        signal=step3,
-        metadata={"config": cfg, "version": "0.1.0"},
-    )
+    step3.metadata["timings_seconds"] = {
+        "noise_reduction": t1 - t0,
+        "normalisation": t2 - t1,
+        "phase_unwrapping": t3 - t2,
+        "total": t3 - t0,
+    }
+    step3.metadata["config_resolved"] = cfg
+    step3.metadata.setdefault("version", "0.1.0")
+    return step3
