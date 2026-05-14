@@ -60,3 +60,7 @@ Thumbs.db
 # Project specific
 outputs/
 cache/
+files.zip
+Realdata/
+__pycache__/
+*.pyc
