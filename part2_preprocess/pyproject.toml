@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thz_preprocessing"
-version = "0.1.0"
+version = "0.5.0"
 description = "Signal pre-processing module for THz LFI skin imaging data"
 authors = [{ name = "Haobo Yu" }]
 requires-python = ">=3.9"

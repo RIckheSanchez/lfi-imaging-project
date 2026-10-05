@@ -28,6 +28,16 @@ else:  # pragma: no cover — only for Python 3.9 / 3.10
 
 
 DEFAULTS: dict[str, Any] = {
+    "spatial_correction": {
+        "enabled": False,
+        "background_sigma_pixels": 16.0,
+        "background_boundary_mode": "reflect",
+        "background_truncate": 4.0,
+        "stripe_axis": "rows",
+        "stripe_profile_sigma_pixels": 8.0,
+        "fft_notches": [],
+        "notch_width_cycles_per_pixel": 0.005,
+    },
     "noise_reduction": {
         "method": "median2d",
         "median_window": 3,
@@ -46,6 +56,9 @@ DEFAULTS: dict[str, Any] = {
     "phase_unwrapping": {
         "enabled": False,
         "method": "skimage_2d",
+        "rng_seed": 0,
+        "max_residue_fraction": 0.06,
+        "low_quality_action": "keep_wrapped",
     },
 }
 

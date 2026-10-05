@@ -2,7 +2,8 @@
 
 Pipeline order (proposal §3.2.2):
 
-    LFIRawData -> noise reduction -> normalisation -> phase unwrapping -> LFIRawData
+    LFIRawData -> noise reduction -> normalisation -> phase unwrapping
+    -> derived spatial background/stripe correction -> LFIRawData
 
 The pipeline is intentionally type-stable: input and output are both
 :class:`thz_preprocessing.io.LFIRawData` objects so downstream
@@ -25,6 +26,7 @@ from thz_preprocessing import (
     noise_reduction,
     normalisation,
     phase_unwrapping,
+    spatial_correction,
 )
 from thz_preprocessing.io import LFIRawData
 
@@ -72,13 +74,19 @@ def run_pipeline(
     t2 = time.perf_counter()
     step3 = phase_unwrapping.apply(step2, cfg["phase_unwrapping"])
     t3 = time.perf_counter()
+    step4 = spatial_correction.apply(step3, cfg["spatial_correction"])
+    if cfg["spatial_correction"]["enabled"]:
+        step4.metadata["spatial_products"]["raw_amplitude"] = data.amplitude.copy()
+        step4.metadata["spatial_products"]["raw_phase"] = data.phase.copy()
+    t4 = time.perf_counter()
 
-    step3.metadata["timings_seconds"] = {
+    step4.metadata["timings_seconds"] = {
         "noise_reduction": t1 - t0,
         "normalisation": t2 - t1,
         "phase_unwrapping": t3 - t2,
-        "total": t3 - t0,
+        "spatial_correction": t4 - t3,
+        "total": t4 - t0,
     }
-    step3.metadata["config_resolved"] = cfg
-    step3.metadata.setdefault("version", "0.1.0")
-    return step3
+    step4.metadata["config_resolved"] = cfg
+    step4.metadata["version"] = "0.5.0"
+    return step4

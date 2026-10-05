@@ -53,6 +53,14 @@ baseline_percentile = 5.0     # used by "baseline"
 #   "none"       — pass-through (wrapped phase passes through)
 enabled = false
 method = "skimage_2d"
+# Reproducible initialisation for scikit-image's reliability-sorted unwrap.
+rng_seed = 0
+# Project guardrail, not a universal physical constant. Slices with more
+# charged 2x2 phase residues than this are not released as unwrapped data.
+# 0.06 sits just above the densest saved Leaf frame the group unwrapped
+# (0.055, evaluation E8); the earlier 0.01 rejected every Leaf frame.
+max_residue_fraction = 0.06
+low_quality_action = "keep_wrapped"
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -62,27 +70,46 @@ method = "skimage_2d"
 [targets.skin]
 # Image-level (n_z == 1): only 2D operators meaningful.
 [targets.skin.noise_reduction]
-method = "median2d"
-median_window = 3
+# Gaussian sigma=1 removed more high-frequency content than a 3x3 median
+# at equal or better gradient correlation (evaluation E7).
+method = "gaussian2d"
+gaussian_sigma = 1.0
 [targets.skin.normalisation]
-method = "baseline"
+method = "none"
 baseline_percentile = 5.0
 [targets.skin.phase_unwrapping]
 enabled = true
 method = "skimage_2d"
+rng_seed = 0
+max_residue_fraction = 0.06
+low_quality_action = "keep_wrapped"
+
+[targets.skin.spatial_correction]
+enabled = true
+background_sigma_pixels = 32.0
+stripe_axis = "rows"
+stripe_profile_sigma_pixels = 8.0
 
 [targets.leaf]
-# Sweep-axis volumetric (n_z >> 1): 1D operators along z are appropriate.
+# Process each stored image independently; no physical third-axis assumption.
 [targets.leaf.noise_reduction]
-method = "savgol_1d"
+method = "none"
 savgol_window = 11
 savgol_polyorder = 3
 [targets.leaf.normalisation]
-method = "zscore"
+method = "none"
 robust = true
 [targets.leaf.phase_unwrapping]
 enabled = true
-method = "itoh_1d"
+method = "skimage_2d"
+
+[targets.leaf.spatial_correction]
+enabled = true
+background_sigma_pixels = 20.0
+background_boundary_mode = "nearest"
+background_truncate = 2.0
+stripe_axis = "rows"
+stripe_profile_sigma_pixels = 8.0
 
 [targets.chip]
 # Mirrors leaf defaults until chip-specific characterisation is available.
@@ -93,3 +120,30 @@ method = "zscore"
 [targets.chip.phase_unwrapping]
 enabled = true
 method = "itoh_1d"
+
+[targets.vegetable]
+# 2026 RDM files are loaded as image slices in a depth volume. Denoising and
+# normalisation remain slice-wise; phase is unwrapped only when its spatial
+# residue diagnostic passes the explicit quality gate.
+[targets.vegetable.noise_reduction]
+# Gaussian sigma=1 removed more high-frequency content than a 3x3 median
+# at equal or better gradient correlation (evaluation E7).
+method = "gaussian2d"
+gaussian_sigma = 1.0
+[targets.vegetable.normalisation]
+method = "none"
+baseline_percentile = 5.0
+[targets.vegetable.phase_unwrapping]
+enabled = true
+method = "skimage_2d"
+rng_seed = 0
+# Stricter than the 0.06 base: at 0.06 frames 21/22 unwrapped with visible
+# patch-like branch errors (evaluation E8), so Vegetables phase stays wrapped.
+max_residue_fraction = 0.01
+low_quality_action = "keep_wrapped"
+
+[targets.vegetable.spatial_correction]
+enabled = true
+background_sigma_pixels = 32.0
+stripe_axis = "rows"
+stripe_profile_sigma_pixels = 8.0

@@ -13,11 +13,18 @@ strings matching teammate A's `LFIRawData` contract.
 
 ## Summary
 
+Revision 2026-10-05: the numerical audit pairs saved Leaf U indices 0..90
+with the same raw indices and supports radians, using
+`wrap(L_P*pi/4096 - pi)` (max all-pixel error 1.813e-14 rad). The physical
+stack coordinate remains unresolved. Earlier "sweep-axis", "masked" and
+Leaf `pi/8192` labels are withdrawn. See `spatial_processing_v05.md`.
+
 | Target | RDM path | File(s) | Size | Native shape | After loader → `LFIRawData` | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | **Skin** (P0, primary) | `02 Data Sets/Skin/` | `2025-11-28_10-14-26.594507929.hdf5` | 3 MB | per channel: `(400, 1300)` uint16; 3 channels: `IMAGE_AMPLITUDE`, `IMAGE_PHASE`, `PEAK_TO_PEAK` | `amplitude (1, 400, 1300) float64`, `phase (1, 400, 1300) float64` rad | Image-level (demodulated). Single frame `frames/40` under `QCL0/Left`. |
-| **Leaf** (P1, secondary) | `02 Data Sets/Leaf/` | `leaf1.mat` (+ `SuperLeaf1z.mp4` ref. video) | 1.35 GB | `(1200, 400, 475)` float64 per variable; 4 variables: `L_A`, `L_P`, `L_P_U`, `L_P_U_M` | `amplitude (475, 1200, 400) float64`, `phase (475, 1200, 400) float64` (units **not** rad — see open question) | Sweep-axis volumetric. `L_P_U` / `L_P_U_M` are the group's existing ad-hoc unwrapped phase outputs (see workflow review). |
-| **Tomography** (P2, optional) | `02 Data Sets/Tomography/` | not pulled | 1.7 GB | unknown | unknown | Optional; not needed for Progress Seminar. |
+| **Leaf** (P1, secondary) | `02 Data Sets/Leaf/` | `leaf1.mat` (+ `SuperLeaf1z.mp4` ref. video) | 1.35 GB | raw `L_A` / `L_P`: `(1200, 400, 475)`; references `L_P_U` / `L_P_U_M`: `(1200, 400, 91)`; float64 | `amplitude (475, 1200, 400) float64`, `phase (475, 1200, 400) float64` after reference-consistent Leaf conversion | Stored images; same-index reference pairing 0..90 validated; physical time/depth remains unconfirmed. |
+| **Vegetables 2026** (new RDM source) | `02 Data Sets/2026 Semester 2/2026_Vegetables/` | `experiment_details.txt`; many `frame-XX.hdf5` / `frame-XX.cbor` pairs. Local: frames 20-22. | RDM folder ≈ 130.1 GB; local HDF5 subset ≈ 665 MB | image datasets `(400, 1300)`; fitted `RX_LINE_OF_BEST_FIT` traces `(400, 1300, 184)` | tested volume: `amplitude/phase (2, 400, 1300)` for frames 21-22, using an explicit and range-checked signed-14 phase convention | Multi-frame depth scan from 30.05 mm to 44.67 mm in 0.1 mm increments. Frames 21-22 form the first quantitative depth-volume pilot. |
+| **Tomography** (P2, optional) | `02 Data Sets/Tomography/` | not pulled | RDM folder ≈ 56.6 GB | unknown | unknown | Optional; not needed for Progress Seminar. |
 
 ## Skin pilot — characterised values
 
@@ -37,11 +44,11 @@ Observations relevant to pre-processing:
   + tissue pixels around ≈ 3000–5000), supporting percentile-baseline
   normalisation as the safer default for skin over z-score (which
   would be skewed by the bright tissue mode).
-* **Wrapped phase spans the full uint16 range**, but after `[0, 2π) →
-  [-π, π)` conversion the dominant in-tissue range concentrates within
-  `[-π/4, +π/4]`. This is the structure that becomes interpretable
-  after 2D quality-guided unwrapping (see `output/skin_pilot.png` for
-  the before/after).
+* **Stored phase reaches both ends of the uint16 container.** Reinterpreting
+  those words as int16 gives `[-8192,8191]`. The old full-uint16 mapping
+  compresses the values into approximately `[-pi/4,pi/4]`, but that does
+  not prove the physical phase is continuous. The scale remains unconfirmed;
+  v0.5 withholds unwrapping and derived phase correction for this file.
 * **No HDF5 root attributes** — all acquisition metadata (drive
   current, modulation frequency, dwell time, FOV) is **absent** from
   this file; open question logged below.
@@ -52,30 +59,111 @@ Inspected from `data/leaf/leaf1.mat` (`scipy.io.whosmat`):
 
 | Variable | Shape | Dtype | Apparent role |
 | --- | --- | --- | --- |
-| `L_A` | `(1200, 400, 475)` | float64 | Amplitude, raw demodulated; third axis = per-pixel sweep. |
-| `L_P` | `(1200, 400, 475)` | float64 | Wrapped phase, raw; third axis = per-pixel sweep; **values in `[-8192, +8191]` (i.e. an integer-style 14-bit fixed-point encoding, _not_ radians)** — see open question. |
-| `L_P_U` | `(1200, 400, 91)` | float64 | Unwrapped phase, group's ad-hoc workflow output. Third axis shrunk 475 → 91; semantics inferred — see `docs/ad_hoc_workflow_review.md`. |
-| `L_P_U_M` | `(1200, 400, 91)` | float64 | Same as `L_P_U` with a validity mask applied. |
+| `L_A` | `(1200, 400, 475)` | float64 | Demodulated amplitude image stack; third axis unconfirmed. |
+| `L_P` | `(1200, 400, 475)` | float64 | Encoded phase image stack; reference-consistent decoding `wrap(L_P*pi/4096 - pi)`. |
+| `L_P_U` | `(1200, 400, 91)` | float64 | Saved radian phase reference, numerically matched to raw indices 0..90. |
+| `L_P_U_M` | `(1200, 400, 91)` | float64 | Modified reference; difference from `U` supports smooth spatial background correction, not a simple validity mask. |
 
 Observations relevant to pre-processing:
 
-* **Sweep axis (length 475) is the natural target for 1D operators**
-  (bandpass, Savitzky–Golay, Itoh-1D unwrap, per proposal §3.2.2).
-* **Phase unit on `L_P` is not radians.** Itoh-1D unwrap via
-  `numpy.unwrap` assumes a `2π` period; until the encoding is
-  confirmed, the unwrap step on leaf is structurally correct but
-  numerically scaled wrong. The fix is a single multiplier in
-  `io.load_leaf_mat`, blocked on confirmation from supervisor / team-
-  mate A.
+* **475 is a stack length, not proof of waveform samples.** Kashyap 2023
+  describes time-lapse imaging. Our stack-axis Leaf operators remain
+  exploratory pending metadata; the paper uses spatial 2D unwrapping.
+* **Leaf reference consistency is numerically resolved.** The loader uses
+  `wrap(L_P*pi/4096 - pi)`. This is distinct from 2026 RDM signed-14
+  decoding and is not absolute phase calibration. Stack-axis Itoh is no
+  longer the Leaf default.
+
+## 2026 Vegetables — characterised values
+
+Inspected from local frames
+`data/vegetables/frame-20.hdf5` through `frame-22.hdf5`, downloaded from
+`02 Data Sets/2026 Semester 2/2026_Vegetables/`:
+
+```
+/data/IMAGE_AMPLITUDE/
+    frame_20_qcl_1_left    (400, 1300) uint16   min=0       max=65535
+    frame_20_qcl_1_right   (400, 1300) uint16
+/data/IMAGE_PHASE/
+    frame_20_qcl_1_left    (400, 1300) int16    min=-32768  max=32755
+    frame_20_qcl_1_right   (400, 1300) int16
+/data/PEAK_TO_PEAK/
+    frame_20_qcl_1_left    (400, 1300) uint16
+    frame_20_qcl_1_right   (400, 1300) uint16
+/data/RX_LINE_OF_BEST_FIT/
+    frame_20_left          (400, 1300, 184) int16
+    frame_20_right         (400, 1300, 184) int16
+```
+
+`experiment_details.txt` says:
+
+```
+scan of vegetables
+start z position (mm): 30.05
+stop z position (mm): 44.67
+imcrements (mm): 0.1
+notes: vegetables will dry out over course of experiment. performed in open air.
+```
+
+Observations relevant to pre-processing:
+
+* The HDF5 layout is different from the legacy Skin pilot. It uses
+  `/data/IMAGE_*` datasets rather than `/frames/{id}/Image Data/...`.
+  The loader for this schema is `io.load_rdm_hdf5_frame`.
+* The file includes both left and right channels. Current local output uses
+  `qcl=1, side="left"` to keep one reproducible pilot path.
+* `RX_LINE_OF_BEST_FIT` provides a **fitted LFI trace** per pixel with
+  184 samples. It is not the raw ADC waveform. This is supported by the
+  dataset name and acquisition flags: `enLobf=1`, `logLobf=1`, while
+  `logRxRaw=0`, `logRxAvg=0`, `logRxDec=0`, and `logRxSub=0`.
+* `IMAGE_PHASE` is logged FFT phase (`logFftPhase=1`) stored in an int16
+  container. Complete frames 21 and 22 use exactly `[-8192, 8191]`, so
+  `phase_rad = phase_code / 8192 * pi`. Frame 20 spans almost the full
+  int16 range and is treated as anomalous startup data, not automatically
+  reinterpreted as a second valid encoding. The loader requires the phase
+  convention explicitly and rejects codes outside its valid interval.
+* The fitted-trace pilot uses a light 5-point, third-order
+  Savitzky-Golay filter after per-trace DC removal. On the tested crop it
+  gives median input/output correlation 0.987, median peak-to-peak
+  retention 0.922, and roughness ratio 0.483. These are signal-
+  preservation checks, not clinical validation.
+
+### Multi-frame depth pilot
+
+Frames 21 and 22 were loaded with `io.load_rdm_hdf5_volume` as a
+`(2, 400, 1300)` volume. Using frame 20 as the scan-position reference,
+their derived z positions are 30.15 mm and 30.25 mm. Frame 20 was kept
+out of this validation because only 20.8% of its fitted traces are
+non-empty, compared with 100% in frames 21 and 22; it appears to be a
+scan-start/partial-acquisition frame.
+
+The v0.4 pilot produced:
+
+| Metric | Result | Interpretation |
+| --- | ---: | --- |
+| Median raw/processed amplitude Pearson correlation | 0.933 | Main spatial structure is retained after median filtering and baseline normalisation. |
+| Maximum normalised amplitude RMSE | 0.027 | Scale-independent image change is small. |
+| Minimum phase-modulo consistency | 1.000 | Rewrapping reproduces the input phase. This is an integrity check, not proof that an unwrap is physically correct. |
+| Spatial phase-residue fraction | 0.048 / 0.049 | Both frames exceed the configured 0.01 project guardrail, so 2D unwrapping is withheld and the wrapped phase is retained. |
+| Adjacent processed amplitude correlation | 0.891 | Consecutive 0.1 mm depth slices remain structurally continuous. |
+| Total pipeline runtime | ≈0.27 s | Two full image-level frames remain well below the 30 s practicality target. |
+
+## Resolved data conventions
+
+| Item | Confirmed interpretation | Implementation |
+| --- | --- | --- |
+| Leaf `L_P` | `wrap(L_P*pi/4096 - pi)` matches all 91 U references at the same indices, <2e-14 rad | `io.load_leaf_mat`; dataset-specific reference equivalence |
+| 2026 `IMAGE_PHASE`, complete frames | signed 14-bit FFT phase in an int16 container; `[-8192, 8191] -> [-pi, pi)` | explicitly selected and range-checked by `io.load_rdm_hdf5_frame` |
+| 2026 frame 20 `IMAGE_PHASE` | anomalous/startup frame spanning the signed-16 container; excluded from image-phase deliverables | rejected by the default signed-14 loader; explicit override is diagnostic only |
+| 2026 `RX_LINE_OF_BEST_FIT` | fitted LFI trace per pixel; last axis is 184 trace samples; not raw ADC | `io.load_rdm_fitted_waveform` |
 
 ## Open questions (already in flight to supervisor / teammate A)
 
 | # | Question | Blocks |
 | --- | --- | --- |
 | 1 | Skin `IMAGE_PHASE` uint16 encoding: `[0, 2π)` or `[-π, π)`? | Choice of `phase_encoding` in `io.load_skin_hdf5`. |
-| 2 | Leaf `L_P` numerical encoding: what value corresponds to `2π`? Is it `16384` (i.e. signed 14-bit) or another scale? | Correct numerical unwrap on leaf in `phase_unwrapping.itoh_1d`. |
-| 3 | Are raw waveform datasets stored anywhere (acquisition PC, separate share)? | Whether the proposal's bandpass-1D-vs-savgol-1D evaluation should also run on raw waveforms in Semester 2. |
-| 4 | Confirm meaning of `frames/{id}` for Skin (frame index in a longer sequence, or simply a session id)? | Whether multi-frame skin scans should be aggregated into `(n_z, H, W)` rather than `(1, H, W)`. |
+| 2 | Confirm meaning of `frames/{id}` for Skin (frame index in a longer sequence, or simply a session id)? | Whether multi-frame skin scans should be aggregated into `(n_z, H, W)` rather than `(1, H, W)`. |
+| 3 | Leaf physical third-axis coordinate, timestamps, calibration and `_U_M` processing script? | Physical-coordinate/absolute calibration; same-index reference pairing 0..90 is now numerically validated. |
 
-These do not block the Progress Seminar — they are the planned mid-year
-pivot discussion points (proposal §3.2.5).
+These do not block amplitude and fitted-waveform processing, but they do
+block claims of physically validated absolute phase reconstruction.

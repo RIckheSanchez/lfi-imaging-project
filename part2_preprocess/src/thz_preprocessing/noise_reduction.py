@@ -3,8 +3,8 @@
 Operates on :attr:`LFIRawData.amplitude`. The wrapped-phase channel is
 left untouched here on purpose: directly low-pass filtering wrapped
 phase produces meaningless results across the [-pi, pi) discontinuity.
-Phase smoothing, when needed, happens *after* unwrapping in the
-`phase_unwrapping` stage.
+The separate phase-unwrapping stage assesses wrapped-phase quality before
+deciding whether an unwrap result is safe to release.
 
 Dispatch table:
 
