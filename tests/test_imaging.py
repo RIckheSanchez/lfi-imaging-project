@@ -123,3 +123,15 @@ def test_physical_scale_bar():
     g = ImageGenerator(a, a, {"spacing_xy": (.2, .3), "spatial_unit": "mm"}, scale_bar_length=.5)
     assert len(g.generate_amplitude().axes[0].artists) == 1
     with pytest.raises(ValueError): ImageGenerator(a, a, scale_bar_length=1).generate_amplitude()
+
+
+def test_hsl_fusion_keeps_hue_at_peak_amplitude():
+    amplitude = np.tile(np.linspace(0, 1, 20), (20, 1))
+    phase = np.full((20, 20), 1.0)
+    def peak_rgb(**kw):
+        fig = ImageGenerator(amplitude, phase).generate_comparison("hsl_fusion", norm="linear", **kw)
+        return fig.axes[0].images[0].get_array()[0, -1, :3]
+    capped, white = peak_rgb(), peak_rgb(max_lightness=1.0)
+    assert np.ptp(capped) == pytest.approx(1.0)   # fully saturated colour
+    np.testing.assert_allclose(white, 1.0)        # old behaviour: phase lost
+    with pytest.raises(ValueError): ImageGenerator(amplitude, phase).generate_comparison("hsl_fusion", max_lightness=0)

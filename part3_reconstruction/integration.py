@@ -82,7 +82,8 @@ def render_rgb(data, channel="amplitude", *, phase_mode="sequential", cmap=None,
             else "uncalibrated counts" if channel == "phase" else "a.u.")
     info = {"channel": channel, "cmap": name, "phase_mode": phase_mode if channel == "phase" else None,
             "display_min": float(lo), "display_max": float(hi), "unit": unit,
-            "missing_fraction": float(np.mean(~np.isfinite(arr))), "row0": "top" if flip_y else "y index 0"}
+            "missing_fraction": float(np.mean(~np.isfinite(arr))), "row0": "top" if flip_y else "y index 0",
+            "pixel_aspect_yx": data.metadata.get("pixel_aspect_yx")}
     return rgba, info
 
 

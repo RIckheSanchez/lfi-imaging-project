@@ -29,6 +29,9 @@ def main():
     bench = sub.add_parser("benchmark", help="Time and peak memory for 2D rendering, resampling and export")
     bench.add_argument("files", nargs="*", help="Optional UQ frame HDF5 files")
     bench.add_argument("--output", default="outputs/benchmark")
+    handoff = sub.add_parser("handoff", help="Read a Person 2 handoff folder; write figures, depth volume and report")
+    handoff.add_argument("root", help="Folder containing data/ and vegetables_volume_21frames.npz")
+    handoff.add_argument("--output", default="outputs/handoff")
     demo = sub.add_parser("demo", help="Synthetic validation only; not experimental evidence")
     demo.add_argument("--output", default="outputs/synthetic")
     args = parser.parse_args()
@@ -43,6 +46,13 @@ def main():
         report = run(real_files=args.files, out_dir=out)
         (out / "benchmark.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
         print(json.dumps(report, indent=2))
+        return
+    if args.command == "handoff":
+        from .handoff_report import run
+        report = run(args.root, args.output)
+        print(json.dumps({k: report[k] for k in ("files_read", "summary_by_sample", "render_seconds", "elapsed_seconds")}, indent=2))
+        if report["files_with_missing_fields"]:
+            raise SystemExit(2)
         return
     if args.command == "audit":
         from .audit import audit_directory
