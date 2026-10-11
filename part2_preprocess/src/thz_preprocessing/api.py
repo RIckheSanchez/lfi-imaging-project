@@ -88,5 +88,5 @@ def run_pipeline(
         "total": t4 - t0,
     }
     step4.metadata["config_resolved"] = cfg
-    step4.metadata["version"] = "0.6.0"
+    step4.metadata["version"] = "0.6.1"
     return step4

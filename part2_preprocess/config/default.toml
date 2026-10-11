@@ -55,9 +55,13 @@ enabled = false
 method = "skimage_2d"
 # Reproducible initialisation for scikit-image's reliability-sorted unwrap.
 rng_seed = 0
-# "amplitude_otsu" evaluates the gate and unwraps only where there is signal;
-# released phase is NaN elsewhere. "none" uses the whole image.
+# "amplitude_otsu" evaluates the gate and unwraps only inside the largest
+# connected signal region; released phase is NaN elsewhere. "none" uses the
+# whole image. mask_threshold_scale multiplies Otsu's threshold, and a slice
+# is released only if the region covers at least min_signal_fraction.
 mask = "none"
+mask_threshold_scale = 1.0
+min_signal_fraction = 0.2
 # Project guardrail, not a universal physical constant. A slice is released
 # as unwrapped only if at most this fraction of 2x2 cells (inside the mask)
 # carries a phase residue, i.e. when unwrapping is close to path independent.
@@ -116,15 +120,20 @@ savgol_polyorder = 3
 method = "none"
 robust = true
 [targets.leaf.phase_unwrapping]
-# Without a saved reference the strict gate keeps Leaf phase wrapped. The
-# batch script reuses the group's saved U via method = "validated_reference".
+# Leaf phase is decoded on the supervisor-stated scale (code * pi / 8192) and
+# unwrapped by this module. The leaf fills the frame, so Otsu's threshold is
+# lowered to 0.65 to keep the lamina in one connected region (about 70% of the
+# image). Frames whose region still exceeds the gate stay wrapped.
 enabled = true
 method = "skimage_2d"
-mask = "none"
+mask = "amplitude_otsu"
+mask_threshold_scale = 0.65
+min_signal_fraction = 0.2
 max_residue_fraction = 0.001
 
 [targets.leaf.spatial_correction]
-# sigma=20, truncate=2, nearest reproduces the group's saved U_M exactly.
+# sigma=20, truncate=2, nearest is the kernel that reproduces the group's saved
+# U_M from their saved U (both on the historical doubled phase scale).
 enabled = true
 mask = "none"
 background_sigma_pixels = 20.0

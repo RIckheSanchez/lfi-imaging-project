@@ -745,7 +745,7 @@ def load_leaf_mat(
     phase_var: str = "L_P",
     spatial_slice: tuple[slice, slice] | None = None,
     z_slice: slice | None = None,
-    phase_encoding: str = "leaf_reference_pi4096_offset_pi",
+    phase_encoding: str = "signed_14bit_pi",
 ) -> LFIRawData:
     """Load a single leaf scan from the supplied MATLAB ``.mat`` file.
 
@@ -777,11 +777,13 @@ def load_leaf_mat(
     z_slice
         Optional ``slice`` along the stored-image axis.
     phase_encoding
-        Default ``"leaf_reference_pi4096_offset_pi"`` is numerically
-        validated against all pixels of saved references 0..90. The old
-        ``"signed_14bit_pi"`` remains an explicit diagnostic override,
-        not a reference-consistent Leaf default. ``"radians"`` is for
-        a variable explicitly known to be in radians.
+        Default ``"signed_14bit_pi"`` decodes ``code * pi / 8192``, the
+        scale stated by the supervisor (+-8192 codes are +-pi).
+        ``"leaf_reference_pi4096_offset_pi"`` decodes
+        ``code * pi / 4096 - pi``, which reproduces the group's saved
+        ``L_P_U`` on every pixel; it is twice the supervisor-stated scale
+        and is kept to reproduce that historical processing.
+        ``"radians"`` is for a variable explicitly known to be in radians.
 
     Returns
     -------
@@ -824,15 +826,22 @@ def load_leaf_mat(
     amplitude = np.ascontiguousarray(np.transpose(amp_hwz, (2, 0, 1)))
     if phase_encoding == "leaf_reference_pi4096_offset_pi":
         phs_hwz = _leaf_reference_phase_to_radians(phs_hwz)
-        phase_unit = "radians"
-        encoding_status = "reference_equivalence_validated"
+        phase_unit = "radians (historical doubled scale)"
+        encoding_status = "historical_reference_scale"
+        encoding_note = ("code * pi / 4096 - pi reproduces the group's saved L_P_U modulo 2*pi. "
+                         "It is twice the supervisor-stated scale, so one code cycle spans 4*pi.")
     elif phase_encoding == "signed_14bit_pi":
+        if np.any((phs_hwz < -8192) | (phs_hwz > 8191)):
+            raise ValueError("Leaf phase codes fall outside the signed-14 interval [-8192, 8191]")
         phs_hwz = _signed_14bit_phase_to_radians(phs_hwz)
         phase_unit = "radians"
-        encoding_status = "legacy_diagnostic_not_reference_consistent"
+        encoding_status = "supervisor_stated"
+        encoding_note = ("code * pi / 8192: +-8192 codes are +-pi, as stated by the supervisor at the "
+                         "Progress Seminar. The saved L_P_U / L_P_U_M use twice this scale.")
     elif phase_encoding == "radians":
         phase_unit = "radians"
         encoding_status = "provided_by_caller"
+        encoding_note = ""
     else:
         raise ValueError(f"Unknown Leaf phase encoding: {phase_encoding!r}")
 
@@ -849,9 +858,10 @@ def load_leaf_mat(
         "phase_encoding": phase_encoding,
         "phase_unit": phase_unit,
         "phase_encoding_status": encoding_status,
+        "phase_scale_note": encoding_note,
         "axis_order": ["stored_image_index", "spatial_axis_0", "spatial_axis_1"],
         "third_axis_physical_coordinate": "unresolved; no cross-frame processing by default",
-        "reference_mapping": "same index 0..90 validated modulo 2pi; some equivalent candidates are ambiguous",
+        "reference_mapping": "saved L_P_U[i] matches raw index i for i = 0..90 modulo 2pi on the historical doubled scale",
         "reference_mapping_evidence": "output/review_rdm/leaf_semantics_audit.json",
         "display_aspect_ratio": 1.5,
         "display_aspect_source": "literature for a related system (60 x 40 mm over 1200 x 400 pixels, long axis first); unverified for this file",

@@ -113,7 +113,7 @@ def test_real_leaf_reference_equivalence_and_source_indices():
     if not source.exists():
         pytest.skip("Leaf data not present")
     raw = load_leaf_mat(source, spatial_slice=(slice(0, 16), slice(0, 16)),
-                        z_slice=slice(0, 91, 45))
+                        z_slice=slice(0, 91, 45), phase_encoding="leaf_reference_pi4096_offset_pi")
     assert raw.z_indices == [0, 45, 90]
     reference = loadmat(source, variable_names=["L_P_U"])["L_P_U"]
     expected = reference[:16, :16, [0, 45, 90]].transpose(2, 0, 1)
@@ -241,8 +241,8 @@ def test_signal_mask_and_masked_background():
     assert np.isnan(background[~mask]).all()
 
 
-def test_real_leaf_independent_unwrap_disagrees_with_saved_reference():
-    """Why the gate is strict: two unwrappers place cycles differently on Leaf."""
+def test_real_leaf_saved_reference_is_on_a_doubled_scale_and_module_unwraps_itself():
+    """The saved U equals an unwrap of twice the supervisor-scale phase, minus pi."""
     from pathlib import Path
     from scipy.io import loadmat
     from skimage.restoration import unwrap_phase
@@ -251,9 +251,47 @@ def test_real_leaf_independent_unwrap_disagrees_with_saved_reference():
     if not source.exists():
         pytest.skip("Leaf data not present")
     raw = load_leaf_mat(source, z_slice=slice(45, 46))
+    assert raw.metadata["phase_encoding_status"] == "supervisor_stated"
     saved = loadmat(source, variable_names=["L_P_U"])["L_P_U"][:, :, 45]
-    cycles = np.rint((unwrap_phase(raw.phase[0], rng=0) - saved) / (2 * np.pi)).astype(int)
+    np.testing.assert_allclose(np.exp(1j * saved), np.exp(1j * (2 * raw.phase[0] - np.pi)), atol=1e-12)
+
+    # Doubling the scale more than doubles the residues, and the saved result is
+    # not what an independent unwrap of the same data gives.
+    from thz_preprocessing.phase_unwrapping import _wrapped_phase_quality
+    doubled = np.angle(np.exp(1j * (2 * raw.phase[0] - np.pi)))
+    assert (_wrapped_phase_quality(doubled)["residue_fraction"]
+            > 2 * _wrapped_phase_quality(raw.phase[0])["residue_fraction"])
+    cycles = np.rint((2 * unwrap_phase(raw.phase[0], rng=0) - np.pi - saved) / (2 * np.pi)).astype(int)
     _, counts = np.unique(cycles, return_counts=True)
     assert counts.max() / cycles.size < 0.5
+
     out = api.run_pipeline(raw)
-    assert out.metadata["phase_unwrapping_status"]["status"] == "kept_wrapped_low_quality"
+    status = out.metadata["phase_unwrapping_status"]
+    assert status["status"] == "unwrapped"
+    quality = status["quality_diagnostics"][0]
+    assert quality["signal_fraction"] > 0.6 and quality["residue_fraction"] <= 0.001
+    mask = out.metadata["spatial_products"]["signal_mask"][0]
+    np.testing.assert_allclose(np.exp(1j * out.phase[0][mask]), np.exp(1j * raw.phase[0][mask]), atol=1e-9)
+    assert np.isnan(out.phase[0][~mask]).all()
+
+
+def test_small_or_fragmented_signal_regions_are_not_released():
+    from thz_preprocessing.masking import largest_component
+
+    mask = np.zeros((20, 30), dtype=bool)
+    mask[2:6, 2:6] = True
+    mask[10:18, 10:25] = True
+    kept = largest_component(mask)
+    assert kept[12, 12] and not kept[3, 3]
+
+    # A clean phase on a bright patch covering 4% of the image stays wrapped.
+    amplitude = np.full((1, 100, 100), 10.0)
+    amplitude[0, 40:60, 40:60] = 1000.0
+    y, x = np.mgrid[:100, :100]
+    phase = np.angle(np.exp(1j * 0.3 * x))[None]
+    raw = LFIRawData(amplitude, phase, [0], "Skin")
+    out = api.run_pipeline(raw, config_overrides={"noise_reduction": {"method": "none"}})
+    status = out.metadata["phase_unwrapping_status"]
+    assert status["status"] == "kept_wrapped_low_quality"
+    assert status["quality_diagnostics"][0]["signal_fraction"] < 0.2
+    np.testing.assert_array_equal(out.phase, raw.phase)

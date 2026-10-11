@@ -1,4 +1,4 @@
-"""Process full spatial images, including all 91 reference-matched Leaf frames.
+"""Process full spatial images: Skin, every complete Vegetables frame and 91 Leaf images.
 
 Usage: PYTHONPATH=src .venv/bin/python -m examples.run_spatial_processing
 Outputs go to output/spatial_v06; the superseded v0.5 batch stays in output/spatial_v05.
@@ -13,7 +13,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.io import loadmat
 
 from thz_preprocessing import api, load_leaf_mat, load_skin_hdf5, load_rdm_hdf5_frame
 from thz_preprocessing.io import LFIRawData
@@ -80,47 +79,20 @@ def render_spatial(raw, processed, output, index=0):
     plt.close(fig)
 
 
-def save_case(name, raw, reference_u=None, reference_m=None, figure=False):
-    overrides = None
-    if reference_u is not None:
-        raw.metadata["phase_reference"] = reference_u[None, :, :]
-        raw.metadata["phase_reference_source"] = {
-            "file": str(ROOT / "data/leaf/leaf1.mat"), "variable": "L_P_U",
-            "stored_reference_index": raw.z_indices[0],
-            "source_status": "saved group output, not physical ground truth",
-        }
-        overrides = {"phase_unwrapping": {"method": "validated_reference"}}
-    out = api.run_pipeline(raw, config_overrides=overrides)
+def save_case(name, raw, figure=False):
+    out = api.run_pipeline(raw)
     products = out.metadata["spatial_products"]
     np.savez_compressed(OUTPUT / (name + ".npz"), amplitude=out.amplitude, phase=out.phase,
                         z_indices=np.array(out.z_indices), **products)
-    metrics = {}
-    if reference_u is not None and products["phase_correction_available"][0]:
-        delta = out.phase[0] - reference_u
-        offset = 2 * np.pi * round(float(np.median(delta)) / (2 * np.pi))
-        metrics["unwrapped_reference_rmse_after_global_cycle_alignment"] = float(
-            np.sqrt(np.mean((delta - offset)**2)))
-        metrics["reference_global_cycle_offset_radians"] = offset
-        corrected = products["phase_corrected"][0]
-        background_only = products["phase_background_corrected"][0]
-        metrics["background_only_reference_rmse_radians"] = float(
-            np.sqrt(np.mean((background_only - reference_m)**2)))
-        metrics["background_only_reference_max_error_radians"] = float(
-            np.abs(background_only - reference_m).max())
-        metrics["relative_phase_correlation_with_saved_u_m"] = float(
-            np.corrcoef(corrected.ravel(), reference_m.ravel())[0, 1])
-        metrics["relative_phase_rmse_with_saved_u_m"] = float(
-            np.sqrt(np.mean((corrected - reference_m)**2)))
-        metrics["reference_note"] = "Historical reference agreement, not physical or clinical ground truth"
-    metadata = {"name": name, "shape": list(raw.shape), "reference_comparison": metrics,
-                "metadata": _json_ready(out.metadata)}
+    metadata = {"name": name, "shape": list(raw.shape), "metadata": _json_ready(out.metadata)}
     (OUTPUT / (name + "_metadata.json")).write_text(json.dumps(metadata, indent=2) + "\n")
     if figure:
         render_spatial(raw, out, OUTPUT / (name + ".png"))
+    status = out.metadata["phase_unwrapping_status"]
     return {"name": name, "source_indices": raw.z_indices,
-            "phase_status": out.metadata["phase_unwrapping_status"]["status"],
+            "phase_status": status["status"],
+            "phase_quality": status["quality_diagnostics"],
             "spatial_diagnostics": out.metadata["spatial_correction_status"]["diagnostics"],
-            "reference_comparison": metrics,
             "pipeline_seconds": out.metadata["timings_seconds"]["total"]}
 
 
@@ -131,8 +103,8 @@ def vegetable_frame_ids():
 
 
 def main(leaf_count=91):
-    if not 1 <= leaf_count <= 91:
-        raise ValueError("Use 1..91 frames with saved reference correspondence")
+    if not 1 <= leaf_count <= 475:
+        raise ValueError("Use 1..475 Leaf images")
     OUTPUT.mkdir(parents=True, exist_ok=True)
     cases = []
     skin = load_skin_hdf5(ROOT / "data/skin/2025-11-28_10-14-26.594507929.hdf5")
@@ -142,25 +114,25 @@ def main(leaf_count=91):
         cases.append(save_case("vegetable_frame%d_spatial" % i, raw,
                                figure=i in {21, 80, 130, 140}))
     print("Skin and Vegetables spatial outputs saved", flush=True)
+    # Leaf phase is decoded on the supervisor-stated scale and unwrapped by the module.
     leaf = load_leaf_mat(ROOT / "data/leaf/leaf1.mat", z_slice=slice(0, leaf_count))
-    reference = loadmat(ROOT / "data/leaf/leaf1.mat", variable_names=["L_P_U", "L_P_U_M"])
     for i in range(leaf_count):
         raw = LFIRawData(leaf.amplitude[i:i+1], leaf.phase[i:i+1], [leaf.z_indices[i]],
                          "Leaf", dict(leaf.metadata))
-        cases.append(save_case("leaf_frame%03d_spatial" % i, raw,
-                                reference["L_P_U"][:, :, i], reference["L_P_U_M"][:, :, i],
-                                figure=i in {0, 45, 90}))
+        cases.append(save_case("leaf_frame%03d_spatial" % i, raw, figure=i in {0, 45, 90}))
         if i % 10 == 0 or i == leaf_count - 1:
             print("Leaf full-resolution frames completed: %d/%d" % (i + 1, leaf_count), flush=True)
-    metrics = [c["reference_comparison"] for c in cases if c["reference_comparison"]]
+    released = {}
+    for case in cases:
+        kind = case["name"].split("_")[0]
+        released.setdefault(kind, [0, 0])
+        released[kind][1] += 1
+        released[kind][0] += case["phase_status"] in {"unwrapped", "already_continuous"}
     summary = {
-        "version": "0.6.0", "leaf_frame_count": leaf_count,
+        "version": "0.6.1", "leaf_frame_count": leaf_count,
         "spatial_dimensions_leaf": [1200, 400], "cases": cases,
-        "max_reference_unwrap_rmse": max((m["unwrapped_reference_rmse_after_global_cycle_alignment"] for m in metrics), default=None),
-        "reference_reuse_note": "Leaf U is reused after modulo validation; zero unwrap RMSE is expected, not independent algorithm validation",
-        "max_background_only_reference_error_radians": max((m["background_only_reference_max_error_radians"] for m in metrics), default=None),
-        "median_corrected_phase_reference_correlation": float(np.median(
-            [m["relative_phase_correlation_with_saved_u_m"] for m in metrics])) if metrics else None,
+        "phase_released_of_total": {k: "%d/%d" % tuple(v) for k, v in released.items()},
+        "leaf_phase_scale": "code * pi / 8192 (supervisor-stated); the saved L_P_U / L_P_U_M use twice this scale",
         "notch_status": "not applied without verified artefact frequencies",
         "calibration_status": "no verified physical pixel size, acquisition timestamps or reference ROI",
         "channel_contract": "amplitude/phase are measurement channels; amplitude_corrected keeps object contrast; amplitude_detail and phase_corrected are relative views; inspect phase_correction_available and signal_mask",

@@ -156,6 +156,9 @@ def apply(data: LFIRawData, params: dict[str, Any]) -> LFIRawData:
     metadata.setdefault("pipeline", []).append({"spatial_correction": dict(params)})
     enabled = bool(params.get("enabled", False))
     mask_method = str(params.get("mask", "none")).lower()
+    threshold_scale = float(params.get("mask_threshold_scale", 1.0))
+    # The unwrapping stage, when masked, defines where phase exists.
+    phase_masks = metadata.get("phase_signal_mask")
     products = {}
     diagnostics = []
     if enabled:
@@ -177,9 +180,12 @@ def apply(data: LFIRawData, params: dict[str, Any]) -> LFIRawData:
         truncate = _positive(params.get("background_truncate", 4), "background_truncate")
         for i in range(data.n_z):
             amplitude = data.amplitude[i]
-            mask = signal_mask(amplitude, mask_method)
+            if phase_masks is not None and mask_method != "none":
+                mask = np.asarray(phase_masks[i], dtype=bool)
+            else:
+                mask = signal_mask(amplitude, mask_method, threshold_scale=threshold_scale)
             valid = None if mask.all() else mask
-            products["signal_mask"][i] = mask
+            products["signal_mask"][i] = mask if phase_masks is None else np.asarray(phase_masks[i], dtype=bool)
 
             # Amplitude: line offsets and notches only; contrast is kept.
             parts = correct_image(amplitude, params)
@@ -204,7 +210,7 @@ def apply(data: LFIRawData, params: dict[str, Any]) -> LFIRawData:
                 "slice_index": i, "source_frame_index": data.z_indices[i],
                 "phase_correction_available": bool(available[i]),
                 "phase_unwrap_status": status,
-                "signal_fraction": float(mask.mean()),
+                "signal_fraction": float(products["signal_mask"][i].mean()),
                 "amplitude_removed_stripe_std": float(products["amplitude_stripe"][i].std()),
                 "amplitude_removed_notch_std": float(products["amplitude_notch_removed"][i].std()),
                 "amplitude_detail_background_std": float(np.nanstd(background)),

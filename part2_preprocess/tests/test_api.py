@@ -143,8 +143,19 @@ def test_load_leaf_mat_small_slice():
     assert data.amplitude.shape == data.phase.shape
     assert data.amplitude.dtype == np.float64
     assert -np.pi - 1e-9 <= data.phase.min() <= data.phase.max() < np.pi + 1e-9
-    assert data.metadata["phase_encoding"] == "leaf_reference_pi4096_offset_pi"
-    assert data.metadata["phase_encoding_status"] == "reference_equivalence_validated"
+    assert data.metadata["phase_encoding"] == "signed_14bit_pi"
+    assert data.metadata["phase_encoding_status"] == "supervisor_stated"
+    historical = load_leaf_mat(
+        LEAF_MAT,
+        spatial_slice=(slice(0, 16), slice(0, 16)),
+        z_slice=slice(0, 32),
+        phase_encoding="leaf_reference_pi4096_offset_pi",
+    )
+    assert historical.metadata["phase_encoding_status"] == "historical_reference_scale"
+    # The saved-reference scale is exactly twice the supervisor-stated one (minus pi).
+    np.testing.assert_allclose(
+        np.exp(1j * historical.phase), np.exp(1j * (2 * data.phase - np.pi)), atol=1e-12
+    )
     assert len(data.z_indices) == 32
 
 
@@ -447,9 +458,12 @@ def test_pipeline_on_real_vegetable_small_slice():
     assert out.target_type == "Vegetable"
     used = out.metadata["config_resolved"]["noise_reduction"]["method"]
     assert used == "gaussian2d", "Vegetable frame should pick the 2D-image operator"
+    # A 32x32 crop can fall on either side of the gate, slice by slice.
     assert out.metadata["phase_unwrapping_status"]["status"] in {
         "unwrapped",
+        "already_continuous",
         "kept_wrapped_low_quality",
+        "mixed",
     }
     assert out.metadata["phase_unwrapping_status"]["quality_diagnostics"]
 
@@ -469,9 +483,12 @@ def test_pipeline_on_real_vegetable_volume_small_slice():
     assert raw.shape == (2, 32, 32)
     assert raw.z_indices == [21, 22]
     assert raw.metadata["phase_encoding"] == "signed_14bit_pi"
+    # A 32x32 crop can fall on either side of the gate, slice by slice.
     assert out.metadata["phase_unwrapping_status"]["status"] in {
         "unwrapped",
+        "already_continuous",
         "kept_wrapped_low_quality",
+        "mixed",
     }
     assert metrics["summary"]["min_phase_modulo_consistency"] > 0.999999
     assert metrics["summary"]["max_phase_rewrap_rmse_radians"] < 1e-12
@@ -487,8 +504,7 @@ def test_full_vegetable_frames_respect_residue_gate():
         VEGETABLE_VOLUME_FRAMES,
         target_type="Vegetable",
     )
-    # Even inside the signal mask frames 21/22 exceed the strict gate, so
-    # the default keeps the measured wrapped phase untouched.
+    # Frames 21/22 are not released, so the measured wrapped phase is untouched.
     strict = api.run_pipeline(raw)
     np.testing.assert_array_equal(strict.phase, raw.phase)
     status = strict.metadata["phase_unwrapping_status"]
@@ -496,18 +512,22 @@ def test_full_vegetable_frames_respect_residue_gate():
     for item in status["quality_diagnostics"]:
         assert item["mask"] == "amplitude_otsu"
         assert item["max_residue_fraction"] == 0.001
-        assert item["residue_fraction"] > item["max_residue_fraction"]
+        assert not item["quality_gate_passed"]
+        # These out-of-focus frames fail because their largest connected signal
+        # region is only a few percent of the image.
+        assert item["signal_fraction"] < item["min_signal_fraction"]
         # Residues concentrate where there is no signal.
         assert item["residue_fraction"] < item["residue_fraction_whole_image"]
     assert not strict.metadata["spatial_products"]["phase_correction_available"].any()
 
     # A loose gate would release a masked unwrap that only differs by cycles.
     out = api.run_pipeline(
-        raw, config_overrides={"phase_unwrapping": {"max_residue_fraction": 0.06}}
+        raw, config_overrides={"phase_unwrapping": {"max_residue_fraction": 0.06,
+                                                    "min_signal_fraction": 0.0}}
     )
     assert out.metadata["phase_unwrapping_status"]["status"] == "unwrapped"
     inside = np.isfinite(out.phase)
-    assert 0.02 < inside.mean() < 0.9
+    assert 0.01 < inside.mean() < 0.9
     np.testing.assert_allclose(
         np.angle(np.exp(1j * (out.phase[inside] - raw.phase[inside]))), 0, atol=1e-9
     )

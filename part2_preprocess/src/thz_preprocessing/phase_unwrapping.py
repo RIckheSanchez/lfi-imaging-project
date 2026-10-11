@@ -6,12 +6,11 @@ both data regimes the project encounters:
 * ``"skimage_2d"`` — quality-guided 2D unwrap (:func:`skimage.restoration.unwrap_phase`)
   applied independently to each z-slice. With ``mask = "amplitude_otsu"``
   the residue gate is evaluated, and the unwrap performed, only inside the
-  signal region; the released phase is NaN elsewhere. A slice is released
-  only when the residue fraction in that region is at most
+  largest connected signal region; the released phase is NaN elsewhere. A
+  slice is released only when that region covers at least
+  ``min_signal_fraction`` of the image and its residue fraction is at most
   ``max_residue_fraction``, i.e. when unwrapping is close to path
-  independent. On the Leaf data an independent unwrap agreed with the
-  group's saved result on fewer than half of the pixels, so a loose gate
-  is not defensible.
+  independent.
 * ``"itoh_1d"``    — Itoh-style 1D unwrap along the stack axis via
   :func:`numpy.unwrap`. Use only with a confirmed coordinate and phase
   continuity assumption. Leaf no longer selects this method by default.
@@ -33,7 +32,7 @@ from typing import Any
 import numpy as np
 
 from thz_preprocessing.io import LFIRawData
-from thz_preprocessing.masking import signal_mask
+from thz_preprocessing.masking import largest_component, signal_mask
 
 
 def _itoh_1d_along_z(phase: np.ndarray) -> np.ndarray:
@@ -122,20 +121,28 @@ def _skimage_2d_per_zslice(
         )
 
     mask_method = str(params.get("mask", "none")).lower()
+    threshold_scale = float(params.get("mask_threshold_scale", 1.0))
+    min_signal_fraction = float(params.get("min_signal_fraction", 0.2))
+    if not 0.0 <= min_signal_fraction <= 1.0:
+        raise ValueError("min_signal_fraction must be between 0 and 1")
     if mask_method != "none" and amplitude is None:
         raise ValueError("A signal mask needs the amplitude channel")
+    masks = np.ones(phase.shape, dtype=bool)
 
     for z in range(phase.shape[0]):
         mask = None
         if mask_method != "none":
-            mask = signal_mask(amplitude[z], mask_method)
+            mask = largest_component(signal_mask(amplitude[z], mask_method,
+                                                 threshold_scale=threshold_scale))
+            masks[z] = mask
             if mask.all():
                 mask = None
         whole = _wrapped_phase_quality(phase[z])
         quality = whole if mask is None else _wrapped_phase_quality(phase[z], mask)
         quality["residue_fraction_whole_image"] = whole["residue_fraction"]
         quality["signal_fraction"] = 1.0 if mask is None else float(mask.mean())
-        accepted = quality["residue_fraction"] <= max_residue_fraction
+        accepted = (quality["residue_fraction"] <= max_residue_fraction
+                    and quality["signal_fraction"] >= min_signal_fraction)
         if accepted or low_quality_action == "unwrap":
             if mask is None:
                 out[z] = unwrap_phase(phase[z], rng=rng_seed)
@@ -175,14 +182,16 @@ def _skimage_2d_per_zslice(
                 "slice_index": z,
                 **quality,
                 "max_residue_fraction": max_residue_fraction,
+                "min_signal_fraction": min_signal_fraction,
                 "mask": mask_method,
+                "mask_threshold_scale": threshold_scale,
                 "quality_gate_passed": accepted,
                 "status": status,
                 "cycle_adjustment_fraction": adjustment_fraction,
                 "max_abs_cycle_adjustment": max_adjustment,
             }
         )
-    return out, diagnostics
+    return out, diagnostics, (masks if mask_method != "none" else None)
 
 
 def apply(data: LFIRawData, params: dict[str, Any]) -> LFIRawData:
@@ -205,6 +214,7 @@ def apply(data: LFIRawData, params: dict[str, Any]) -> LFIRawData:
     method = str(params.get("method", "skimage_2d")).lower()
 
     diagnostics: list[dict[str, Any]] = []
+    phase_masks = None
     if not enabled:
         out = data.phase.copy()
         status = "disabled"
@@ -215,7 +225,7 @@ def apply(data: LFIRawData, params: dict[str, Any]) -> LFIRawData:
         out = data.phase.copy()
         status = "pass_through"
     elif method == "skimage_2d":
-        out, diagnostics = _skimage_2d_per_zslice(data.phase, params, data.amplitude)
+        out, diagnostics, phase_masks = _skimage_2d_per_zslice(data.phase, params, data.amplitude)
         statuses = {item["status"] for item in diagnostics}
         status = next(iter(statuses)) if len(statuses) == 1 else "mixed"
     elif method == "validated_reference":
@@ -241,6 +251,9 @@ def apply(data: LFIRawData, params: dict[str, Any]) -> LFIRawData:
         raise ValueError(f"Unknown phase-unwrapping method: {method!r}")
 
     new_meta = deepcopy(data.metadata)
+    new_meta.pop("phase_signal_mask", None)
+    if phase_masks is not None:
+        new_meta["phase_signal_mask"] = phase_masks
     stage_metadata = dict(params)
     if diagnostics:
         stage_metadata["quality_diagnostics"] = diagnostics
