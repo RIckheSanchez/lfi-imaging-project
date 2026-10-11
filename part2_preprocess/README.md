@@ -26,7 +26,7 @@ the image-level amplitude/phase contract.
 | --- | --- | --- | --- | --- |
 | Noise reduction (on `amplitude`) | `median2d`, `gaussian2d`, `savgol_1d`, `bandpass_1d`, `none` | `gaussian2d` (sigma=1) | `gaussian2d` (sigma=1) | `none` |
 | Normalisation (on `amplitude`) | `baseline`, `zscore`, `none` | `none` | `none` | `none` |
-| Phase unwrapping (on `phase`) | `skimage_2d` (gated, optionally masked), `validated_reference`, `itoh_1d`, `none` | masked, gate 0.001: released | masked, gate 0.001: kept wrapped | saved group reference in the batch script |
+| Phase unwrapping (on `phase`) | `skimage_2d` (gated, optionally masked), `validated_reference`, `itoh_1d`, `none` | masked, gate 0.001: released | masked, gate 0.001: kept wrapped | masked (scale 0.65), gate 0.001: 63/91 released |
 | Spatial correction | robust scan-line offsets, Gaussian background, explicit FFT notches | mask, sigma=32 | mask, sigma=32 | no mask, sigma=20 |
 
 ### What v0.6 produces (`metadata["spatial_products"]`, exported as NPZ channels)
@@ -36,7 +36,7 @@ the image-level amplitude/phase contract.
 | `amplitude_corrected` | Scan-line offsets (and requested notches) removed. **Object contrast is kept.** Default for imaging. |
 | `amplitude_detail` | `amplitude_corrected` minus a Gaussian background. A relative local-contrast view; it flattens objects larger than the kernel. NaN outside the signal mask. |
 | `phase_corrected` | Unwrapped phase minus Gaussian background and line offsets (relative). NaN when withheld or outside the mask. |
-| `phase_background_corrected` | Background removed only; reproduces the group's saved Leaf `U_M`. |
+| `phase_background_corrected` | Background removed only (the operation that turns the group's saved `U` into `U_M`). |
 | `*_background`, `*_stripe`, `*_notch_removed` | Every removed component. |
 | `signal_mask`, `phase_correction_available` | Where, and whether, phase products may be used. |
 | `raw_amplitude`, `raw_phase` | Untouched inputs. |
@@ -53,29 +53,38 @@ neighbouring lines (window 15), so a real horizontal feature is only
 mistaken for an offset if it is thinner than half the window and covers
 more than half a line.
 
-### Phase encodings
+### Phase scale
 
-- **Leaf:** `wrap(L_P*pi/4096 - pi)`, validated against all pixels of the 91
-  saved U references at stored indices 0..90 (max modulo error < 2e-14 rad).
-  The saved `U_M` equals `U` minus a Gaussian background (sigma=20 px,
-  truncate=2, nearest) to < 1.3e-13 rad.
-- **2026 Vegetables:** signed 14-bit, `code / 8192 * pi`, range-checked.
-  Frame 20 is an anomalous start-up frame.
-- **Skin:** signed 14-bit codes stored in a uint16 container,
-  `int16(code) / 8192 * pi`. Numerical evidence only (codes span exactly
-  [-8192, 8191]; phase wraps become 2*pi steps instead of pi/2 steps);
-  `phase_encoding_status = "numerically_supported"` until the supervisor
-  confirms it.
+All three datasets store phase as a cyclic 14-bit code in [-8192, 8191] and
+are decoded as `code * pi / 8192` (+-8192 codes are +-pi), the convention the
+supervisor stated at the Progress Seminar.
+
+- **2026 Vegetables:** int16, range-checked. Frame 20 is an anomalous
+  start-up frame.
+- **Skin:** the same codes stored in a uint16 container, decoded after int16
+  reinterpretation. The older full-range uint16 assumption is ruled out
+  (its "wraps" would be pi/2 steps). Worth confirming with the supervisor
+  that the convention applies to this file.
+- **Leaf:** `load_leaf_mat` defaults to `signed_14bit_pi`. The group's saved
+  `L_P_U` satisfies `wrap(L_P_U) = wrap(L_P*pi/4096 - pi)` on every pixel
+  (max error < 2e-14 rad), i.e. it is an unwrap of *twice* this phase, and
+  `L_P_U_M = L_P_U - Gaussian(sigma=20, truncate=2, nearest)` to < 1.3e-13
+  rad. `phase_encoding="leaf_reference_pi4096_offset_pi"` reproduces that
+  historical processing; it is not used for new outputs.
 
 ### Phase unwrapping gate
 
 The 2D unwrap is deterministic (`rng_seed = 0`). With
-`mask = "amplitude_otsu"` the residue fraction is evaluated, and the unwrap
-performed, only where there is signal; the released phase is NaN elsewhere.
-A slice is released only if at most 0.1% of 2x2 cells in that region carry a
-residue. The gate is this strict because an independent unwrap of the Leaf
-data (residues 2-5%) matched the group's saved result on only 14-48% of
-pixels. Decisions and diagnostics are stored in
+`mask = "amplitude_otsu"` only the largest connected signal region is
+considered: the lightly smoothed amplitude is thresholded at
+`mask_threshold_scale` times Otsu's threshold. A slice is released only if
+that region covers at least `min_signal_fraction` (0.2) of the image and at
+most 0.1% of its 2x2 cells carry a residue; the released phase is NaN
+elsewhere. Current results: Skin released; Leaf 63 of 91 images released
+(threshold scale 0.65 keeps the lamina connected); Vegetables 0 of 21. The
+gate is this strict because the group's saved Leaf unwrap, made on the
+doubled scale with residues in 2-5% of cells, cannot be reproduced by a
+second algorithm (14-36% of pixels agree). Decisions and diagnostics are in
 `metadata["phase_unwrapping_status"]`.
 
 All parameters live in `config/default.toml`; per-target overrides under
@@ -111,7 +120,7 @@ examples/
     run_pipeline.py                 # minimal synthetic example
     run_pilot.py                    # end-to-end demo on real skin + leaf
     run_spatial_processing.py       # all 91 matched Leaf frames + Skin + Vegetables
-    evaluate.py                     # quantitative evaluation E1-E11 (thesis Chapter 5)
+    evaluate.py                     # quantitative evaluation E1-E12 (thesis Chapter 5)
     build_handoff.py                # downstream package from the processed images
     audit_leaf_semantics.py         # reproducible raw/reference correspondence audit
 data/                               # local datasets, git-ignored
@@ -193,7 +202,7 @@ Output figures land in `output/`.
 ```bash
 PYTHONPATH=src .venv/bin/python -m examples.audit_leaf_semantics      # Leaf raw/reference correspondence
 PYTHONPATH=src .venv/bin/python -m examples.run_spatial_processing    # 113 images -> output/spatial_v06/
-PYTHONPATH=src .venv/bin/python -m examples.evaluate                  # E1-E11 -> output/evaluation_v06/
+PYTHONPATH=src .venv/bin/python -m examples.evaluate                  # E1-E12 -> output/evaluation_v06/
 PYTHONPATH=src .venv/bin/python -m examples.build_handoff             # downstream package -> output/handoff_v06/
 ```
 

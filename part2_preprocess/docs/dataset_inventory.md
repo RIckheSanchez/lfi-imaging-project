@@ -13,7 +13,10 @@ strings matching teammate A's `LFIRawData` contract.
 
 ## Summary
 
-Revision 2026-10-11: Skin phase is decoded as signed 14-bit codes in a uint16 container
+Revision 2026-10-11 (v0.6.1): all phase is decoded as `code * pi / 8192`, the scale the
+supervisor stated. The saved Leaf `L_P_U` / `L_P_U_M` are on twice that scale, so the
+`wrap(L_P*pi/4096 - pi)` statements below describe the historical arrays, not the Leaf
+encoding. Skin phase is decoded as signed 14-bit codes in a uint16 container
 (numerical evidence, see `review_2026-10-11_v06.md`); the "scale remains unconfirmed; v0.5
 withholds" statements below are superseded. Images must be shown at the recorded aspect
 ratio (1.965 for the 400x1300 raster).

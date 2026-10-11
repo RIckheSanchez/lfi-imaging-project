@@ -1,9 +1,9 @@
-# THz LFI 预处理结果交接包 v0.6（给图像生成 / 可视化）
+# THz LFI 预处理结果交接包 v0.6.1（给图像生成 / 可视化）
 
-来自：Haobo Yu（预处理模块）  ·  生成日期：2026-10-11  ·  代码版本：分支 `v0.5-evaluation`，软件 v0.6.0
+来自：Haobo Yu（预处理模块）  ·  生成日期：2026-10-11  ·  代码版本：分支 `v0.5-evaluation`，软件 v0.6.1
 
-> 如果你之前收到过 v0.5 的包（`thz_lfi_handoff_v05_*.zip`），请丢弃，改用这一版。
-> v0.5 的 `amplitude_corrected` 减掉了背景，会把大块物体的明暗抹平，不适合做图。
+> 这一版的文件名是 `thz_lfi_handoff_v061_*.zip`。如果你之前收到过 `v05` 或 `v06` 开头的包，请丢弃，改用这一版。
+> v05 的 `amplitude_corrected` 减掉了背景，会把大块物体的明暗抹平；v06 里 Leaf 相位用的是两倍尺度。
 
 ## 一分钟上手
 
@@ -18,7 +18,7 @@ python load_example.py            # 读文件、打印内容、存两张示例�
 
 | 内容 | 数量 | 形状 | 说明 |
 | --- | --- | --- | --- |
-| `data/leaf_frameNNN_spatial.npz` | 91 | (1, 1200, 400) | 叶子，存储索引 0–90；相位可用 |
+| `data/leaf_frameNNN_spatial.npz` | 91 | (1, 1200, 400) | 叶子，存储索引 0–90；其中 28–90 共 63 张相位可用 |
 | `data/vegetable_frameN_spatial.npz` | 21 | (1, 400, 1300) | 蔬菜深度切片：frame 21–30 连续，40–140 每隔 10；相位保持 wrapped |
 | `data/skin_frame40_spatial.npz` | 1 | (1, 400, 1300) | 皮肤样品，仅此一张；相位在信号区域内可用 |
 | `vegetables_volume_21frames.npz` | 1 | (21, 400, 1300) | 21 层蔬菜叠成的体数据，带每层的毫米位置 |
@@ -36,9 +36,9 @@ python load_example.py            # 读文件、打印内容、存两张示例�
 | `amplitude_detail` | `amplitude_corrected` 再减去平滑背景 | 只用来看细节纹理（比如叶脉）。是相对图，会把比背景尺度大的物体抹平；无信号处为 NaN |
 | `raw_amplitude` | 原始幅度 | 想自己从头处理时用 |
 | `phase_corrected` | 解包裹后去掉背景和扫描线偏移的相位（弧度，相对值） | 仅当 `phase_correction_available` 为 True 时可用；无信号处为 NaN |
-| `phase` | 进入空间校正前的相位 | Leaf、Skin 是解包裹后的（Skin 无信号处为 NaN）；Vegetables 仍是 wrapped |
+| `phase` | 进入空间校正前的相位 | 相位放行的图里是解包裹后的（无信号处为 NaN）；没放行的图里仍是 wrapped |
 | `raw_phase` | 原始 wrapped 相位（弧度，[-π, π)） | 想自己解包裹时用 |
-| `signal_mask` | 布尔数组，True 表示这里有足够信号 | 相位只在 True 的地方有意义 |
+| `signal_mask` | 布尔数组，True 表示这里有足够信号（一整块连通区域） | 相位只在 True 的地方有意义 |
 | `*_background`、`*_stripe`、`*_notch_removed` | 被去掉的成分 | 检查用 |
 | `phase_correction_available` | 每帧一个布尔值 | **用相位前必须先看它** |
 | `z_indices` | 帧编号 / 存储索引 | 不是毫米；毫米位置看体数据文件里的 `z_mm` |
@@ -59,14 +59,14 @@ python load_example.py            # 读文件、打印内容、存两张示例�
 
 | 数据集 | 能用吗 | 说明 |
 | --- | --- | --- |
-| Leaf | 能 | 用的是组里以前保存的解包裹结果。注意：换一种算法解包裹，只有 14–48% 的像素和它一致，所以图里有成块的 2π 边界，不是严格验证过的相位 |
-| Skin | 能，仅在 `signal_mask` 内 | 相位换算（有符号 14 位）是我用数值方法确认的，还在等导师确认 |
-| Vegetables | 不能 | 信号区域内仍有 0.3%–7% 的残差点，强行解包裹会出现几十弧度的块状错误，所以保持 wrapped |
+| Leaf | 63/91 张能（索引 28–90），仅在 `signal_mask` 内 | 相位按导师说的换算（码值 × π/8192），由我的模块解包裹。叶脉处信号太弱，是 NaN。前 28 张噪声大，没放行。**不要用 mat 文件里的 `L_P_U` / `L_P_U_M`**：它们用的是两倍尺度，而且有成块的错误 |
+| Skin | 能，仅在 `signal_mask` 内 | 同样按码值 × π/8192 换算 |
+| Vegetables | 不能 | 找不到一块又大又干净的连通信号区域，强行解包裹会出现几十弧度的块状错误，所以保持 wrapped |
 
 ## 三条限制
 
 1. `amplitude_detail` 和 `phase_corrected` 是**相对图**，不能当作标定过的反射率或绝对光程。要做定量重建，请用 `amplitude_corrected` 和 `raw_phase`。
-2. Leaf 的第三维含义未确认（时间还是深度）。91 张图请当作 91 张独立图像。
+2. Leaf 的第三维含义未确认（时间还是深度）。91 张图请当作 91 张独立图像。放行的相位只是"自洽"（残差点 ≤0.1%），没有用 phantom 或第二种方法验证过。
 3. 没有物理标定和临床真值，像素的毫米尺寸也没有确认。
 
 ## Vegetables 体数据文件
