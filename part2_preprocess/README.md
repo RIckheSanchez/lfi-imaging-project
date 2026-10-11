@@ -22,47 +22,72 @@ the image-level amplitude/phase contract.
 
 ## Operations
 
-| Stage | Methods | Default for skin | Default for leaf |
-| --- | --- | --- | --- |
-| Noise reduction (on `amplitude`) | `median2d`, `gaussian2d`, `savgol_1d`, `bandpass_1d`, `none` | `gaussian2d` (sigma=1) | `none` |
-| Normalisation (on `amplitude`) | `baseline`, `zscore`, `none` | `none` | `none` |
-| Phase unwrapping (on `phase`) | `skimage_2d`, `itoh_1d`, `none` | `skimage_2d` | `skimage_2d` |
-| Derived spatial correction | Gaussian background subtraction, robust line-offset correction, explicit FFT notches | enabled | enabled |
+| Stage | Methods | Skin | Vegetables | Leaf |
+| --- | --- | --- | --- | --- |
+| Noise reduction (on `amplitude`) | `median2d`, `gaussian2d`, `savgol_1d`, `bandpass_1d`, `none` | `gaussian2d` (sigma=1) | `gaussian2d` (sigma=1) | `none` |
+| Normalisation (on `amplitude`) | `baseline`, `zscore`, `none` | `none` | `none` | `none` |
+| Phase unwrapping (on `phase`) | `skimage_2d` (gated, optionally masked), `validated_reference`, `itoh_1d`, `none` | masked, gate 0.001: released | masked, gate 0.001: kept wrapped | saved group reference in the batch script |
+| Spatial correction | robust scan-line offsets, Gaussian background, explicit FFT notches | mask, sigma=32 | mask, sigma=32 | no mask, sigma=20 |
 
-v0.5 keeps measurement `amplitude`/`phase` separate from relative spatial
-products in `metadata["spatial_products"]`. Those products are exported
-as separate NPZ channels, including every removed component and raw input.
-Corrected amplitude can be negative and is not calibrated reflectivity.
-Corrected phase is unavailable (NaN, with a false availability flag) when
-spatial unwrapping is withheld. No automatic FFT notch is selected.
-Background/line correction is exploratory and can remove real broad
-structure; its pixel-scale parameters are not physical calibration.
+### What v0.6 produces (`metadata["spatial_products"]`, exported as NPZ channels)
 
-Leaf decoding now uses `wrap(L_P*pi/4096 - pi)`, validated against all
-pixels of the 91 saved U references at matching stored indices 0..90
-(maximum modulo error below 2e-14 rad). The old `pi/8192` Leaf conversion
-does not reproduce those references. This change is Leaf-specific: the
-confirmed 2026 RDM signed-14 convention is unchanged. The physical Leaf
-stack coordinate and acquisition timestamps remain unverified, so no
-cross-frame filter or unwrap is used by default.
+| Channel | Meaning |
+| --- | --- |
+| `amplitude_corrected` | Scan-line offsets (and requested notches) removed. **Object contrast is kept.** Default for imaging. |
+| `amplitude_detail` | `amplitude_corrected` minus a Gaussian background. A relative local-contrast view; it flattens objects larger than the kernel. NaN outside the signal mask. |
+| `phase_corrected` | Unwrapped phase minus Gaussian background and line offsets (relative). NaN when withheld or outside the mask. |
+| `phase_background_corrected` | Background removed only; reproduces the group's saved Leaf `U_M`. |
+| `*_background`, `*_stripe`, `*_notch_removed` | Every removed component. |
+| `signal_mask`, `phase_correction_available` | Where, and whether, phase products may be used. |
+| `raw_amplitude`, `raw_phase` | Untouched inputs. |
 
-The saved U_M is also reproduced numerically by subtracting a Gaussian
-background from U (sigma=20 px, truncate=2, nearest boundary), checked
-over all 91 full-resolution references to <1.3e-13 rad. The new batch
-reuses the modulo-validated saved U as its explicitly tagged unwrapped
-input. `phase_background_corrected` reproduces U_M, while
-`phase_corrected` additionally applies line correction. This is not
-independent validation of the historical unwrapping or physical accuracy.
+Amplitude and phase are treated differently on purpose. In amplitude the
+large-scale variation is the sample (absorbing material is dark), so
+subtracting a smooth background removes the objects. In unwrapped phase the
+large-scale variation is the optical path to the surface, which hides
+everything else. v0.5 subtracted the background from both; the review in
+`docs/review_2026-10-11_v06.md` shows what that did to real images.
 
-All parameters live in `config/default.toml`; per-target overrides
-under `[targets.<name>...]` select operation families by scan type.
-The 2D method is deterministic (`rng_seed = 0`) and applies a pre-flight
-phase-residue quality gate. The base residue limit is 0.06 (raised from 0.01 after evaluation E8); Vegetables keeps 0.01 because its frames unwrap with visible branch errors at 0.06 (see `docs/evaluation_v05.md`).
-A high-residue slice stays wrapped instead of
-being silently released as a physically valid unwrapped image; the decision
-and diagnostics are stored in `metadata["phase_unwrapping_status"]`. A slice
-that passes the gate but needs no `2*pi` correction is labelled
-`already_continuous` rather than being presented as an improvement.
+Scan-line offsets are estimated per line as the median difference from the
+neighbouring lines (window 15), so a real horizontal feature is only
+mistaken for an offset if it is thinner than half the window and covers
+more than half a line.
+
+### Phase encodings
+
+- **Leaf:** `wrap(L_P*pi/4096 - pi)`, validated against all pixels of the 91
+  saved U references at stored indices 0..90 (max modulo error < 2e-14 rad).
+  The saved `U_M` equals `U` minus a Gaussian background (sigma=20 px,
+  truncate=2, nearest) to < 1.3e-13 rad.
+- **2026 Vegetables:** signed 14-bit, `code / 8192 * pi`, range-checked.
+  Frame 20 is an anomalous start-up frame.
+- **Skin:** signed 14-bit codes stored in a uint16 container,
+  `int16(code) / 8192 * pi`. Numerical evidence only (codes span exactly
+  [-8192, 8191]; phase wraps become 2*pi steps instead of pi/2 steps);
+  `phase_encoding_status = "numerically_supported"` until the supervisor
+  confirms it.
+
+### Phase unwrapping gate
+
+The 2D unwrap is deterministic (`rng_seed = 0`). With
+`mask = "amplitude_otsu"` the residue fraction is evaluated, and the unwrap
+performed, only where there is signal; the released phase is NaN elsewhere.
+A slice is released only if at most 0.1% of 2x2 cells in that region carry a
+residue. The gate is this strict because an independent unwrap of the Leaf
+data (residues 2-5%) matched the group's saved result on only 14-48% of
+pixels. Decisions and diagnostics are stored in
+`metadata["phase_unwrapping_status"]`.
+
+All parameters live in `config/default.toml`; per-target overrides under
+`[targets.<name>...]` select operation families by scan type. No physical
+calibration or clinical validation is claimed.
+
+### Displaying the images
+
+Pixels are not square and Leaf arrays are stored long-axis first. Use
+`thz_preprocessing.display.oriented` and `pixel_aspect`, and a greyscale
+colour map; stretched red-blue panels make real images unrecognisable.
+For Vegetables, frames 120-140 are near focus; 21-30 are not.
 
 ## Repository layout
 
@@ -76,7 +101,9 @@ src/thz_preprocessing/
     noise_reduction.py              # median2d / gaussian2d / savgol_1d / bandpass_1d
     normalisation.py                # baseline / zscore
     phase_unwrapping.py             # skimage_2d / itoh_1d
-    spatial_correction.py           # separate spatial residuals + removed components
+    spatial_correction.py           # robust line offsets, background, removed components
+    masking.py                      # amplitude-based signal mask
+    display.py                      # orientation and pixel aspect for figures
     waveform_processing.py          # conservative fitted-trace cleaning + metrics
     volume_validation.py            # multi-frame signal-preservation metrics
 tests/                              # encodings, quality gates, spatial correction, repeatability
@@ -84,6 +111,8 @@ examples/
     run_pipeline.py                 # minimal synthetic example
     run_pilot.py                    # end-to-end demo on real skin + leaf
     run_spatial_processing.py       # all 91 matched Leaf frames + Skin + Vegetables
+    evaluate.py                     # quantitative evaluation E1-E11 (thesis Chapter 5)
+    build_handoff.py                # downstream package from the processed images
     audit_leaf_semantics.py         # reproducible raw/reference correspondence audit
 data/                               # local datasets, git-ignored
 docs/
@@ -159,16 +188,18 @@ python examples/run_pilot.py --volume
 
 Output figures land in `output/`.
 
-### Spatial processing and reference audit
+### Spatial processing, evaluation and handoff
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m examples.audit_leaf_semantics
-PYTHONPATH=src .venv/bin/python -m examples.run_spatial_processing
+PYTHONPATH=src .venv/bin/python -m examples.audit_leaf_semantics      # Leaf raw/reference correspondence
+PYTHONPATH=src .venv/bin/python -m examples.run_spatial_processing    # 113 images -> output/spatial_v06/
+PYTHONPATH=src .venv/bin/python -m examples.evaluate                  # E1-E11 -> output/evaluation_v06/
+PYTHONPATH=src .venv/bin/python -m examples.build_handoff             # downstream package -> output/handoff_v06/
 ```
 
-New full-resolution products and a manifest land in `output/spatial_v05/`.
-Old `output/processed/leaf_processed_pilot_slice.npz` used the superseded
-Leaf decoding/axis assumptions; do not use it for current validation.
+`output/spatial_v05/` and `output/processed/` hold superseded batches
+(v0.5 flattened amplitude contrast; the older pilot used a withdrawn Leaf
+decoding). Do not use them for current work.
 
 ## Tests
 

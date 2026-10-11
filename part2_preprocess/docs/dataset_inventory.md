@@ -13,6 +13,11 @@ strings matching teammate A's `LFIRawData` contract.
 
 ## Summary
 
+Revision 2026-10-11: Skin phase is decoded as signed 14-bit codes in a uint16 container
+(numerical evidence, see `review_2026-10-11_v06.md`); the "scale remains unconfirmed; v0.5
+withholds" statements below are superseded. Images must be shown at the recorded aspect
+ratio (1.965 for the 400x1300 raster).
+
 Revision 2026-10-05: the numerical audit pairs saved Leaf U indices 0..90
 with the same raw indices and supports radians, using
 `wrap(L_P*pi/4096 - pi)` (max all-pixel error 1.813e-14 rad). The physical
