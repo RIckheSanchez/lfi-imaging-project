@@ -131,6 +131,29 @@ def _u16_phase_to_radians(
     raise ValueError(f"Unknown phase encoding: {encoding!r}")
 
 
+def _skin_signed14_phase_to_radians(phase_u16: np.ndarray) -> np.ndarray:
+    """Decode legacy Skin phase stored as signed 14-bit codes in a uint16 container.
+
+    Evidence from ``2025-11-28_10-14-26.594507929.hdf5`` (numerical, not a
+    supervisor confirmation): reinterpreted as int16 the codes occupy
+    exactly ``[-8192, 8191]`` with 2**14 distinct values, the range of the
+    confirmed 2026 convention; and with ``code / 8192 * pi`` the large
+    neighbour jumps cluster at 2*pi, as phase wraps must, whereas the old
+    full-uint16 scaling turns them into unexplained pi/2 steps.
+    """
+    if phase_u16.dtype != np.uint16:
+        raise ValueError(f"Expected uint16 Skin phase, got {phase_u16.dtype}")
+    codes = phase_u16.view(np.int16)
+    low, high = int(codes.min()), int(codes.max())
+    if low < -8192 or high > 8191:
+        raise ValueError(
+            "Skin phase codes fall outside the signed-14 interval [-8192, 8191] "
+            f"after int16 reinterpretation: observed [{low}, {high}]"
+        )
+    radians = codes.astype(np.float64) / 8192.0 * np.pi
+    return ((radians + np.pi) % (2.0 * np.pi)) - np.pi
+
+
 def _i16_phase_to_radians(
     phase_i16: np.ndarray,
     encoding: str = "signed_16bit_pi",
@@ -249,7 +272,7 @@ def load_skin_hdf5(
     frame_id: int | None = None,
     qcl: str = "QCL0",
     side: str = "Left",
-    phase_encoding: str = "0_2pi",
+    phase_encoding: str = "signed_14bit_in_uint16",
 ) -> LFIRawData:
     """Load a single skin scan from the supplied HDF5 layout.
 
@@ -273,9 +296,11 @@ def load_skin_hdf5(
     qcl, side
         Which laser / side channel to read.
     phase_encoding
-        How the uint16 phase is encoded (see :func:`_u16_phase_to_radians`).
-        Pending confirmation from the supervisor; default assumes
-        ``[0, 2*pi)``.
+        ``"signed_14bit_in_uint16"`` (default) decodes ``code / 8192 * pi``
+        after reinterpreting the uint16 words as int16; this is supported
+        numerically (see :func:`_skin_signed14_phase_to_radians`) but still
+        awaits supervisor confirmation. ``"0_2pi"`` and ``"neg_pi_pi"`` are
+        the earlier full-range assumptions and are marked unconfirmed.
 
     Returns
     -------
@@ -308,7 +333,16 @@ def load_skin_hdf5(
             pp_u16 = None
 
     amplitude = amp_u16.astype(np.float64)[None, :, :]  # (1, H, W)
-    phase = _u16_phase_to_radians(phs_u16, encoding=phase_encoding)[None, :, :]
+    if phase_encoding == "signed_14bit_in_uint16":
+        phase = _skin_signed14_phase_to_radians(phs_u16)[None, :, :]
+        status = "numerically_supported"
+        note = ("code / 8192 * pi after int16 reinterpretation: codes span exactly "
+                "[-8192, 8191] and phase wraps become 2*pi steps. Numerical evidence; "
+                "supervisor confirmation still pending.")
+    else:
+        phase = _u16_phase_to_radians(phs_u16, encoding=phase_encoding)[None, :, :]
+        status = "unconfirmed"
+        note = "Full-range uint16 scaling is an unverified legacy assumption."
 
     metadata: dict[str, Any] = {
         "source_path": str(path),
@@ -317,8 +351,10 @@ def load_skin_hdf5(
         "side": side,
         "phase_encoding": phase_encoding,
         "original_dtype": "uint16",
-        "phase_encoding_status": "unconfirmed",
-        "phase_scale_warning": "Legacy Skin scale is an assumption; uint16 reinterpreted as int16 occupies [-8192,8191]. This does not establish the conversion scale.",
+        "phase_encoding_status": status,
+        "phase_scale_note": note,
+        "display_aspect_ratio": 1.9651163,
+        "display_aspect_source": "assumed: same 400x1300 raster as the 2026 files, which record thz/info/aspect_ratio_computed",
     }
     if pp_u16 is not None:
         metadata["peak_to_peak"] = pp_u16  # not in contract, but kept
@@ -424,6 +460,7 @@ def load_rdm_hdf5_frame(
             "fft_phase_logged": _read_optional_scalar(f, "thz/info/mcp/logFftPhase"),
             "selected_fft_bin": _read_optional_scalar(f, "thz/info/mcp/selFftBin"),
         }
+        aspect_ratio = _read_optional_scalar(f, "thz/info/aspect_ratio_computed")
 
     phase_code_bounds = [int(np.min(phase_raw)), int(np.max(phase_raw))]
     resolved_phase_encoding = _resolve_i16_phase_encoding(
@@ -461,6 +498,8 @@ def load_rdm_hdf5_frame(
         "waveform_shape": waveform_shape,
         "waveform_dtype": waveform_dtype,
         "acquisition": acquisition,
+        "display_aspect_ratio": float(aspect_ratio) if aspect_ratio is not None else None,
+        "display_aspect_source": "thz/info/aspect_ratio_computed (width / height of the full frame)",
     }
 
     return LFIRawData(
@@ -814,6 +853,8 @@ def load_leaf_mat(
         "third_axis_physical_coordinate": "unresolved; no cross-frame processing by default",
         "reference_mapping": "same index 0..90 validated modulo 2pi; some equivalent candidates are ambiguous",
         "reference_mapping_evidence": "output/review_rdm/leaf_semantics_audit.json",
+        "display_aspect_ratio": 1.5,
+        "display_aspect_source": "literature for a related system (60 x 40 mm over 1200 x 400 pixels, long axis first); unverified for this file",
     }
 
     return LFIRawData(

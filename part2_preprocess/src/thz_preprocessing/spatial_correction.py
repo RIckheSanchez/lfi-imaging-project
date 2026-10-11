@@ -1,17 +1,39 @@
-"""Slice-wise spatial background and stripe correction for derived images.
+"""Slice-wise spatial correction that keeps measurement channels intact.
 
-The returned LFIRawData measurement channels remain unchanged. Derived
-residual images and every removed component are stored separately. No
-cross-frame coordinate, reference ROI or physical pixel size is assumed.
+Two different products are derived, because amplitude and phase need
+different treatment:
+
+* **Amplitude.** Object contrast *is* the signal (absorbing material is
+  dark), so the default product ``amplitude_corrected`` only removes
+  scan-line offsets (and explicitly requested FFT notches). A separate
+  ``amplitude_detail`` product additionally subtracts a Gaussian
+  background; it is a local-contrast view, not a measurement.
+* **Phase.** Unwrapped phase is dominated by a smooth optical-path
+  background of tens to hundreds of radians, so ``phase_corrected``
+  subtracts the Gaussian background (the operation that reproduces the
+  group's saved Leaf ``U_M``) and then the scan-line offsets.
+
+Scan-line offsets are estimated robustly: each pixel is compared with the
+median of the neighbouring lines at the same position, and the line offset
+is the median of those differences along the line. A real feature is only
+mistaken for an offset if it is thinner than half the window *and* covers
+more than half of a scan line.
+
+Every removed component is stored, and no cross-frame coordinate,
+reference ROI or physical pixel size is assumed.
 """
 
+from __future__ import annotations
+
+import warnings
 from copy import deepcopy
 from typing import Any
 
 import numpy as np
-from scipy.ndimage import gaussian_filter, gaussian_filter1d
+from scipy.ndimage import gaussian_filter, median_filter
 
 from thz_preprocessing.io import LFIRawData
+from thz_preprocessing.masking import signal_mask
 
 
 def _positive(value, name):
@@ -44,10 +66,62 @@ def _notch_filter(image, centres, width):
     return np.fft.ifft2(np.fft.fft2(image) * transfer).real
 
 
-def correct_image(image: np.ndarray, params: dict[str, Any]):
-    """Return a relative image and additive components, all in input units."""
+def gaussian_background(image, sigma, mode="reflect", truncate=4.0, valid=None):
+    """Gaussian low-pass; with ``valid`` it is a normalised convolution."""
+    if valid is None:
+        return gaussian_filter(image, sigma=sigma, mode=mode, truncate=truncate)
+    weights = gaussian_filter(valid.astype(np.float64), sigma=sigma, mode=mode, truncate=truncate)
+    numerator = gaussian_filter(np.where(valid, image, 0.0), sigma=sigma, mode=mode, truncate=truncate)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        return np.where(valid, numerator / np.maximum(weights, 1e-12), np.nan)
+
+
+def estimate_line_offsets(image, axis="rows", window=15, valid=None, min_valid=16):
+    """Robust additive offset of each scan line relative to its neighbours.
+
+    ``image`` must be finite; pixels where ``valid`` is false are ignored
+    when the per-line median is taken. Lines with fewer than ``min_valid``
+    usable pixels get a zero offset.
+    """
+    if axis not in {"rows", "columns"}:
+        raise ValueError("axis must be 'rows' or 'columns'")
+    window = int(window)
+    if window < 3 or window % 2 == 0:
+        raise ValueError("stripe_window_lines must be an odd integer >= 3")
+    work = image if axis == "rows" else image.T
+    ok = None if valid is None else (valid if axis == "rows" else valid.T)
+    deviation = work - median_filter(work, size=(window, 1), mode="reflect")
+    if ok is None:
+        return np.median(deviation, axis=1)
+    counts = ok.sum(axis=1)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # all-NaN lines are handled below
+        offsets = np.nanmedian(np.where(ok, deviation, np.nan), axis=1)
+    return np.where(counts >= int(min_valid), np.nan_to_num(offsets), 0.0)
+
+
+def correct_image(image: np.ndarray, params: dict[str, Any], mask: np.ndarray | None = None):
+    """Decompose one 2D image into additive parts, all in input units.
+
+    Returns ``corrected`` (background, line offsets and notches removed),
+    ``background``, ``stripe`` and ``notch_removed`` with
+    ``image == corrected + background + stripe + notch_removed``.
+    With ``mask``, the background is a normalised convolution over the
+    masked pixels and ``corrected``/``background`` are NaN outside it; the
+    input may then be NaN outside the mask.
+    """
     image = np.asarray(image, dtype=np.float64)
-    if image.ndim != 2 or not image.size or not np.isfinite(image).all():
+    if image.ndim != 2 or not image.size:
+        raise ValueError("Spatial correction requires a non-empty 2D image")
+    valid = None
+    if mask is not None:
+        valid = np.asarray(mask, dtype=bool)
+        if valid.shape != image.shape:
+            raise ValueError("mask must have the image shape")
+        if valid.all():
+            valid = None
+    finite = np.isfinite(image)
+    if (valid is None and not finite.all()) or (valid is not None and not finite[valid].all()):
         raise ValueError("Spatial correction requires a non-empty finite 2D image")
     sigma = _positive(params.get("background_sigma_pixels", 16), "background_sigma_pixels")
     axis = str(params.get("stripe_axis", "rows"))
@@ -57,20 +131,22 @@ def correct_image(image: np.ndarray, params: dict[str, Any]):
     if mode not in {"reflect", "nearest", "mirror"}:
         raise ValueError("background_boundary_mode must be reflect, nearest or mirror")
     truncate = _positive(params.get("background_truncate", 4), "background_truncate")
-    background = gaussian_filter(image, sigma=sigma, mode=mode, truncate=truncate)
-    residual = image - background
-    stripe = np.zeros_like(image)
+
+    background = gaussian_background(image, sigma, mode, truncate, valid)
+    residual = image - background if valid is None else np.where(valid, image - background, 0.0)
+    stripe = np.zeros(image.shape)
     if axis != "none":
-        smoothing = _positive(params.get("stripe_profile_sigma_pixels", 8),
-                              "stripe_profile_sigma_pixels")
-        profile = np.median(residual, axis=1 if axis == "rows" else 0)
-        offsets = profile - gaussian_filter1d(profile, sigma=smoothing, mode="reflect")
-        offsets -= offsets.mean()
+        offsets = estimate_line_offsets(residual, axis, params.get("stripe_window_lines", 15),
+                                        valid, params.get("stripe_min_valid", 16))
         stripe[:] = offsets[:, None] if axis == "rows" else offsets[None, :]
     destriped = residual - stripe
+    if valid is not None:
+        destriped = np.where(valid, destriped, 0.0)
     corrected = _notch_filter(destriped, params.get("fft_notches", []),
                               params.get("notch_width_cycles_per_pixel", 0.005))
     notch_removed = destriped - corrected
+    if valid is not None:
+        corrected = np.where(valid, corrected, np.nan)
     return {"corrected": corrected, "background": background,
             "stripe": stripe, "notch_removed": notch_removed}
 
@@ -79,49 +155,75 @@ def apply(data: LFIRawData, params: dict[str, Any]) -> LFIRawData:
     metadata = deepcopy(data.metadata)
     metadata.setdefault("pipeline", []).append({"spatial_correction": dict(params)})
     enabled = bool(params.get("enabled", False))
+    mask_method = str(params.get("mask", "none")).lower()
     products = {}
     diagnostics = []
     if enabled:
         if data.amplitude.shape != data.phase.shape or data.amplitude.ndim != 3:
             raise ValueError("Expected matching (frame, row, column) measurement channels")
-        for suffix in ["corrected", "background", "stripe", "notch_removed"]:
-            products[f"amplitude_{suffix}"] = np.empty(data.shape, dtype=np.float64)
-            products[f"phase_{suffix}"] = np.full(data.shape, np.nan)
+        shape = data.shape
+        for name in ["corrected", "detail", "background", "stripe", "notch_removed"]:
+            products[f"amplitude_{name}"] = np.empty(shape, dtype=np.float64)
+        for name in ["corrected", "background", "stripe", "notch_removed", "background_corrected"]:
+            products[f"phase_{name}"] = np.full(shape, np.nan)
         products["amplitude_pre_spatial"] = data.amplitude.copy()
         products["phase_pre_spatial"] = data.phase.copy()
-        products["phase_background_corrected"] = np.full(data.shape, np.nan)
+        products["signal_mask"] = np.ones(shape, dtype=bool)
         phase_status = metadata.get("phase_unwrapping_status", {})
         per_slice = phase_status.get("quality_diagnostics", [])
         available = np.zeros(data.n_z, dtype=bool)
+        sigma = _positive(params.get("background_sigma_pixels", 16), "background_sigma_pixels")
+        mode = str(params.get("background_boundary_mode", "reflect"))
+        truncate = _positive(params.get("background_truncate", 4), "background_truncate")
         for i in range(data.n_z):
-            amp = correct_image(data.amplitude[i], params)
-            for suffix, values in amp.items():
-                products[f"amplitude_{suffix}"][i] = values
+            amplitude = data.amplitude[i]
+            mask = signal_mask(amplitude, mask_method)
+            valid = None if mask.all() else mask
+            products["signal_mask"][i] = mask
+
+            # Amplitude: line offsets and notches only; contrast is kept.
+            parts = correct_image(amplitude, params)
+            corrected = amplitude - parts["stripe"] - parts["notch_removed"]
+            background = gaussian_background(corrected, sigma, mode, truncate, valid)
+            products["amplitude_corrected"][i] = corrected
+            products["amplitude_background"][i] = background
+            products["amplitude_detail"][i] = corrected - background
+            products["amplitude_stripe"][i] = parts["stripe"]
+            products["amplitude_notch_removed"][i] = parts["notch_removed"]
+
             status = per_slice[i]["status"] if i < len(per_slice) else phase_status.get("status")
             available[i] = status in {"unwrapped", "already_continuous", "reference_unwrapped"}
             if available[i]:
-                phase = correct_image(data.phase[i], params)
-                for suffix, values in phase.items():
-                    products[f"phase_{suffix}"][i] = values
-                products["phase_background_corrected"][i] = data.phase[i] - phase["background"]
+                phase = data.phase[i]
+                phase_valid = np.isfinite(phase) if valid is None else (valid & np.isfinite(phase))
+                parts = correct_image(phase, params, None if phase_valid.all() else phase_valid)
+                for name, values in parts.items():
+                    products[f"phase_{name}"][i] = values
+                products["phase_background_corrected"][i] = phase - parts["background"]
             diagnostics.append({
                 "slice_index": i, "source_frame_index": data.z_indices[i],
                 "phase_correction_available": bool(available[i]),
                 "phase_unwrap_status": status,
-                "amplitude_removed_background_std": float(amp["background"].std()),
-                "amplitude_removed_stripe_std": float(amp["stripe"].std()),
-                "amplitude_removed_notch_std": float(amp["notch_removed"].std()),
+                "signal_fraction": float(mask.mean()),
+                "amplitude_removed_stripe_std": float(products["amplitude_stripe"][i].std()),
+                "amplitude_removed_notch_std": float(products["amplitude_notch_removed"][i].std()),
+                "amplitude_detail_background_std": float(np.nanstd(background)),
                 "amplitude_decomposition_max_error": float(np.abs(
-                    data.amplitude[i] - sum(amp.values())).max()),
+                    amplitude - corrected - products["amplitude_stripe"][i]
+                    - products["amplitude_notch_removed"][i]).max()),
             })
         products["phase_correction_available"] = available
         metadata["spatial_products"] = products
     metadata["spatial_correction_status"] = {
         "enabled": enabled, "status": "exploratory_relative_images" if enabled else "disabled",
         "measurement_channels_preserved": True,
-        "units": "same as pre-spatial input; corrected channels are relative residuals",
+        "amplitude_corrected": "line offsets (and requested notches) removed; object contrast kept",
+        "amplitude_detail": "amplitude_corrected minus Gaussian background; relative local-contrast view",
+        "phase_corrected": "unwrapped phase minus Gaussian background and line offsets; relative",
+        "mask": mask_method,
+        "units": "same as pre-spatial input; detail and phase_corrected are relative residuals",
         "parameter_status": "pixel-scale exploratory parameters, not calibrated physical values",
-        "limitations": "Estimated background and row offsets may include real sample structure; no clinical validation. Wrapped or exploratory phase is not linearly background-filtered.",
+        "limitations": "A Gaussian background also contains real broad sample structure; no clinical validation. Wrapped or withheld phase is not filtered.",
         "diagnostics": diagnostics,
     }
     return LFIRawData(data.amplitude.copy(), data.phase.copy(), list(data.z_indices),

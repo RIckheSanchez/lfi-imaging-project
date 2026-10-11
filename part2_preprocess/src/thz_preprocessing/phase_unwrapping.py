@@ -4,10 +4,14 @@ Operates on :attr:`LFIRawData.phase`. Two methods are provided to span
 both data regimes the project encounters:
 
 * ``"skimage_2d"`` — quality-guided 2D unwrap (:func:`skimage.restoration.unwrap_phase`)
-  applied independently to each z-slice. Appropriate for image-level
-  scans (n_z == 1, e.g. Skin pilot) where the unwrap is genuinely 2D. A
-  residue-density gate can retain wrapped phase when branch placement is too
-  uncertain for downstream release.
+  applied independently to each z-slice. With ``mask = "amplitude_otsu"``
+  the residue gate is evaluated, and the unwrap performed, only inside the
+  signal region; the released phase is NaN elsewhere. A slice is released
+  only when the residue fraction in that region is at most
+  ``max_residue_fraction``, i.e. when unwrapping is close to path
+  independent. On the Leaf data an independent unwrap agreed with the
+  group's saved result on fewer than half of the pixels, so a loose gate
+  is not defensible.
 * ``"itoh_1d"``    — Itoh-style 1D unwrap along the stack axis via
   :func:`numpy.unwrap`. Use only with a confirmed coordinate and phase
   continuity assumption. Leaf no longer selects this method by default.
@@ -29,6 +33,7 @@ from typing import Any
 import numpy as np
 
 from thz_preprocessing.io import LFIRawData
+from thz_preprocessing.masking import signal_mask
 
 
 def _itoh_1d_along_z(phase: np.ndarray) -> np.ndarray:
@@ -49,8 +54,11 @@ def _mean_resultant_length(delta: np.ndarray) -> float:
     return float(np.abs(np.mean(np.exp(1j * delta[finite]))))
 
 
-def _wrapped_phase_quality(phase: np.ndarray) -> dict[str, float]:
+def _wrapped_phase_quality(phase: np.ndarray, mask: np.ndarray | None = None) -> dict[str, float]:
     """Return scale-free diagnostics used before spatial unwrapping.
+
+    With ``mask``, only 2x2 cells (and neighbour pairs) that lie entirely
+    inside the mask are counted.
 
     A non-zero residue is a 2x2 cell whose wrapped phase differences do
     not close to zero. Residues do not prove that unwrapping is impossible,
@@ -62,6 +70,10 @@ def _wrapped_phase_quality(phase: np.ndarray) -> dict[str, float]:
 
     dx = _wrapped_delta(np.diff(phase, axis=1))
     dy = _wrapped_delta(np.diff(phase, axis=0))
+    if mask is not None:
+        mask = np.asarray(mask, dtype=bool)
+        dx = np.where(mask[:, 1:] & mask[:, :-1], dx, np.nan)
+        dy = np.where(mask[1:, :] & mask[:-1, :], dy, np.nan)
     if phase.shape[0] < 2 or phase.shape[1] < 2:
         residue_fraction = 0.0
     else:
@@ -71,6 +83,8 @@ def _wrapped_phase_quality(phase: np.ndarray) -> dict[str, float]:
         up = _wrapped_delta(phase[:-1, :-1] - phase[1:, :-1])
         circulation = right + down + left + up
         valid = np.isfinite(circulation)
+        if mask is not None:
+            valid &= mask[:-1, :-1] & mask[:-1, 1:] & mask[1:, :-1] & mask[1:, 1:]
         if np.any(valid):
             charges = np.rint(circulation[valid] / (2.0 * np.pi))
             residue_fraction = float(np.mean(charges != 0))
@@ -87,6 +101,7 @@ def _wrapped_phase_quality(phase: np.ndarray) -> dict[str, float]:
 def _skimage_2d_per_zslice(
     phase: np.ndarray,
     params: dict[str, Any],
+    amplitude: np.ndarray | None = None,
 ) -> tuple[np.ndarray, list[dict[str, Any]]]:
     # Local import: skimage is optional from the perspective of the
     # core pipeline and adds appreciable import latency.
@@ -106,11 +121,27 @@ def _skimage_2d_per_zslice(
             "low_quality_action must be 'keep_wrapped', 'unwrap', or 'raise'"
         )
 
+    mask_method = str(params.get("mask", "none")).lower()
+    if mask_method != "none" and amplitude is None:
+        raise ValueError("A signal mask needs the amplitude channel")
+
     for z in range(phase.shape[0]):
-        quality = _wrapped_phase_quality(phase[z])
+        mask = None
+        if mask_method != "none":
+            mask = signal_mask(amplitude[z], mask_method)
+            if mask.all():
+                mask = None
+        whole = _wrapped_phase_quality(phase[z])
+        quality = whole if mask is None else _wrapped_phase_quality(phase[z], mask)
+        quality["residue_fraction_whole_image"] = whole["residue_fraction"]
+        quality["signal_fraction"] = 1.0 if mask is None else float(mask.mean())
         accepted = quality["residue_fraction"] <= max_residue_fraction
         if accepted or low_quality_action == "unwrap":
-            out[z] = unwrap_phase(phase[z], rng=rng_seed)
+            if mask is None:
+                out[z] = unwrap_phase(phase[z], rng=rng_seed)
+            else:
+                unwrapped = unwrap_phase(np.ma.array(phase[z], mask=~mask), rng=rng_seed)
+                out[z] = np.ma.filled(unwrapped, np.nan)
             finite = np.isfinite(out[z]) & np.isfinite(phase[z])
             if np.any(finite):
                 cycle_adjustments = np.rint(
@@ -144,6 +175,7 @@ def _skimage_2d_per_zslice(
                 "slice_index": z,
                 **quality,
                 "max_residue_fraction": max_residue_fraction,
+                "mask": mask_method,
                 "quality_gate_passed": accepted,
                 "status": status,
                 "cycle_adjustment_fraction": adjustment_fraction,
@@ -183,7 +215,7 @@ def apply(data: LFIRawData, params: dict[str, Any]) -> LFIRawData:
         out = data.phase.copy()
         status = "pass_through"
     elif method == "skimage_2d":
-        out, diagnostics = _skimage_2d_per_zslice(data.phase, params)
+        out, diagnostics = _skimage_2d_per_zslice(data.phase, params, data.amplitude)
         statuses = {item["status"] for item in diagnostics}
         status = next(iter(statuses)) if len(statuses) == 1 else "mixed"
     elif method == "validated_reference":

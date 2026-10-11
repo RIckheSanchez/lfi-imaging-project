@@ -378,10 +378,43 @@ def test_pipeline_on_real_skin():
     assert out.target_type == "Skin"
     used = out.metadata["config_resolved"]["noise_reduction"]["method"]
     assert used == "gaussian2d", "Skin target should pick the 2D-image operator"
-    assert (
-        out.metadata["phase_unwrapping_status"]["status"]
-        == "withheld_unconfirmed_encoding"
+    # Signed-14 decoding leaves the signal region almost residue free, so the
+    # strict gate releases a masked unwrap; outside the sample it is NaN.
+    status = out.metadata["phase_unwrapping_status"]
+    assert status["status"] == "unwrapped"
+    diagnostics = status["quality_diagnostics"][0]
+    assert diagnostics["residue_fraction"] <= 0.001 < diagnostics["residue_fraction_whole_image"]
+    products = out.metadata["spatial_products"]
+    mask = products["signal_mask"][0]
+    assert 0.3 < mask.mean() < 0.6
+    assert np.isfinite(out.phase[0][mask]).all() and np.isnan(out.phase[0][~mask]).all()
+    np.testing.assert_allclose(
+        np.exp(1j * out.phase[0][mask]), np.exp(1j * data.phase[0][mask]), atol=1e-9
     )
+    assert products["phase_correction_available"].all()
+    assert np.isfinite(products["phase_corrected"][0][mask]).all()
+    assert np.isfinite(products["amplitude_corrected"]).all()
+
+
+@pytest.mark.skipif(not SKIN_HDF5.exists(), reason="Skin pilot HDF5 not present")
+def test_skin_phase_wraps_are_two_pi_steps_only_under_signed14_scale():
+    """The evidence behind the default Skin decoding (numerical, not a sign-off)."""
+    new = load_skin_hdf5(SKIN_HDF5).phase[0]
+    old = load_skin_hdf5(SKIN_HDF5, phase_encoding="0_2pi")
+    assert old.metadata["phase_encoding_status"] == "unconfirmed"
+    assert new.min() < -3.1 and new.max() > 3.1
+    assert np.abs(old.phase).max() < np.pi / 4 + 1e-9
+
+    def large_jumps(phase):
+        steps = np.abs(np.diff(phase, axis=1))
+        return steps[steps > 1.0]
+
+    jumps_new, jumps_old = large_jumps(new), large_jumps(old.phase[0])
+    # Under the signed-14 scale most large steps are genuine 2*pi wraps ...
+    assert np.mean(jumps_new > 5.5) > 0.5
+    # ... under the old scale they are pi/2 steps that no wrap can produce.
+    assert np.mean((jumps_old > 1.3) & (jumps_old < 1.8)) > 0.8
+    assert not np.any(jumps_old > 3.0)
 
 
 @pytest.mark.skipif(not LEAF_MAT.exists(), reason="Leaf .mat not present")
@@ -454,20 +487,27 @@ def test_full_vegetable_frames_respect_residue_gate():
         VEGETABLE_VOLUME_FRAMES,
         target_type="Vegetable",
     )
-    # Vegetables keeps a strict 0.01 gate by default, so frames 21/22
-    # (residue ~0.048) stay wrapped.
+    # Even inside the signal mask frames 21/22 exceed the strict gate, so
+    # the default keeps the measured wrapped phase untouched.
     strict = api.run_pipeline(raw)
     np.testing.assert_array_equal(strict.phase, raw.phase)
-    assert strict.metadata["phase_unwrapping_status"]["status"] == "kept_wrapped_low_quality"
+    status = strict.metadata["phase_unwrapping_status"]
+    assert status["status"] == "kept_wrapped_low_quality"
+    for item in status["quality_diagnostics"]:
+        assert item["mask"] == "amplitude_otsu"
+        assert item["max_residue_fraction"] == 0.001
+        assert item["residue_fraction"] > item["max_residue_fraction"]
+        # Residues concentrate where there is no signal.
+        assert item["residue_fraction"] < item["residue_fraction_whole_image"]
+    assert not strict.metadata["spatial_products"]["phase_correction_available"].any()
 
-    # The relaxed base gate (0.06) admits them.
+    # A loose gate would release a masked unwrap that only differs by cycles.
     out = api.run_pipeline(
         raw, config_overrides={"phase_unwrapping": {"max_residue_fraction": 0.06}}
     )
-    status = out.metadata["phase_unwrapping_status"]
-    assert status["status"] == "unwrapped"
-    assert all(
-        item["residue_fraction"] <= item["max_residue_fraction"]
-        for item in status["quality_diagnostics"]
+    assert out.metadata["phase_unwrapping_status"]["status"] == "unwrapped"
+    inside = np.isfinite(out.phase)
+    assert 0.02 < inside.mean() < 0.9
+    np.testing.assert_allclose(
+        np.angle(np.exp(1j * (out.phase[inside] - raw.phase[inside]))), 0, atol=1e-9
     )
-    np.testing.assert_allclose(np.angle(np.exp(1j * (out.phase - raw.phase))), 0, atol=1e-9)
