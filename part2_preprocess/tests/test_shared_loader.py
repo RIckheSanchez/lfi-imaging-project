@@ -19,7 +19,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_zstack_file_is_loaded_by_shared_loader_in_radians(tmp_path):
+def test_zstack_phase_unit_is_unconfirmed_upstream_and_withheld(tmp_path):
     path = tmp_path / "Chip" / "board.hdf5"
     path.parent.mkdir()
     rng = np.random.default_rng(0)
@@ -33,7 +33,9 @@ def test_zstack_file_is_loaded_by_shared_loader_in_radians(tmp_path):
     assert data.metadata["loader"] == "shared_data_import"
     assert data.target_type == "Chip"
     assert data.z_indices == [530, 531, 532]
-    assert data.metadata["phase_encoding_status"] == "explicit_validated"
+    # Upstream v3 treats Chip/Marble z-stack phase as unit-unconfirmed (looks like degrees).
+    assert data.metadata["phase_encoding_status"] == "unconfirmed"
+    assert data.metadata["phase_units"] == "raw_codes"
     np.testing.assert_array_equal(data.amplitude, amp)
     np.testing.assert_array_equal(data.phase, phase)
 
@@ -68,12 +70,27 @@ def test_skin_via_shared_loader_matches_local_amplitude_and_withholds_phase():
 
 
 @pytest.mark.skipif(not VEGETABLE_FRAME.exists(), reason="2026 vegetable frame not present")
-def test_2026_layout_falls_back_to_local_loader_and_records_gap():
-    data = shared_loader.load_scan(VEGETABLE_FRAME)
+def test_2026_layout_via_shared_loader_matches_local_loader():
+    data = shared_loader.load_scan(VEGETABLE_FRAME, target_type="Vegetables")
+    assert data.metadata["loader"] == "shared_data_import"
+    assert data.target_type == "Vegetable"
+    assert data.metadata["phase_encoding_status"] == "explicit_validated"
+    local = load_rdm_hdf5_frame(VEGETABLE_FRAME)
+    assert data.z_indices == local.z_indices
+    np.testing.assert_array_equal(data.amplitude, local.amplitude)
+    np.testing.assert_allclose(data.phase, local.phase, atol=1e-12)
+    out = api.run_pipeline(data).metadata["spatial_products"]
+    ref = api.run_pipeline(local).metadata["spatial_products"]
+    np.testing.assert_array_equal(out["amplitude_corrected"], ref["amplitude_corrected"])
+
+
+def test_unsupported_hdf5_layout_falls_back_and_records_gap(tmp_path, monkeypatch):
+    path = tmp_path / "odd.hdf5"
+    with h5py.File(path, "w") as f:
+        f["something/else"] = np.zeros((2, 2))
+    sentinel = object()
+    monkeypatch.setattr(shared_loader.io, "load_rdm_hdf5_frame",
+                        lambda p, **k: type("D", (), {"metadata": {}, "tag": sentinel})())
+    data = shared_loader.load_scan(path)
     assert data.metadata["loader"] == "local_fallback"
     assert "not supported by the shared loader" in data.metadata["shared_loader_gap"]
-    local = load_rdm_hdf5_frame(VEGETABLE_FRAME)
-    np.testing.assert_array_equal(data.amplitude, local.amplitude)
-    np.testing.assert_array_equal(data.phase, local.phase)
-    with pytest.raises(ValueError):
-        shared_loader.load_via_shared_loader(VEGETABLE_FRAME)

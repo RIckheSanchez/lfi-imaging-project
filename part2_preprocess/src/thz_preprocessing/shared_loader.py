@@ -9,10 +9,10 @@ codes. The adapter keeps those codes untouched and marks
 ``phase_encoding_status = "unconfirmed"``, which makes the pipeline withhold
 unwrapping and phase spatial correction.
 
-The upstream loader (package dated 2026-10-11) reads ``hdf5_zstack`` and
-``hdf5_frames`` files. It does not read the 2026 RDM ``/data/IMAGE_*`` layout
-or MATLAB files; for those, :func:`load_scan` falls back to this package's
-loaders and records that it did so.
+The upstream loader (v3, 2026-10-11) reads ``hdf5_zstack``, ``hdf5_frames``,
+the 2026 RDM ``/data/IMAGE_*`` layout and MATLAB files. :func:`load_scan`
+falls back to this package's loaders only for a layout upstream rejects, and
+records that it did so.
 """
 
 from __future__ import annotations
@@ -94,22 +94,18 @@ def load_scan(path: str | Path, **kwargs: Any) -> LFIRawData:
     """
     path = Path(path)
     reason = None
-    if path.suffix.lower() == ".mat":
-        reason = "MATLAB files are not supported by the shared loader"
-    else:
+    if path.suffix.lower() != ".mat":
         import h5py
 
         with h5py.File(path, "r") as f:
             keys = set(f.keys())
-        if "frames" not in keys and not {"amplitude", "phase"} <= keys:
+            v2026 = "data" in keys and "IMAGE_PHASE" in f["data"]
+        if "frames" not in keys and not {"amplitude", "phase"} <= keys and not v2026:
             reason = "HDF5 layout %s is not supported by the shared loader" % sorted(keys)
     if reason is None:
         return load_via_shared_loader(path, **kwargs)
 
-    if path.suffix.lower() == ".mat":
-        data = io.load_leaf_mat(path, **kwargs)
-    else:
-        data = io.load_rdm_hdf5_frame(path, **kwargs)
+    data = io.load_rdm_hdf5_frame(path, **kwargs)
     data.metadata["loader"] = "local_fallback"
     data.metadata["shared_loader_gap"] = reason
     return data
