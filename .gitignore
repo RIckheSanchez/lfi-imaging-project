@@ -22,6 +22,11 @@ wheels/
 
 # Virtual Environment
 venv/
+.venv/
+*.nii
+*.nii.gz
+*.npy
+*.npz
 ENV/
 env/
 

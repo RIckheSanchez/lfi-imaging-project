@@ -1,5 +1,13 @@
 # LFI Imaging Project - MEGA
 
+## Rebuilt Person 3 module (4 October 2026)
+
+See [implementation, API, validation and real-data limitations](docs/part3_rebuild.md)
+for the new `ImageGenerator`, `VolumeReconstructor`, HDF5 adapters and tests.
+Run `python -m part3_reconstruction --help` or `python -m pytest -q`.
+The original team overview below contains historical status/assignment text;
+the Part 3 document describes the rebuilt module and required integration changes.
+
 **Imaging using Laser Feedback Interferometry**
 
 University of Queensland - Final Year Thesis Project  
