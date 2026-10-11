@@ -112,6 +112,12 @@ def save_case(name, raw, reference_u=None, reference_m=None, figure=False):
             "pipeline_seconds": out.metadata["timings_seconds"]["total"]}
 
 
+def vegetable_frame_ids():
+    """Complete local 2026 Vegetables frames; frame 20 is an anomalous start-up frame."""
+    ids = sorted(int(p.stem.split("-")[1]) for p in (ROOT / "data/vegetables").glob("frame-*.hdf5"))
+    return [i for i in ids if i != 20]
+
+
 def main(leaf_count=91):
     if not 1 <= leaf_count <= 91:
         raise ValueError("Use 1..91 frames with saved reference correspondence")
@@ -119,9 +125,10 @@ def main(leaf_count=91):
     cases = []
     skin = load_skin_hdf5(ROOT / "data/skin/2025-11-28_10-14-26.594507929.hdf5")
     cases.append(save_case("skin_frame40_spatial", skin, figure=True))
-    for i in [21, 22]:
+    for i in vegetable_frame_ids():
         raw = load_rdm_hdf5_frame(ROOT / ("data/vegetables/frame-%d.hdf5" % i))
-        cases.append(save_case("vegetable_frame%d_spatial" % i, raw, figure=True))
+        cases.append(save_case("vegetable_frame%d_spatial" % i, raw,
+                               figure=i in {21, 22, 80, 140}))
     print("Skin and Vegetables spatial outputs saved", flush=True)
     leaf = load_leaf_mat(ROOT / "data/leaf/leaf1.mat", z_slice=slice(0, leaf_count))
     reference = loadmat(ROOT / "data/leaf/leaf1.mat", variable_names=["L_P_U", "L_P_U_M"])
