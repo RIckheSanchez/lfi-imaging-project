@@ -22,3 +22,7 @@ demo = ["matplotlib>=3.7"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+# vendor/data_import ships its own script-style tests with machine-specific paths.
+testpaths = ["tests"]

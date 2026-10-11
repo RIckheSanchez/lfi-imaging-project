@@ -72,6 +72,7 @@ src/thz_preprocessing/
     api.py                          # run_pipeline(data, config_path=None, ...)
     config.py                       # TOML loader + per-target merge
     io.py                           # image-level and fitted-waveform loaders
+    shared_loader.py                # adapter to teammate A's loader (vendor/data_import)
     noise_reduction.py              # median2d / gaussian2d / savgol_1d / bandpass_1d
     normalisation.py                # baseline / zscore
     phase_unwrapping.py             # skimage_2d / itoh_1d

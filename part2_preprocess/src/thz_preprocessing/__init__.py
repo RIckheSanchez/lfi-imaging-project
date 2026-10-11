@@ -12,6 +12,7 @@ from thz_preprocessing.io import (
     load_rdm_hdf5_volume,
     load_skin_hdf5,
 )
+from thz_preprocessing.shared_loader import load_scan, load_via_shared_loader
 from thz_preprocessing.waveform_processing import clean_fitted_waveform
 from thz_preprocessing.volume_validation import evaluate_volume_preservation
 
@@ -24,6 +25,8 @@ __all__ = [
     "load_rdm_hdf5_volume",
     "load_rdm_fitted_waveform",
     "load_leaf_mat",
+    "load_scan",
+    "load_via_shared_loader",
     "clean_fitted_waveform",
     "evaluate_volume_preservation",
 ]
