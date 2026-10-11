@@ -94,3 +94,29 @@ def test_unsupported_hdf5_layout_falls_back_and_records_gap(tmp_path, monkeypatc
     data = shared_loader.load_scan(path)
     assert data.metadata["loader"] == "local_fallback"
     assert "not supported by the shared loader" in data.metadata["shared_loader_gap"]
+
+
+@pytest.mark.skipif(not VEGETABLE_FRAME.exists(), reason="2026 vegetable frames not present")
+def test_load_volume_orders_frames_numerically_skips_frame_20_and_adds_z(tmp_path):
+    folder = tmp_path / "2026_Vegetables"
+    folder.mkdir()
+    source = VEGETABLE_FRAME.parent
+    wanted = [n for n in (20, 21, 22, 100) if (source / ("frame-%d.hdf5" % n)).exists()]
+    if not {20, 21, 22, 100} <= set(wanted):
+        pytest.skip("needs local frames 20, 21, 22 and 100")
+    for n in wanted:
+        (folder / ("frame-%d.hdf5" % n)).symlink_to(source / ("frame-%d.hdf5" % n))
+    (folder / "experiment_details.txt").symlink_to(source / "experiment_details.txt")
+
+    volume = shared_loader.load_volume(folder)
+    assert volume.z_indices == [21, 22, 100]          # numeric, not "100" < "21"
+    assert volume.shape == (3, 400, 1300)
+    assert len(volume.metadata["skipped_frames"]) == 1
+    assert "frame-20" in volume.metadata["skipped_frames"][0]["path"]
+    assert volume.metadata["z_positions_mm"] == [30.15, 30.25, 38.05]
+    assert volume.target_type == "Vegetable"
+
+    from thz_preprocessing import load_rdm_hdf5_volume
+    local = load_rdm_hdf5_volume([source / ("frame-%d.hdf5" % n) for n in (100, 22, 21)])
+    np.testing.assert_array_equal(volume.amplitude, local.amplitude)
+    np.testing.assert_allclose(volume.phase, local.phase, atol=1e-12)

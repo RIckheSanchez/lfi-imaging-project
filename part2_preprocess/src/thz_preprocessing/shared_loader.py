@@ -111,4 +111,84 @@ def load_scan(path: str | Path, **kwargs: Any) -> LFIRawData:
     return data
 
 
-__all__ = ["VENDOR_DIR", "from_upstream", "load_via_shared_loader", "load_scan"]
+def load_volume(
+    source: str | Path | list,
+    *,
+    experiment_details_path: str | Path | None = None,
+    z_reference_frame_id: int | None = None,
+    **kwargs: Any,
+) -> LFIRawData:
+    """Load a multi-file depth scan through the shared loader as one volume.
+
+    ``source`` is a folder of ``frame-*.hdf5`` files or an explicit list of
+    paths. Frames are stacked in numeric frame order (the shared loader's
+    folder iteration is lexicographic). Frames the shared loader rejects as
+    anomalous (e.g. Vegetables frame 20) are skipped and listed in
+    ``metadata["skipped_frames"]``. If ``experiment_details.txt`` is present
+    (or given), z positions in mm are attached; ``z_reference_frame_id`` is
+    the frame at the recorded start position (default: lowest frame id in
+    the folder, including skipped ones).
+    """
+    if isinstance(source, (str, Path)) and Path(source).is_dir():
+        folder = Path(source)
+        paths = sorted(folder.glob("frame-*.hdf5"))
+        if experiment_details_path is None and (folder / "experiment_details.txt").exists():
+            experiment_details_path = folder / "experiment_details.txt"
+    else:
+        paths = [Path(p) for p in source]
+    if not paths:
+        raise ValueError("No frame files to load")
+
+    frames, skipped = [], []
+    for path in paths:
+        try:
+            frames.append(load_via_shared_loader(path, **kwargs))
+        except ValueError as error:
+            skipped.append({"path": str(path), "reason": str(error)})
+    if not frames:
+        raise ValueError("Every frame was rejected by the shared loader: %s" % skipped)
+    frames.sort(key=lambda frame: int(frame.z_indices[0]))
+    frame_ids = [int(frame.z_indices[0]) for frame in frames]
+    if len(set(frame_ids)) != len(frame_ids):
+        raise ValueError("Duplicate frame ids are not allowed: %s" % frame_ids)
+    shapes = {frame.shape[1:] for frame in frames}
+    statuses = {frame.metadata["phase_encoding_status"] for frame in frames}
+    if len(shapes) != 1 or len(statuses) != 1:
+        raise ValueError("Frames have incompatible shapes or phase encoding status")
+
+    z_positions_mm = details = None
+    if experiment_details_path is not None:
+        details = io._read_experiment_details(Path(experiment_details_path))
+        start, step = details.get("start_z_mm"), details.get("increment_mm")
+        if start is not None and step is not None:
+            import re
+
+            all_ids = frame_ids + [int(m.group(1)) for item in skipped
+                                   for m in [re.search(r"frame-(\d+)", item["path"])] if m]
+            reference = int(z_reference_frame_id) if z_reference_frame_id is not None else min(all_ids)
+            z_positions_mm = [round(float(start + (i - reference) * step), 10) for i in frame_ids]
+
+    first = frames[0].metadata
+    metadata: dict[str, Any] = {
+        "loader": "shared_data_import",
+        "source_format": "shared_loader_volume",
+        "source_paths": [frame.metadata["source_path"] for frame in frames],
+        "frame_ids": frame_ids,
+        "skipped_frames": skipped,
+        "phase_encoding": first["phase_encoding"],
+        "phase_encoding_status": first["phase_encoding_status"],
+        "phase_units": first["phase_units"],
+        "z_positions_mm": z_positions_mm,
+        "experiment_details": details,
+        "per_frame_metadata": [frame.metadata for frame in frames],
+    }
+    return LFIRawData(
+        amplitude=np.concatenate([frame.amplitude for frame in frames], axis=0),
+        phase=np.concatenate([frame.phase for frame in frames], axis=0),
+        z_indices=frame_ids,
+        target_type=frames[0].target_type,
+        metadata=metadata,
+    )
+
+
+__all__ = ["VENDOR_DIR", "from_upstream", "load_via_shared_loader", "load_scan", "load_volume"]
