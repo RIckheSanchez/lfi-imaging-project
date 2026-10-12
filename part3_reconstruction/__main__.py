@@ -32,6 +32,8 @@ def main():
     handoff = sub.add_parser("handoff", help="Read a Person 2 handoff folder; write figures, depth volume and report")
     handoff.add_argument("root", help="Folder containing data/ and vegetables_volume_21frames.npz")
     handoff.add_argument("--output", default="outputs/handoff")
+    handoff.add_argument("--raw", nargs="*", default=[],
+                         help="Raw UQ HDF5 frames or folders, for the scan-mirror pixel-shape check")
     demo = sub.add_parser("demo", help="Synthetic validation only; not experimental evidence")
     demo.add_argument("--output", default="outputs/synthetic")
     args = parser.parse_args()
@@ -49,7 +51,11 @@ def main():
         return
     if args.command == "handoff":
         from .handoff_report import run
-        report = run(args.root, args.output)
+        raw = []
+        for item in map(Path, args.raw):
+            raw.extend(sorted(item.glob("*.hdf5")) if item.is_dir() else [item])
+        report = run(args.root, args.output, raw_files=raw)
+        print("report:", Path(args.output) / "report.html")
         print(json.dumps({k: report[k] for k in ("files_read", "summary_by_sample", "render_seconds", "elapsed_seconds")}, indent=2))
         if report["files_with_missing_fields"]:
             raise SystemExit(2)

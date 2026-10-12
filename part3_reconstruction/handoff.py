@@ -89,6 +89,97 @@ def load_volume(path, *, amplitude_channel="amplitude_corrected"):
     return ImagingData(amplitude, phase, meta), z_mm, frame_ids, mask
 
 
+MIRROR_KEYS = ("imageColumns", "imageRows", "columnStep", "columnStepFract256",
+               "rowStepSize", "rowStepFract256")
+
+
+def mirror_geometry(path):
+    """Pixel shape in scan-mirror steps, from a raw UQ HDF5 frame (thz/info/mcp).
+
+    The stored aspect_ratio_computed equals (imageColumns * columnStep) /
+    (imageRows / 2 * rowStepSize): the recorded rows form a left and a right
+    image. A mirror step has no recorded length, so this fixes the shape of a
+    pixel, not its size. The fractional step settings are reported separately
+    because the stored ratio ignores them.
+    """
+    import h5py
+    with h5py.File(path, "r") as f:
+        mcp = {k: int(f["thz/info/mcp/" + k][()]) for k in MIRROR_KEYS}
+        recorded = float(f["thz/info/aspect_ratio_computed"][()])
+    rows = mcp["imageRows"] / 2
+    integer = mcp["imageColumns"] * mcp["columnStep"] / (rows * mcp["rowStepSize"])
+    fractional = (mcp["imageColumns"] * (mcp["columnStep"] + mcp["columnStepFract256"] / 256)
+                  / (rows * (mcp["rowStepSize"] + mcp["rowStepFract256"] / 256)))
+    return {"file": Path(path).name, **mcp, "aspect_recorded": recorded,
+            "aspect_from_integer_steps": integer, "aspect_with_fractional_steps": fractional,
+            "pixel_aspect_yx": mcp["rowStepSize"] / mcp["columnStep"],
+            "matches_recorded": bool(abs(integer - recorded) <= 1e-6 * recorded)}
+
+
+def _axis_ellipse(x, y):
+    """Least-squares axis-aligned ellipse A x^2 + B y^2 + C x + D y = 1 -> (xc, yc, ax, ay)."""
+    m = np.column_stack([x * x, y * y, x, y])
+    a, b, c, d = np.linalg.lstsq(m, np.ones_like(x), rcond=None)[0]
+    xc, yc = -c / (2 * a), -d / (2 * b)
+    k = 1 + a * xc ** 2 + b * yc ** 2
+    return float(xc), float(yc), float(np.sqrt(k / a)), float(np.sqrt(k / b))
+
+
+def aperture_aspect(image, *, thresholds=(0.5, 0.7, 1.0), margin=0.15, sigma=3.0, border=3, details=False):
+    """Estimate the frame width/height ratio from a bright aperture that should be circular.
+
+    For each threshold (a fraction of Otsu's level on the smoothed image) the
+    largest bright region is taken, and the outermost left and right boundary
+    pixel of every row is fitted with an axis-aligned ellipse in raw pixel
+    coordinates. The ratio of its x and y semi-axes is the pixel dy/dx that
+    would make the aperture round, which converts to a frame width/height
+    ratio. Each fit is made with all rows and with the middle rows only (the
+    aperture may be cut off at the top and bottom of the frame). The spread
+    across variants shows how well the image constrains the ratio: this is a
+    consistency check, not a calibration. Points are taken from the outermost
+    boundary only, never selected near an assumed circle, which would bias the
+    result towards round.
+    """
+    from scipy import ndimage
+    from skimage import filters
+    a = np.asarray(image, dtype=float)
+    if a.ndim != 2 or not np.isfinite(a).all():
+        raise ValueError("image must be a finite 2D array")
+    ny, nx = a.shape
+    smooth = filters.gaussian(a / np.percentile(a, 99), sigma=sigma)
+    if np.ptp(smooth) == 0:
+        raise ValueError("image has no contrast")
+    level = filters.threshold_otsu(smooth)
+    variants, regions = [], {}
+    for fraction in thresholds:
+        mask = ndimage.binary_opening(smooth > level * fraction, structure=np.ones((3, 9)))
+        labels, count = ndimage.label(mask)
+        if count == 0:
+            continue
+        region = ndimage.binary_fill_holes(labels == 1 + np.argmax(np.bincount(labels.ravel())[1:]))
+        regions[fraction] = region
+        rows = np.nonzero(region.any(1))[0]
+        first = region[rows].argmax(1)
+        last = nx - 1 - region[rows, ::-1].argmax(1)
+        x = np.concatenate([first, last]).astype(float)
+        y = np.concatenate([rows, rows]).astype(float)
+        keep = (x >= border) & (x < nx - border) & (y >= border) & (y < ny - border)
+        for label, lo, hi in (("all rows", border, ny - border), ("middle rows", margin * ny, (1 - margin) * ny)):
+            sel = keep & (y >= lo) & (y < hi)
+            if sel.sum() < 20:
+                continue
+            _, _, sx, sy = _axis_ellipse(x[sel], y[sel])
+            variants.append({"threshold_fraction_of_otsu": fraction, "rows": label, "points": int(sel.sum()),
+                             "semi_axes_px_xy": [sx, sy], "pixel_aspect_yx": sx / sy,
+                             "frame_aspect": nx / (ny * sx / sy)})
+    if not variants:
+        raise ValueError("no aperture boundary found")
+    estimates = [v["frame_aspect"] for v in variants]
+    result = {"variants": variants, "frame_aspect_min": min(estimates), "frame_aspect_max": max(estimates),
+              "frame_aspect_median": float(np.median(estimates))}
+    return (result, regions) if details else result
+
+
 def resample_depth(values, z, spacing):
     """Linear interpolation along z only, onto a uniform grid starting at z[0].
 

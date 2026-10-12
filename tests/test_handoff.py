@@ -88,3 +88,61 @@ def test_pixel_aspect_drives_figure_shape():
     d = ImagingData(np.ones((4, 13)), np.zeros((4, 13)), {"pixel_aspect_yx": pixel_aspect((4, 13), 1.9651163)})
     fig = ImageGenerator(d).generate_amplitude()
     assert fig.axes[0].get_aspect() == pytest.approx(13 / (4 * 1.9651163))
+
+
+def test_mirror_geometry_reproduces_stored_ratio(tmp_path):
+    import h5py
+    from part3_reconstruction.handoff import mirror_geometry
+    path = tmp_path / "frame-21.hdf5"
+    values = {"imageColumns": 1300, "imageRows": 800, "columnStep": 26, "columnStepFract256": -26,
+              "rowStepSize": 43, "rowStepFract256": 0}
+    with h5py.File(path, "w") as f:
+        for k, v in values.items():
+            f["thz/info/mcp/" + k] = np.int64(v)
+        f["thz/info/aspect_ratio_computed"] = np.float32(1300 * 26 / (400 * 43))
+    g = mirror_geometry(path)
+    assert g["matches_recorded"] and g["aspect_from_integer_steps"] == pytest.approx(1.9651163)
+    assert g["aspect_with_fractional_steps"] == pytest.approx(1300 * (26 - 26 / 256) / (400 * 43))
+    assert g["pixel_aspect_yx"] == pytest.approx(43 / 26)
+    with h5py.File(path, "a") as f:
+        f["thz/info/aspect_ratio_computed"][()] = np.float32(1.5)
+    assert not mirror_geometry(path)["matches_recorded"]
+
+
+def test_aperture_aspect_recovers_frame_ratio():
+    from part3_reconstruction.handoff import aperture_aspect
+    ny, nx = 200, 1000                               # frame ratio 2.5 -> pixel dy/dx = 1000 / (200 * 2.5) = 2
+    yy, xx = np.mgrid[0:ny, 0:nx].astype(float)
+    for cy in (100.0, 95.0):                         # radius 300 px = 150 rows: cut off at top and bottom
+        disk = ((xx - 480) / 300) ** 2 + ((yy * 2 - 2 * cy) / 300) ** 2 <= 1
+        result = aperture_aspect(np.where(disk, 1.0, 0.1))
+        assert len(result["variants"]) == 6
+        for v in result["variants"]:
+            assert v["frame_aspect"] == pytest.approx(2.5, rel=0.03)
+            assert v["semi_axes_px_xy"][0] == pytest.approx(300, rel=0.02)
+    with pytest.raises(ValueError): aperture_aspect(np.full((50, 50), np.nan))
+    with pytest.raises(ValueError): aperture_aspect(np.ones((50, 50)))
+
+
+def test_html_report_is_self_contained(tmp_path):
+    from matplotlib.figure import Figure
+    from part3_reconstruction.report_html import write_html_report
+    fig = Figure(figsize=(2, 1)); fig.subplots().plot([0, 1])
+    fig.savefig(tmp_path / "handoff_veg_depth_profile.png")
+    sample = {"frames": 2, "shape": [4, 13], "phase_available": 1, "signal_fraction_range": [.1, .2],
+              "max_identity_error_pre_spatial": 1e-13, "max_identity_error_detail": 2e-13,
+              "phase_values_outside_mask": 0, "stripe_index_raw_median": .01,
+              "stripe_index_corrected_median": .007, "stripe_reduced_frames": 2}
+    report = {"handoff": "x<y", "files_read": 2, "files_with_missing_fields": [], "elapsed_seconds": 1.0,
+              "scope": "test", "summary_by_sample": {"vegetable": sample}, "render_seconds": {},
+              "depth_resampling": {"input_shape_zyx": [2, 4, 13], "z_mm_input": [1.0, 2.0], "output_shape_zyx": [11, 4, 13],
+                                   "output_spacing_mm": .1, "output_megabytes": .01, "resample_seconds": .01,
+                                   "strongest_frame": 2, "note": "n", "profile": [
+                                       {"frame_id": 1, "z_mm": 1.0, "raw_mean": 2.0, "signal_fraction": .1,
+                                        "stripe_index_corrected": .01}]},
+              "geometry": {}, "frames": [{"file": "a.npz", "missing": ["raw_phase"]}]}
+    page = write_html_report(report, tmp_path).read_text(encoding="utf-8")
+    assert page.count("data:image/png;base64,") == 1          # only the figure that exists
+    assert "Figure 1 missing" in page and "x&lt;y" in page       # missing figures flagged, text escaped
+    assert "mirror settings not checked" in page
+    assert "<th>Stripe index raw &rarr; corrected (median)</th>" in page

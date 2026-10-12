@@ -1,6 +1,7 @@
 """Run the Person 3 module over a whole Person 2 handoff and record the evidence.
 
-Outputs (in ``out_dir``): handoff_report.json, figures for the thesis, and a
+Outputs (in ``out_dir``): handoff_report.json, report.html (one self-contained
+page with every figure and table), the figures as PNG for the thesis, and a
 depth-resampled amplitude volume. Lateral axes stay in pixels because the
 handoff records no pixel size; z is in millimetres from the stacked file.
 """
@@ -10,9 +11,9 @@ from pathlib import Path
 import numpy as np
 from matplotlib.figure import Figure
 from scipy.ndimage import median_filter
-from .colormap_engine import normalise
 from .image_generator import ImageGenerator
-from .handoff import load_frame, load_volume, resample_depth, FRAME_ASPECT
+from .handoff import (load_frame, load_volume, resample_depth, mirror_geometry,
+                      aperture_aspect, FRAME_ASPECT)
 
 REQUIRED = ("amplitude_corrected", "amplitude_detail", "raw_amplitude", "raw_phase", "phase_corrected",
             "signal_mask", "phase_correction_available", "z_indices", "amplitude_pre_spatial",
@@ -147,7 +148,29 @@ def depth_study(root, out, spacing=0.1):
             "profile": profile, "note": "amplitude-only; wrapped raw_phase is not interpolated"}
 
 
-def run(root, out_dir):
+def geometry_study(root, out, raw_files=()):
+    """Pixel shape from the scan-mirror settings; Skin aperture as an independent consistency check."""
+    mirror = [mirror_geometry(p) for p in raw_files]
+    skin = load_frame(root / "data/skin_frame40_spatial.npz", amplitude_channel="raw_amplitude")
+    aperture, regions = aperture_aspect(skin.amplitude, details=True)
+    aperture["assumed_frame_aspect"] = skin.metadata["frame_aspect_ratio"]
+    fig = Figure(figsize=(9, 5.2), layout="constrained")
+    ax = fig.subplots()
+    lo, hi = np.percentile(skin.amplitude, [1, 99])
+    ax.imshow(skin.amplitude, cmap="gray", vmin=lo, vmax=hi, aspect=skin.metadata["pixel_aspect_yx"])
+    for (fraction, region), colour in zip(sorted(regions.items()), ("tab:cyan", "tab:orange", "tab:red")):
+        ax.contour(region, levels=[.5], colors=[colour], linewidths=.9)
+        ax.plot([], [], color=colour, label=f"threshold {fraction:g} x Otsu")
+    ax.legend(loc="lower right", fontsize=8)
+    ax.set(xlabel="x (pixel)", ylabel="y (pixel)",
+           title=f"Skin aperture: implied frame ratio {aperture['frame_aspect_min']:.2f}-{aperture['frame_aspect_max']:.2f} "
+                 f"(assumed {aperture['assumed_frame_aspect']:.3f})")
+    fig.savefig(out / "handoff_geometry_skin_aperture.png", dpi=150)
+    return {"mirror": mirror, "skin_aperture": aperture,
+            "note": "mirror steps fix pixel shape only; their length at the sample is not recorded"}
+
+
+def run(root, out_dir, raw_files=()):
     root, out = Path(root), Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     started = time.perf_counter()
@@ -174,9 +197,13 @@ def run(root, out_dir):
     figure_amplitude_channels(root, out)
     render = figure_phase_cases(root, out)
     depth = depth_study(root, out)
+    geometry = geometry_study(root, out, raw_files)
     report = {"handoff": str(root), "files_read": len(records), "files_with_missing_fields": [r for r in records if r["missing"]],
               "summary_by_sample": by_kind, "render_seconds": render, "depth_resampling": depth,
+              "geometry": geometry,
               "elapsed_seconds": time.perf_counter() - started, "frames": records,
               "scope": "I/O, rendering and depth resampling on real pre-processed data; no physical calibration or ground truth"}
     (out / "handoff_report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    from .report_html import write_html_report
+    write_html_report(report, out)
     return report
