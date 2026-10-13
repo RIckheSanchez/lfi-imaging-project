@@ -26,12 +26,12 @@ class VolumePanel(QtWidgets.QWidget):
         self.percentile = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
         self.percentile.setMaximumWidth(140)
         self.percentile_value = QtWidgets.QSpinBox()
-        self.percentile_value.setRange(0, 94)
-        self.percentile_value.setValue(60)
+        self.percentile_value.setRange(0, 99)
+        self.percentile_value.setValue(90)
         self.percentile.valueChanged.connect(self.percentile_value.setValue)
         self.percentile_value.valueChanged.connect(self.percentile.setValue)
-        self.percentile.setRange(0, 94)
-        self.percentile.setValue(60)
+        self.percentile.setRange(0, 99)
+        self.percentile.setValue(90)
         self.reconstruct = QtWidgets.QCheckBox()
         self.render_button = QtWidgets.QPushButton()
         self.reset_button = QtWidgets.QPushButton()
@@ -121,6 +121,10 @@ class VolumePanel(QtWidgets.QWidget):
                                             smooth=False, computeNormals=False,
                                             glOptions='translucent')
                                 for vertices, faces, color in result['meshes']]
+        # Draw inner shells first so transparent outer shells blend over them.
+        if result['mode'] == 'isosurface':
+            for index, item in enumerate(self.scene_items):
+                item.setDepthValue(-index)
         for item in self.scene_items:
             if self.scene is not None:
                 self.scene.addItem(item)

@@ -238,7 +238,7 @@ def test_volume_mesh_worker_and_invalidation(qtbot, window, tmp_path):
     qtbot.mouseClick(panel.render_button, QtCore.Qt.MouseButton.LeftButton)
     wait_ready(qtbot, window)
     assert len(panel.scene_items) == 3
-    assert panel.result['thresholds'] == tuple(np.percentile(values,[65,95]))
+    assert panel.result['thresholds'] == tuple(np.percentile(values,[65,99.5]))
     window.set_language('CN')
     assert panel.render_button.text() == '渲染 / 刷新三维'
     window.brightness.setValue(55)
@@ -405,6 +405,8 @@ def test_documented_gaussian_example_in_worker(qtbot, tmp_path):
 
 def test_mode_specific_isosurface_controls(window):
     panel = window.volume_panel
+    assert panel.percentile.value() == panel.percentile_value.value() == 90
+    assert panel.percentile.maximum() == panel.percentile_value.maximum() == 99
     for widget in (panel.percentile_label, panel.percentile, panel.percentile_value):
         assert widget.isHidden()
     panel.result = dict(mode='volume',original_shape=(2,3,4),sampled_points=24,step=1)

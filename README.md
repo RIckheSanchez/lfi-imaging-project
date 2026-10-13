@@ -75,7 +75,7 @@ Both amplitude and phase must be present with compatible dimensions.
 - Amplitude and phase waveforms at the selected pixel.
 - Calibrated 2D scale bar when a positive pixel size is entered.
 - Downsampled amplitude Volume and three uncapped Isosurface meshes; adjustable
-  lower percentile, fixed 95th-percentile upper threshold and camera reset.
+  lower percentile, fixed 99.5th-percentile upper threshold and camera reset.
 - Raw selected-channel CSV, colored pixel PNG/JPEG/TIFF and publication PNG
   with axes/colorbar. PNG/TIFF and publication PNG carry 300 DPI.
 - Thread-pool loading, slice/histogram preparation, backend processing, 3D

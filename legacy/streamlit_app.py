@@ -176,7 +176,7 @@ def t(key):
     return STRINGS[key][lang]
 
 
-def create_3d_trace(X, Y, Z, values, colorscale, mode='volume', percentile=60):
+def create_3d_trace(X, Y, Z, values, colorscale, mode='volume', percentile=90):
     coordinates = dict(x=X.ravel(), y=Y.ravel(), z=Z.ravel(), value=values.ravel(),
                        colorscale=colorscale)
     if mode == 'isosurface':
@@ -515,7 +515,7 @@ else:
             with col_3d_info:
                 st.markdown(t('rendering_info'))
                 render_mode = st.radio(t('render_mode'), ['volume_mode', 'isosurface_mode'], format_func=t)
-                iso_percentile = st.slider(t('iso_percentile'), 0, 94, 60) if render_mode == 'isosurface_mode' else 60
+                iso_percentile = st.slider(t('iso_percentile'), 0, 99, 90) if render_mode == 'isosurface_mode' else 90
                 st.info(t('rotate_hint'))
                 if st.button(t('btn_reset_camera'), use_container_width=True):
                     st.session_state['3d_camera'] = None

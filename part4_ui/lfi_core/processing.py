@@ -28,13 +28,15 @@ def adjust_slice(normalized, brightness=60, contrast=75):
     return np.clip((normalized - .5) * (contrast / 50) + .5 + (brightness - 50) / 100, 0, 1)
 
 
-def isosurface_thresholds(values, percentile=60):
-    """Lower requested percentile and fixed upper 95th percentile."""
-    return float(np.percentile(values, percentile)), float(np.percentile(values, 95))
+def isosurface_thresholds(values, percentile=90):
+    """Lower requested percentile (default 90) and fixed upper 99.5th."""
+    if not 0 <= percentile < 99.5:
+        raise ValueError('Isomin percentile must be at least 0 and below 99.5.')
+    return float(np.percentile(values, percentile)), float(np.percentile(values, 99.5))
 
 
 
-def prepare_3d(data, mode='volume', percentile=60, colormap='Viridis',
+def prepare_3d(data, mode='volume', percentile=90, colormap='Viridis',
                brightness=60, contrast=75, max_points=200_000):
     """Prepare XYZ volume pixels or three uncapped meshes off the GUI thread.
 
@@ -65,18 +67,16 @@ def prepare_3d(data, mode='volume', percentile=60, colormap='Viridis',
         result['rgba'] = np.ascontiguousarray((rgba.transpose(2, 1, 0, 3) * 255).astype(np.uint8))
     else:
         from skimage.measure import marching_cubes
-        if not 0 <= percentile <= 94:
-            raise ValueError('Isomin percentile must be between 0 and 94.')
         low, high = isosurface_thresholds(values, percentile)
         if not minimum < low < high <= maximum:
             raise ValueError('The selected percentiles do not define distinct isosurfaces. Try another percentile.')
         meshes = []
-        for level in np.linspace(low, high, 3):
-            level = min(float(level), np.nextafter(maximum, minimum))
+        for level, opacity in zip(np.linspace(low, high, 3), (.12, .30, .60)):
+            level = min(float(level), float(np.nextafter(np.float32(maximum), np.float32(minimum))))
             vertices, faces, _, _ = marching_cubes(values, level=level, spacing=(step, step, step))
             # No boundary caps are added. Reverse ZYX vertices to sensor XYZ.
             color_value = adjust_slice((level-minimum)/(maximum-minimum+1e-10), brightness, contrast)
-            color = tuple(cmap(color_value)[:3]) + (.45,)
+            color = tuple(cmap(color_value)[:3]) + (opacity,)
             meshes.append((np.ascontiguousarray(vertices[:, ::-1]), faces, color))
         result.update(meshes=meshes, thresholds=(low, high))
     return result

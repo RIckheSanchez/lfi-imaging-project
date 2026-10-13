@@ -23,7 +23,7 @@ for channel in ('amplitude','phase'):
 X,Y,Z,values,step=namespace['get_downsampled_volume'].__wrapped__(data, (data.file_path, Path(data.file_path).stat().st_mtime, Path(data.file_path).stat().st_size))
 trace=namespace['create_3d_trace'](X,Y,Z,values,'Viridis','isosurface')
 assert trace.type=='isosurface' and trace.surface.count==3
-assert trace.isomin==np.percentile(values,60) and trace.isomax==np.percentile(values,95)
+assert trace.isomin==np.percentile(values,90) and trace.isomax==np.percentile(values,99.5)
 assert not trace.caps.x.show and not trace.caps.y.show and not trace.caps.z.show
 print('ISOSURFACE PASS (single plane mushroom; object validation only)')
 raw=data.amplitude[0]; norm=(raw-raw.min())/(raw.max()-raw.min()+1e-10)

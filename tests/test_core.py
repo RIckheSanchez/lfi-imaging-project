@@ -42,7 +42,7 @@ def test_volume_and_thresholds(mushroom):
     x, y, z, values, step = downsampled_volume(mushroom)
     assert x.shape == y.shape == z.shape == values.shape
     assert np.array_equal(values, mushroom.amplitude[::step, ::step, ::step])
-    assert isosurface_thresholds(values) == tuple(np.percentile(values, [60, 95]))
+    assert isosurface_thresholds(values) == tuple(np.percentile(values, [90, 99.5]))
 
 
 def test_identity_backends(mushroom):
@@ -107,14 +107,15 @@ def test_volume_axis_order_and_rgba(synthetic_volume):
 def test_three_uncapped_isosurfaces(synthetic_volume):
     from part4_ui.lfi_core.processing import prepare_3d
     result = prepare_3d(synthetic_volume, 'isosurface')
-    assert result['thresholds'] == tuple(np.percentile(synthetic_volume.amplitude, [60,95]))
+    assert result['thresholds'] == tuple(np.percentile(synthetic_volume.amplitude, [90,99.5]))
     assert len(result['meshes']) == 3
+    assert [color[3] for _,_,color in result['meshes']] == [.12,.30,.60]
     for vertices, faces, color in result['meshes']:
         assert vertices.shape[1] == faces.shape[1] == 3
         assert faces.max() < len(vertices)
         assert np.all(vertices >= 0)
         assert np.all(vertices <= [19,17,11])
-        assert color[3] == .45
+        assert color[3] in (.12,.30,.60)
 
 
 def test_3d_degenerate_and_single_layer(mushroom, synthetic_volume):
@@ -141,3 +142,10 @@ def test_volume_robust_clipping_and_nonlinear_opacity(synthetic_volume):
     mask = (middle > .4) & (middle < .6)
     assert np.all(alpha[mask] < (middle[mask]*.35*255).astype(np.uint8))
     assert values[-1,-1,-1] == 1e9
+
+
+
+@pytest.mark.parametrize('percentile', [-1,99.5,100])
+def test_isosurface_invalid_percentile(synthetic_volume, percentile):
+    with pytest.raises(ValueError,match='below 99.5'):
+        isosurface_thresholds(synthetic_volume.amplitude, percentile)
