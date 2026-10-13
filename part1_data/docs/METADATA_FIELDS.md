@@ -8,7 +8,8 @@ Thesis Plan 4.1: metadata **saved alongside the data** (JSON sidecar + optional 
 from output_interface import load_single_scan, write_metadata_sidecar, write_metadata_hdf5_attrs
 
 scan = load_single_scan("data/2026_Vegetables/frame-21.hdf5")
-write_metadata_sidecar(scan)                          # → frame-21.meta.json next to source
+# Always pass an explicit path (RDM dirs are often read-only):
+write_metadata_sidecar(scan, path="exported/frame-21.meta.json")
 write_metadata_hdf5_attrs(scan, "exported/frame-21_meta.h5")  # attrs-only HDF5
 ```
 

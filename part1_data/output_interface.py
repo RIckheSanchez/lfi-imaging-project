@@ -29,13 +29,22 @@ from typing import Iterator, Optional
 
 import numpy as np
 
-from data_types import LFIRawData
-from loader import (
-    _infer_target_type,
-    find_data_files,
-    load_single_scan,
-    load_volume,
-)
+try:
+    from .data_types import LFIRawData
+    from .loader import (
+        _infer_target_type,
+        find_data_files,
+        load_single_scan,
+        load_volume,
+    )
+except ImportError:  # running as scripts inside part1_data/
+    from data_types import LFIRawData
+    from loader import (
+        _infer_target_type,
+        find_data_files,
+        load_single_scan,
+        load_volume,
+    )
 
 __all__ = [
     "SCHEMA_VERSION", "PhaseNotConvertedError", "LFIRawData",
@@ -316,16 +325,32 @@ def batch_export(data_dir: str, out_dir: str, *, arrays: bool = False,
 def write_metadata_sidecar(
     data: LFIRawData,
     path: Optional[str] = None,
+    *,
+    allow_beside_source: bool = False,
 ) -> str:
     """
-    Write metadata as a JSON sidecar (Thesis Plan 4.1: saved alongside the data).
+    Write metadata as a JSON sidecar (Thesis Plan 4.1).
 
-    Default path: `<stem>.meta.json` next to the source file.
+    Prefer an explicit ``path`` (e.g. under an export directory). Writing beside
+    the source file is off by default because RDM mounts are often read-only —
+    pass ``allow_beside_source=True`` or set ``path=`` explicitly.
     """
     record = scan_to_record(data)
     if path is None:
+        if not allow_beside_source:
+            raise ValueError(
+                "write_metadata_sidecar requires path=... "
+                "(default refuses writing beside the source file; "
+                "RDM data dirs are often read-only). "
+                "Pass allow_beside_source=True only for writable local copies."
+            )
         src = Path(data.file_path)
         path = str(src.parent / f"{src.stem}.meta.json")
+        warnings.warn(
+            f"[sidecar] writing beside source: {path} "
+            "(ensure the directory is writable; avoid RDM read-only mounts)",
+            stacklevel=2,
+        )
     Path(path).write_text(json.dumps(record, indent=2, ensure_ascii=False), encoding="utf-8")
     return path
 
@@ -400,7 +425,11 @@ def main():
                 continue
             data = _load(row["source"], exclude_anomalous=False)
             if args.sidecar:
-                write_metadata_sidecar(data)
+                # Always write under --out, never beside RDM sources.
+                name = Path(row["source"]).stem
+                write_metadata_sidecar(
+                    data, path=str(Path(args.out) / f"{name}.meta.json")
+                )
             if args.hdf5_attrs:
                 name = Path(row["source"]).stem
                 write_metadata_hdf5_attrs(

@@ -8,7 +8,7 @@ Root: `02 Data Sets/` (UQ RDM).
 | Chip | `.../Chip/` | HDF5 z-stack | `(70, 1400, 400)` | `zstack_unconfirmed` (likely degrees) | _fill_ | yes (borad1) | units TBD with Karl |
 | Marble | `.../Marble/` | HDF5 z-stack | `(1, 1400, 400)` | same | _fill_ | yes (maeble10%_*) | filename typo "maeble" |
 | Leaf | `.../Leaf/` | MATLAB `.mat` | `(475, 1200, 400)` | `leaf_wrap_4096` | _fill_ | yes (leaf1.mat, 2026-10-11) | Karl: 3rd axis = **time series** |
-| Sound | `.../Sound/` | MATLAB `.mat` (Plan) | _TBD_ | `sound_unconfirmed` | _fill_ | **no** | Thesis Plan commitment; confirm vars |
+| Sound | `.../Sound/` | MATLAB `.mat` (Plan) | _TBD_ | `sound_unconfirmed` | _fill_ | **no** | **unverified** — require `mat_vars=`; do not guess |
 | Skin | `.../Skin/` | HDF5 frames | `(1, 400, 1300)` | `skin_unconfirmed` | _fill_ | 1 local sample | contact: no more for public use |
 | Vegetables | `.../2026 Semester 2/2026_Vegetables/` | HDF5 v2026 per-frame files | `(1, 400, 1300)` / volume `(n,400,1300)` | `vegetables_int16` | ~136 (Haobo) | frames 20-28 | use `load_volume`; need `experiment_details.txt` |
 | PCB | `.../2026_PCB/` | HDF5 frames / ? | _per file_ | `pcb_unconfirmed` | _fill_ | local frame-3 identity doubtful | CORN06052026 |
@@ -26,4 +26,4 @@ Root: `02 Data Sets/` (UQ RDM).
 
 1. Download one `.mat` from RDM `Sound/`.  
 2. `python3 -c "import scipy.io; print(scipy.io.whosmat('Sound/....mat'))"`  
-3. Write names into `loader.MAT_LAYOUTS["Sound"]`, then confirm phase formula before leaving `sound_unconfirmed`.
+3. After a real Sound file is available, set `mat_vars=` (or add a verified `MAT_LAYOUTS["Sound"]` entry), then confirm phase formula before leaving `sound_unconfirmed`.

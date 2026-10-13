@@ -94,7 +94,7 @@ class LFIMetadata:
         elif file_format == "volume_from_frames":
             scan_mode = "volume"
         elif file_format == "mat":
-            # Karl (via Haobo contact, ~2026-10): Leaf third axis is a time series
+            # Karl, email, 2026-10-14: Leaf third axis is a time series
             scan_mode = "time_series" if target_type == "Leaf" else "stack_unconfirmed"
         else:
             scan_mode = "frames"

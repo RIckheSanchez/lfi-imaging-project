@@ -30,13 +30,22 @@ from typing import Optional, Sequence, Union
 import h5py
 import numpy as np
 
-from data_types import LFIRawData
-from metadata_schema import LFIMetadata
-from phase_encoding import (
-    convert_phase,
-    get_phase_encoding,
-    resolve_encoding_for_phase,
-)
+try:
+    from .data_types import LFIRawData
+    from .metadata_schema import LFIMetadata
+    from .phase_encoding import (
+        convert_phase,
+        get_phase_encoding,
+        resolve_encoding_for_phase,
+    )
+except ImportError:  # running as scripts inside part1_data/
+    from data_types import LFIRawData
+    from metadata_schema import LFIMetadata
+    from phase_encoding import (
+        convert_phase,
+        get_phase_encoding,
+        resolve_encoding_for_phase,
+    )
 
 
 FrameId = Union[int, str]
@@ -439,17 +448,27 @@ def _read_scalar_tree(group: h5py.Group) -> dict:
     return out
 
 
+def _qcl_sort_key(name: str) -> tuple:
+    """Sort QCL group names by numeric suffix (QCL0 before QCL1)."""
+    digits = re.sub(r"\D", "", str(name))
+    return (int(digits) if digits else 10**9, str(name))
+
+
 def _pick_qcl_side(image_data_group: h5py.Group,
                    qcl: Optional[str],
                    side: Optional[str]) -> tuple[str, str, h5py.Group]:
-    """Pick QCL / Left|Right leaf group automatically or from args."""
+    """
+    Pick QCL / Left|Right leaf group automatically or from args.
+
+    Default channel (same rule as v2026): lowest-numbered QCL present + Left
+    when available. Pass qcl=/side= explicitly to override.
+    """
     qcl_keys = list(image_data_group.keys())
     if not qcl_keys:
         raise ValueError("Image Data has no QCL group")
 
     if qcl is None:
-        # prefer QCL1 (PCB final format), else first
-        qcl = "QCL1" if "QCL1" in qcl_keys else ("QCL0" if "QCL0" in qcl_keys else qcl_keys[0])
+        qcl = sorted(qcl_keys, key=_qcl_sort_key)[0]
     if qcl not in image_data_group:
         raise ValueError(f"QCL group not found '{qcl}', available: {qcl_keys}")
 
@@ -461,6 +480,14 @@ def _pick_qcl_side(image_data_group: h5py.Group,
         raise ValueError(f"side not found '{side}', available: {side_keys}")
 
     return qcl, side, side_group[side]
+
+
+def _anomalous_ids_for_target(target_type: str) -> set[int]:
+    """Frame ids marked anomalous for this dataset identity (empty if none)."""
+    if target_type != "Vegetables":
+        return set()
+    enc = get_phase_encoding("vegetables_int16")
+    return {int(x) for x in enc.anomalous_frame_ids}
 
 
 def _read_hdf5_zstack(filepath: str, f: h5py.File, target_type: str,
@@ -771,52 +798,11 @@ def _read_hdf5_data_v2026(
 # Leaf verified on RDM leaf1.mat: L_A / L_P are int16 (1200, 400, 475).
 # Same file also has L_P_U / L_P_U_M (float64, 1200×400×91, first 91 unwrapped frames and a processed variant),
 # these are processed products and are not loaded as raw data.
+# Sound: NOT listed — no real RDM file verified; callers must pass mat_vars=.
 # stack_axis: frame/slice axis (MATLAB H×W×N → last axis).
 MAT_LAYOUTS: dict[str, dict] = {
     "Leaf": {"amplitude": "L_A", "phase": "L_P", "stack_axis": -1},
-    # Sound: Thesis Plan requires .mat support. Real RDM variable names not verified yet;
-    # override with mat_vars=. If missing, _guess_mat_layout tries common names.
-    "Sound": {"amplitude": "S_A", "phase": "S_P", "stack_axis": -1},
 }
-
-
-def _guess_mat_layout(available: dict, preferred: dict) -> dict:
-    """
-    If preferred names are missing, try to guess amplitude/phase names from file variables.
-    Only for unchecked datasets like Sound; if guessing fails, error and list variables.
-    """
-    layout = dict(preferred)
-    names = [n for n in available if not str(n).startswith("__")]
-    if layout.get("amplitude") in available and layout.get("phase") in available:
-        return layout
-
-    # common paired names
-    pairs = [
-        ("S_A", "S_P"), ("A", "P"), ("amp", "phase"),
-        ("amplitude", "phase"), ("Amp", "Phase"), ("L_A", "L_P"),
-    ]
-    for a, p in pairs:
-        if a in available and p in available:
-            layout["amplitude"], layout["phase"] = a, p
-            layout.setdefault("stack_axis", -1)
-            warnings.warn(
-                f"[loader] .mat using guessed variable names amplitude={a!r}, phase={p!r}; "
-                f"verify on a real Sound file then write MAT_LAYOUTS.",
-                stacklevel=3,
-            )
-            return layout
-
-    # exactly two arrays: pair by sorted names (last resort)
-    if len(names) == 2:
-        a, p = sorted(names)
-        layout["amplitude"], layout["phase"] = a, p
-        layout.setdefault("stack_axis", -1)
-        warnings.warn(
-            f"[loader] .mat only two variables; temporarily using amplitude={a!r}, phase={p!r}.",
-            stacklevel=3,
-        )
-        return layout
-    return layout
 
 
 def _mat_variables(filepath: str) -> dict:
@@ -928,14 +914,14 @@ def _read_mat(
     """
     tt = target_type or _infer_target_type(filepath)
     available = _mat_variables(filepath)
-    layout = {**MAT_LAYOUTS.get(tt, {}), **(mat_vars or {})}
-    if mat_vars is None and tt in ("Sound", "Unknown"):
-        layout = _guess_mat_layout(available, layout)
+    layout = {**(MAT_LAYOUTS.get(tt) or {}), **(mat_vars or {})}
 
     if "amplitude" not in layout or "phase" not in layout:
         raise ValueError(
-            f"target={tt} has no .mat layout; pass mat_vars="
-            f"{{'amplitude': ..., 'phase': ...}}.variables in file: {available}"
+            f"target={tt} has no verified .mat layout; pass mat_vars="
+            f"{{'amplitude': '...', 'phase': '...'}} "
+            f"(Sound is unverified — do not guess variable names). "
+            f"Variables in file: {available}"
         )
     missing = [layout[k] for k in ("amplitude", "phase") if layout[k] not in available]
     if missing:
@@ -983,7 +969,7 @@ def _read_mat(
     notes = enc.notes
     if tt == "Leaf":
         notes = (
-            f"{notes}; Karl (via Haobo contact, ~2026-10): "
+            f"{notes}; Karl, email, 2026-10-14: "
             "third axis is a time series, not depth"
         ).lstrip("; ")
     if selected is not None:
@@ -1007,7 +993,12 @@ def _read_mat(
         "mat_total_frames": int(n_frames),
         **meta.to_dict(),
     }
-    _attach_depth_metadata(md, z_indices, filepath)
+    # Leaf third axis is time, not depth — never attach experiment_details depth_mm.
+    if tt == "Leaf":
+        md.setdefault("depth_mm", None)
+        md.setdefault("experiment_details_path", "")
+    else:
+        _attach_depth_metadata(md, z_indices, filepath)
 
     return LFIRawData(
         amplitude=np.asarray(amplitude, dtype=np.float64),
@@ -1038,6 +1029,21 @@ def _read_hdf5(
     with h5py.File(filepath, "r") as f:
         fmt = _detect_format(f)
         if fmt == "hdf5_zstack":
+            unsupported = [
+                name
+                for name, val in (
+                    ("frame_ids", frame_ids),
+                    ("qcl", qcl),
+                    ("side", side),
+                )
+                if val is not None
+            ]
+            if unsupported:
+                raise ValueError(
+                    f"hdf5_zstack ignores channel/frame subsetting; "
+                    f"do not pass {unsupported} (file={filepath}). "
+                    f"Omit these kwargs, or use a frames/v2026 file."
+                )
             return _read_hdf5_zstack(
                 filepath, f, tt, phase_encoding, convert_phase_flag, rdm_source_path
             )
@@ -1095,9 +1101,10 @@ def load_single_scan(
         convert_phase: False keeps raw codes; no radian conversion
         rdm_source_path: RDM source path (stored in metadata)
         frame_ids: load only these frames; frames/v2026 use file ids; .mat uses 0-based stack indices
-        qcl / side: frames / v2026 channel select; None = auto
+        qcl / side: frames / v2026 only; None = lowest-numbered QCL + Left.
+                    Not valid for z-stack (raises ValueError if passed).
         exclude_anomalous: exclude anomalous frames listed in the encoding table (e.g. Vegetables 20)
-        mat_vars: .mat only; override MAT_LAYOUTS names / stack_axis
+        mat_vars: .mat only; required for Sound (no verified layout). Overrides MAT_LAYOUTS.
         include_waveform: True loads RX_LINE_OF_BEST_FIT (~H×W×184, large)
 
     Returns:
@@ -1203,9 +1210,15 @@ def load_volume(
     # keep numeric order (find_data_files already sorted; preserve after filter)
     file_by_frame.sort(key=lambda t: t[0])
 
+    # Resolve identity before the loop so anomalous single-frame files
+    # (e.g. Vegetables frame-20.hdf5) can be skipped without calling load_single_scan.
+    tt_guess = target_type or _infer_target_type(str(file_by_frame[0][1]))
+    anomalous_skip = _anomalous_ids_for_target(tt_guess) if exclude_anomalous else set()
+
     amps, phases, waves = [], [], []
     z_indices = []
     anomalous_all = []
+    skipped_anomalous: list[int] = []
     tt = None
     enc_name = None
     converted = None
@@ -1214,17 +1227,37 @@ def load_volume(
     source_files = []
 
     for n, fp in file_by_frame:
-        data = load_single_scan(
-            str(fp),
-            target_type=target_type,
-            phase_encoding=phase_encoding,
-            convert_phase=convert_phase,
-            rdm_source_path=rdm_source_path,
-            qcl=qcl,
-            side=side,
-            exclude_anomalous=exclude_anomalous,
-            include_waveform=include_waveform,
-        )
+        if n in anomalous_skip:
+            warnings.warn(
+                f"[load_volume] skip anomalous/startup frame file frame_id={n} ({fp.name})",
+                stacklevel=2,
+            )
+            skipped_anomalous.append(n)
+            anomalous_all.append(n)
+            continue
+        try:
+            data = load_single_scan(
+                str(fp),
+                target_type=target_type,
+                phase_encoding=phase_encoding,
+                convert_phase=convert_phase,
+                rdm_source_path=rdm_source_path,
+                qcl=qcl,
+                side=side,
+                exclude_anomalous=exclude_anomalous,
+                include_waveform=include_waveform,
+            )
+        except ValueError as e:
+            # Per-file anomalous-only content (should be rare after pre-skip).
+            if exclude_anomalous and ("anomalous" in str(e).lower() or "nothing left" in str(e).lower()):
+                warnings.warn(
+                    f"[load_volume] skip {fp.name}: {e}",
+                    stacklevel=2,
+                )
+                skipped_anomalous.append(n)
+                anomalous_all.append(n)
+                continue
+            raise
         if data.n_slices != 1:
             # multi-slice single files are concatenated in file-internal order
             pass
@@ -1253,6 +1286,13 @@ def load_volume(
         anomalous_all.extend(data.metadata.get("anomalous_frame_ids") or [])
         source_files.append(str(fp.resolve()))
 
+    if not amps:
+        raise ValueError(
+            f"nothing left to load under {data_dir} after skipping anomalous frames "
+            f"{sorted(set(skipped_anomalous))}. "
+            f"Pass exclude_anomalous=False to include them as raw codes."
+        )
+
     amplitude = np.concatenate(amps, axis=0)
     phase = np.concatenate(phases, axis=0)
     waveform = np.concatenate(waves, axis=0) if waves else None
@@ -1269,13 +1309,17 @@ def load_volume(
         anomalous_frame_ids=sorted(set(int(x) for x in anomalous_all)),
         laser_channel=laser_channel,
         rdm_source_path=rdm_source_path,
-        notes="stacked from multiple single-frame files in numeric frame order",
+        notes=(
+            "stacked from multiple single-frame files in numeric frame order"
+            + (f"; skipped anomalous frames {sorted(set(skipped_anomalous))}" if skipped_anomalous else "")
+        ),
     )
     md = {
         **meta.to_dict(),
         "scan_mode": "volume",
         "source_files": source_files,
         "n_source_files": len(source_files),
+        "skipped_anomalous_frame_ids": sorted(set(skipped_anomalous)),
     }
     if waveform is not None:
         md["data_channels"] = ["amplitude", "phase", "waveform"]

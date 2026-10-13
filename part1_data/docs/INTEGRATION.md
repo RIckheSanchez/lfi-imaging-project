@@ -74,24 +74,29 @@ Lookup only by dataset identity (`TARGET_PHASE_ENCODING`):
 | Leaf | `leaf_wrap_4096`: wrap(L_P·π/4096 − π), int16 in [-8192, 8191] | Yes |
 | Skin | `skin_unconfirmed` | **No** |
 | PCB / Megabugs | `pcb_unconfirmed` | **No** |
-| Sound | `sound_unconfirmed` | **No** |
+| Sound | `sound_unconfirmed` | **No** (requires `mat_vars=`; layout unverified) |
 
-Vegetables frame 20 is anomalous: excluded by default; with `exclude_anomalous=False` it loads raw and is flagged.  
+Vegetables frame 20 is anomalous: excluded by default.  
+`load_volume` **skips** `frame-20.hdf5` before calling `load_single_scan` so a full Vegetables folder does not crash.  
+With `exclude_anomalous=False` anomalous frames load as raw codes and are flagged.  
 `get_phase_radians()` raises `PhaseNotConvertedError` on raw codes.
 
 ## Common parameters
 
 | Parameter | Use |
 |---|---|
-| `side='Right'` / `qcl='QCL1'` | channel select |
-| `frame_ids=[21, 22]` | subset (HDF5 frame ids; `.mat` 0-based indices) |
+| `side='Right'` / `qcl='QCL1'` | channel select (frames / v2026 only) |
+| `frame_ids=[21, 22]` | subset (HDF5 frame ids; `.mat` 0-based indices); **not** for z-stack |
 | `exclude_anomalous=False` | include anomalous frames |
 | `include_waveform=True` | load `RX_LINE_OF_BEST_FIT` (~190 MB/frame) |
-| `mat_vars={...}` | override `.mat` variable names |
+| `mat_vars={...}` | **required for Sound**; overrides Leaf names if needed |
+
+Default channel when `qcl`/`side` omitted (frames + v2026): **lowest-numbered QCL + Left**.
 
 ### `load_volume(data_dir, ...)`
 
 Stacks `frame-XX.hdf5` in **numeric** order into `(n, H, W)`.  
+Anomalous frame files (Vegetables 20) are skipped by default and listed in `metadata['skipped_anomalous_frame_ids']`.  
 If `experiment_details.txt` is present:
 
 ```
@@ -110,11 +115,13 @@ python3 output_interface.py data/Marble --out exported --sidecar --hdf5-attrs
 
 ## Known limits
 
-- Leaf third axis is a **time series** (Karl / contact reply ~2026-10).  
+- Leaf third axis is a **time series** (Karl, email, 2026-10-14); Leaf does **not** attach `depth_mm`.  
 - Leaf v5 partial load still peaks high in RAM; prefer MATLAB v7.3 for true streaming.  
-- Sound `.mat` layout skeleton ready; confirm variable names on a real RDM file.  
-- Skin / PCB / Chip / Marble formulas unconfirmed.  
-- See `PROVENANCE.md` for local `frame-1` / `frame-3` identity.
+- Sound `.mat` is unverified — always pass `mat_vars=`; do not guess names.  
+- Skin / PCB / Chip / Marble formulas unconfirmed (await Karl).  
+- `write_metadata_sidecar` requires `path=` (does not write beside RDM sources by default).  
+- See `PROVENANCE.md` for local `frame-1` / `frame-3` identity.  
+- Team `shared/data_types.py` may differ from Part 1 `LFIRawData` — confirm contract with Haobo.
 
 ## Tests
 
