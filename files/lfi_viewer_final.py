@@ -19,6 +19,9 @@ import h5py
 # ── Translations ──────────────────────────────────────────────────
 
 STRINGS = {
+    'pixel_size': {"EN": 'Pixel size (μm)', "CN": '像素尺寸（μm）'},
+    'scale_hint': {"EN": 'Set a positive pixel size to display a scale bar.', "CN": '请输入大于 0 的像素尺寸以显示比例尺。'},
+
     'raw_value': {"EN": 'Raw value', "CN": '原始值'},
     'pixel_x': {"EN": 'Pixel X', "CN": '像素 X'},
     'pixel_y': {"EN": 'Pixel Y', "CN": '像素 Y'},
@@ -159,6 +162,16 @@ def export_csv(raw_slice):
     buffer = io.StringIO()
     np.savetxt(buffer, raw_slice, delimiter=",", fmt="%.6g")
     return buffer.getvalue()
+
+
+def scale_bar(width, pixel_size):
+    """Choose a 1/2/5 physical length within one quarter of image width."""
+    target = width * pixel_size / 4
+    exponent = np.floor(np.log10(target))
+    base = 10 ** exponent
+    length = max(value * base for value in (1, 2, 5) if value * base <= target)
+    label = f"{length / 1000:g} mm" if length >= 1000 else f"{length:g} μm"
+    return length / pixel_size, label
 
 
 # ── Cached helpers ────────────────────────────────────────────────
@@ -418,6 +431,11 @@ with st.sidebar:
         )
 
 
+    pixel_size = st.number_input(t('pixel_size'), min_value=0.0, value=0.0, key='pixel_size_um')
+    if pixel_size == 0:
+        st.caption(t('scale_hint'))
+
+
 # ── Main content ──────────────────────────────────────────────────
 
 st.markdown('<p style="font-size:4.5rem; font-weight:900; color:#065A82; letter-spacing:-1px; line-height:1.1; margin-bottom:0.2rem;">🔬 LFI Imaging Viewer</p>', unsafe_allow_html=True)
@@ -498,13 +516,14 @@ else:
                 coloraxis_colorbar=dict(title=color_label),
                 margin=dict(l=0, r=0, t=30, b=0)
             )
-            fig.add_annotation(
-                x=0.95, y=0.05,
-                xref="paper", yref="paper",
-                text="100 μm",
-                showarrow=False,
-                bgcolor="white", bordercolor="black", borderwidth=1
-            )
+            if pixel_size > 0:
+                bar_pixels, bar_label = scale_bar(raw_slice.shape[1], pixel_size)
+                bar_x, bar_y = raw_slice.shape[1] * 0.06, raw_slice.shape[0] * 0.9
+                fig.add_shape(type="line", x0=bar_x, x1=bar_x + bar_pixels,
+                              y0=bar_y, y1=bar_y, line=dict(color="white", width=5))
+                fig.add_annotation(x=bar_x + bar_pixels / 2, y=bar_y,
+                                   text=bar_label, showarrow=False, yshift=15,
+                                   bgcolor="white", font=dict(color="black"))
             st.plotly_chart(fig, use_container_width=True)
 
         with col_info:
