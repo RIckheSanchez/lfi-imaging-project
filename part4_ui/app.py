@@ -7,9 +7,10 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 from .i18n import text
 from .lfi_core.data_io import smart_load, local_data_key
-from .lfi_core.processing import normalized_slice, adjust_slice
+from .lfi_core.processing import normalized_slice, adjust_slice, prepare_3d
 from .lfi_core.export import scale_bar, export_csv, pixel_image, publication_png
-from .lfi_core.backend import IdentityPreprocessor
+from .lfi_core.backend import IdentityPreprocessor, IdentityReconstructor
+from .volume_panel import VolumePanel
 
 COLORMAPS = ['Viridis', 'Plasma', 'Inferno', 'Magma', 'Turbo', 'Hot', 'Cool']
 
@@ -37,10 +38,11 @@ class Worker(QtCore.QRunnable):
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, settings=None, preprocessor=None):
+    def __init__(self, settings=None, preprocessor=None, reconstructor=None):
         super().__init__()
         self.settings = settings or QtCore.QSettings('LFI', 'Viewer')
         self.preprocessor = preprocessor or IdentityPreprocessor()
+        self.reconstructor = reconstructor or IdentityReconstructor()
         self.language = self.settings.value('language', 'EN')
         self.data = self.raw_data = None
         self.data_key = None
@@ -49,7 +51,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.pool = QtCore.QThreadPool(self)
         self.pool.setMaxThreadCount(2)
         self.jobs = 0
-        self.load_token = self.slice_token = 0
+        self.load_token = self.slice_token = self.volume_token = 0
         self.workers = set()
         self.scale_item = None
         self.fit_next_slice = True
@@ -165,7 +167,12 @@ class MainWindow(QtWidgets.QMainWindow):
         info_widget.setMinimumWidth(240)
         info_widget.setMaximumWidth(360)
         slice_layout.addWidget(info_widget, 1)
-        self.volume_placeholder = QtWidgets.QLabel(alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.volume_panel = VolumePanel()
+        self.volume_panel.render_requested.connect(self.request_volume)
+        self.volume_panel.invalidated.connect(self.invalidate_volume)
+        self.brightness.valueChanged.connect(self.invalidate_volume)
+        self.contrast.valueChanged.connect(self.invalidate_volume)
+        self.colormap.currentIndexChanged.connect(self.invalidate_volume)
         self.waveform_tab = QtWidgets.QWidget()
         wave_layout = QtWidgets.QVBoxLayout(self.waveform_tab)
         self.amplitude_plot = pg.PlotWidget()
@@ -173,7 +180,7 @@ class MainWindow(QtWidgets.QMainWindow):
         wave_layout.addWidget(self.amplitude_plot)
         wave_layout.addWidget(self.phase_plot)
         self.tabs.addTab(self.slice_tab, '')
-        self.tabs.addTab(self.volume_placeholder, '')
+        self.tabs.addTab(self.volume_panel, '')
         self.tabs.addTab(self.waveform_tab, '')
         self.channel.currentIndexChanged.connect(self.request_slice)
         self.brightness.valueChanged.connect(self.request_slice)
@@ -223,7 +230,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.pixel_group.setTitle(self.tr_text('pixel_info'))
         for index, key in enumerate(('slice', 'volume', 'waveform')):
             self.tabs.setTabText(index, self.tr_text(key))
-        self.volume_placeholder.setText(self.tr_text('pending_3d'))
+        self.volume_panel.set_language(language)
         self.image_plot.setLabel('bottom', self.tr_text('x'))
         self.image_plot.setLabel('left', self.tr_text('y'))
         self.histogram.setTitle(self.tr_text('histogram'))
@@ -251,6 +258,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def open_file(self, path):
         self.load_token += 1
         self.slice_token += 1
+        self.invalidate_volume()
         apply = self.apply_preprocessing.isChecked()
         backend = self.preprocessor
         def load():
@@ -265,6 +273,7 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         self.load_token += 1
         self.slice_token += 1
+        self.invalidate_volume()
         raw, key = self.raw_data, self.data_key
         apply, backend = self.apply_preprocessing.isChecked(), self.preprocessor
         self._submit('load', self.load_token,
@@ -286,6 +295,7 @@ class MainWindow(QtWidgets.QMainWindow):
         kind, token, value = message
         try:
             if kind == 'load' and token == self.load_token:
+                self.invalidate_volume()
                 self.raw_data, self.data, self.data_key = value
                 self.selected_pixel = (self.data.width // 2, self.data.height // 2)
                 self.raw_slice = self.adjusted = None
@@ -300,6 +310,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.settings.setValue('recent_files', [self.data_key[0]] + [p for p in recent if p != self.data_key[0]][:4])
                 self.update_recent()
                 self.export_action.setEnabled(True)
+                self.volume_panel.set_data_available(self.data.n_slices > 1)
                 self.update_info()
                 self.request_slice()
             elif kind == 'slice' and token == self.slice_token:
@@ -315,6 +326,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.update_scale()
                 self.select_pixel(*self.selected_pixel, switch_tab=False)
                 self.update_info()
+            elif kind == 'volume' and token == self.volume_token:
+                self.volume_panel.show_result(value)
             elif kind == 'export':
                 self.statusBar().showMessage(f"{self.tr_text('export_done')}: {value}", 10000)
         except Exception as error:
@@ -327,7 +340,9 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         if kind == 'slice' and token != self.slice_token:
             return
-        key = {'load': 'load_error', 'slice': 'render_error', 'export': 'export_error'}[kind]
+        if kind == 'volume' and token != self.volume_token:
+            return
+        key = {'load': 'load_error', 'slice': 'render_error', 'export': 'export_error', 'volume': '3d_error'}[kind]
         self.show_error(f'{self.tr_text(key)}:\n{error}')
 
     def show_error(self, message):
@@ -359,6 +374,26 @@ class MainWindow(QtWidgets.QMainWindow):
             counts, edges = np.histogram(raw, bins=50)
             return raw, adjust_slice(normalized, brightness, contrast), counts, edges
         self._submit('slice', self.slice_token, process)
+
+    def invalidate_volume(self, *args):
+        self.volume_token += 1
+        self.volume_panel.clear_result()
+
+    def request_volume(self):
+        if self.data is None or self.data.n_slices < 2:
+            return
+        self.volume_token += 1
+        token = self.volume_token
+        data, backend = self.data, self.reconstructor
+        apply = self.volume_panel.reconstruct.isChecked()
+        mode = 'isosurface' if self.volume_panel.mode.currentIndex() else 'volume'
+        percentile = self.volume_panel.percentile.value()
+        colormap = self.colormap.currentText()
+        brightness, contrast = self.brightness.value(), self.contrast.value()
+        def compute():
+            reconstructed = backend.reconstruct(data, {}) if apply else data
+            return prepare_3d(reconstructed, mode, percentile, colormap, brightness, contrast)
+        self._submit('volume', token, compute)
 
     def update_info(self):
         if self.data is None:

@@ -31,3 +31,50 @@ def adjust_slice(normalized, brightness=60, contrast=75):
 def isosurface_thresholds(values, percentile=60):
     """Lower requested percentile and fixed upper 95th percentile."""
     return float(np.percentile(values, percentile)), float(np.percentile(values, 95))
+
+
+
+def prepare_3d(data, mode='volume', percentile=60, colormap='Viridis',
+               brightness=60, contrast=75, max_points=200_000):
+    """Prepare XYZ volume pixels or three uncapped meshes off the GUI thread.
+
+    Sampling matches the legacy frontend. Inputs/mesh coordinates use sensor
+    pixels, not a claimed physical Z calibration. marching_cubes is imported
+    only for isosurfaces; neither Qt nor OpenGL is needed to prepare results.
+    """
+    from .export import get_export_colormap
+    _, _, _, values, step = downsampled_volume(data, max_points)
+    if min(values.shape) < 2:
+        raise ValueError('3D rendering requires at least two samples along every axis.')
+    if not np.isfinite(values).all():
+        raise ValueError('3D data contains non-finite values.')
+    if mode not in ('volume', 'isosurface'):
+        raise ValueError('Unknown 3D rendering mode.')
+    result = dict(mode=mode, original_shape=data.amplitude.shape, step=step,
+                  sampled_points=values.size, values_sum=float(values.sum()))
+    minimum, maximum = float(values.min()), float(values.max())
+    cmap = get_export_colormap(colormap)
+    if mode == 'volume':
+        normalized = (values - minimum) / (maximum - minimum + 1e-10)
+        adjusted = adjust_slice(normalized, brightness, contrast)
+        rgba = cmap(adjusted)
+        rgba[..., 3] = adjusted * .12
+        # GLVolumeItem expects (X, Y, Z, RGBA); HDF5 is (Z, Y, X).
+        result['rgba'] = np.ascontiguousarray((rgba.transpose(2, 1, 0, 3) * 255).astype(np.uint8))
+    else:
+        from skimage.measure import marching_cubes
+        if not 0 <= percentile <= 94:
+            raise ValueError('Isomin percentile must be between 0 and 94.')
+        low, high = isosurface_thresholds(values, percentile)
+        if not minimum < low < high <= maximum:
+            raise ValueError('The selected percentiles do not define distinct isosurfaces. Try another percentile.')
+        meshes = []
+        for level in np.linspace(low, high, 3):
+            level = min(float(level), np.nextafter(maximum, minimum))
+            vertices, faces, _, _ = marching_cubes(values, level=level, spacing=(step, step, step))
+            # No boundary caps are added. Reverse ZYX vertices to sensor XYZ.
+            color_value = adjust_slice((level-minimum)/(maximum-minimum+1e-10), brightness, contrast)
+            color = tuple(cmap(color_value)[:3]) + (.45,)
+            meshes.append((np.ascontiguousarray(vertices[:, ::-1]), faces, color))
+        result.update(meshes=meshes, thresholds=(low, high))
+    return result

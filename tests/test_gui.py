@@ -74,6 +74,18 @@ def test_chip_load_responsive_and_screenshot(qtbot, window, monkeypatch):
     assert window.grab().save(str(screenshots/'chip_desktop.png'))
     print(f'CHIP RESPONSIVE PASS: worker load={end-start:.6f}s; GUI timer ticks during load={len(load_ticks)}; worker thread differs from GUI thread')
     print('SCREENSHOT:', screenshots/'chip_desktop.png')
+    window.tabs.setCurrentIndex(1)
+    window.request_volume()
+    wait_ready(qtbot, window)
+    assert window.volume_panel.result['mode'] == 'volume'
+    assert len(window.volume_panel.scene_items) == 1
+    window.volume_panel.mode.setCurrentIndex(1)
+    window.request_volume()
+    wait_ready(qtbot, window)
+    assert len(window.volume_panel.scene_items) == 3
+    assert window.volume_panel.result['values_sum'] == 394085247.0
+    print('CHIP 3D PASS: real chip volume buffer and 3 marching-cubes meshes created offscreen')
+
 
 
 def test_hover_click_waveform_and_language(qtbot, window):
@@ -192,3 +204,68 @@ def test_identity_preprocessing_off_main_thread(qtbot, window):
     load_mushroom(qtbot, window)
     assert threads and threads[0] != threading.get_ident()
     assert window.data is window.raw_data
+
+
+def test_volume_mesh_worker_and_invalidation(qtbot, window, tmp_path):
+    from part4_ui.lfi_core.processing import prepare_3d
+    path = tmp_path/'volume.hdf5'
+    z, y, x = np.mgrid[:12,:18,:20]
+    values = (z*7+y*2+x).astype(float)
+    with h5py.File(path, 'w') as handle:
+        for index in range(12):
+            handle.create_dataset(f'amplitude/{index}', data=values[index])
+            handle.create_dataset(f'phase/{index}', data=-values[index])
+    window.open_file(path)
+    wait_ready(qtbot, window)
+    threads = []
+    class Backend:
+        def reconstruct(self, data, params):
+            threads.append(threading.get_ident())
+            return data
+    window.reconstructor = Backend()
+    panel = window.volume_panel
+    panel.reconstruct.setChecked(True)
+    qtbot.mouseClick(panel.render_button, QtCore.Qt.MouseButton.LeftButton)
+    wait_ready(qtbot, window)
+    assert threads[0] != threading.get_ident()
+    assert panel.result['mode'] == 'volume'
+    assert panel.result['values_sum'] == values.sum()
+    assert len(panel.scene_items) == 1
+    assert panel.result['rgba'].shape == (20,18,12,4)
+    panel.mode.setCurrentIndex(1)
+    assert panel.result is None
+    panel.percentile.setValue(65)
+    qtbot.mouseClick(panel.render_button, QtCore.Qt.MouseButton.LeftButton)
+    wait_ready(qtbot, window)
+    assert len(panel.scene_items) == 3
+    assert panel.result['thresholds'] == tuple(np.percentile(values,[65,95]))
+    window.set_language('CN')
+    assert panel.render_button.text() == '渲染 / 刷新三维'
+    window.brightness.setValue(55)
+    wait_ready(qtbot, window)
+    assert panel.result is None
+    assert not panel.scene_items
+    expired_token = window.volume_token
+    expired_result = prepare_3d(window.data)
+    load_mushroom(qtbot, window)
+    window._result(('volume', expired_token, expired_result))
+    assert panel.result is None
+    assert not panel.render_button.isEnabled()
+    print('3D WORKER PASS: volume XYZ buffer, 3 real GLMeshItems, percentile, Identity worker, stale-result invalidation, bilingual UI')
+
+
+def test_3d_failure_is_readable(qtbot, window, tmp_path):
+    path = tmp_path/'constant.hdf5'
+    with h5py.File(path,'w') as handle:
+        for index in range(3):
+            handle.create_dataset(f'amplitude/{index}',data=np.ones((4,5)))
+            handle.create_dataset(f'phase/{index}',data=np.zeros((4,5)))
+    window.open_file(path)
+    wait_ready(qtbot, window)
+    window.volume_panel.mode.setCurrentIndex(1)
+    window.request_volume()
+    qtbot.waitUntil(lambda: window.jobs == 0, timeout=10000)
+    assert len(window.errors) == 1
+    assert 'Could not render 3D' in window.errors[0]
+    assert 'distinct' in window.errors[0]
+    assert window.volume_panel.result is None

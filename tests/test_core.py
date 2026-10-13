@@ -84,3 +84,43 @@ def test_upload_cleanup_and_identity(tmp_path, monkeypatch):
 def test_scale_and_adjustments():
     assert scale_bar(400, 10) == (100, '1 mm')
     assert np.allclose(adjust_slice(np.array([0., .5, 1.]), 50, 50), [0, .5, 1])
+
+
+@pytest.fixture
+def synthetic_volume():
+    from part4_ui.lfi_core.data_types import LFIRawData
+    z, y, x = np.mgrid[:12, :18, :20]
+    values = (z*7 + y*2 + x).astype(float)
+    return LFIRawData(values, -values, list(range(12)), 'Synthetic', 'synthetic.hdf5')
+
+
+def test_volume_axis_order_and_rgba(synthetic_volume):
+    from part4_ui.lfi_core.processing import prepare_3d
+    result = prepare_3d(synthetic_volume, 'volume', brightness=50, contrast=50)
+    assert result['rgba'].shape == (20, 18, 12, 4)
+    assert result['rgba'].dtype == np.uint8
+    assert result['values_sum'] == synthetic_volume.amplitude.sum()
+    assert result['rgba'][0,0,0,3] == 0
+    assert result['rgba'][-1,-1,-1,3] > 0
+
+
+def test_three_uncapped_isosurfaces(synthetic_volume):
+    from part4_ui.lfi_core.processing import prepare_3d
+    result = prepare_3d(synthetic_volume, 'isosurface')
+    assert result['thresholds'] == tuple(np.percentile(synthetic_volume.amplitude, [60,95]))
+    assert len(result['meshes']) == 3
+    for vertices, faces, color in result['meshes']:
+        assert vertices.shape[1] == faces.shape[1] == 3
+        assert faces.max() < len(vertices)
+        assert np.all(vertices >= 0)
+        assert np.all(vertices <= [19,17,11])
+        assert color[3] == .45
+
+
+def test_3d_degenerate_and_single_layer(mushroom, synthetic_volume):
+    from part4_ui.lfi_core.processing import prepare_3d
+    with pytest.raises(ValueError, match='at least two'):
+        prepare_3d(mushroom)
+    synthetic_volume.amplitude[:] = 1
+    with pytest.raises(ValueError, match='distinct'):
+        prepare_3d(synthetic_volume, 'isosurface')

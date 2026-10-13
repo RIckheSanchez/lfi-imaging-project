@@ -1,5 +1,21 @@
 """English and Chinese desktop UI text."""
 STRINGS = {
+    'volume_mode': ('Volume', '体渲染'),
+    'isosurface_mode': ('Isosurface', '等值面'),
+    'iso_percentile': ('Isomin percentile', '等值面下限百分位'),
+    'apply_reconstruction': ('Apply reconstruction (Identity)', '应用重建（Identity）'),
+    'render_3d': ('Render / Refresh 3D', '渲染 / 刷新三维'),
+    'reset_camera': ('Reset Camera', '重置视角'),
+    '3d_hint': ('Amplitude volume · drag to rotate, wheel to zoom. Reconstruction currently uses Identity. Coordinates are sensor pixels; physical Z spacing is unknown.', '振幅体数据 · 拖动旋转，滚轮缩放。重建当前使用 Identity。坐标为传感器像素，物理 Z 间距未知。'),
+    '3d_start': ('Load a multilayer scan and click Render / Refresh 3D.', '加载多层数据后点击“渲染 / 刷新三维”。'),
+    '3d_offscreen': ('OpenGL display is unavailable on the offscreen platform. Computed 3D data is validated without a viewport.', '离屏平台无法显示 OpenGL；三维计算结果可验证，但不创建显示视口。'),
+    '3d_single_layer': ('Single-layer data cannot form a 3D volume.', '单层数据无法形成三维体数据。'),
+    'volume_dimensions': ('Dimensions (Z, Y, X)', '尺寸（Z、Y、X）'),
+    'sampled_points': ('Displayed points', '显示点数'),
+    'downsample': ('Downsample', '降采样'),
+    'surface_count': ('Surfaces', '等值面数'),
+    '3d_error': ('Could not render 3D data', '无法渲染三维数据'),
+
     'title': ('LFI Imaging Viewer', 'LFI 成像查看器'),
     'file': ('File', '文件'), 'open': ('Open…', '打开…'),
     'recent': ('Open Recent', '最近打开'), 'export': ('Export…', '导出…'),
