@@ -138,8 +138,8 @@ STRINGS = {
     'btn_export_image':     {'EN': 'Export Image',                'CN': '导出图像'},
     'btn_download':         {'EN': 'Download',                    'CN': '下载'},
     'export_csv_title':     {'EN': '#### 📊 Export Raw Data',    'CN': '#### 📊 导出原始数据'},
-    'export_csv_caption':   {'EN': 'Exports raw amplitude values for the current slice as CSV.',
-                              'CN': '将当前切片的原始振幅数值导出为 CSV 文件。'},
+    'export_csv_caption':   {'EN': 'Exports raw values of the selected channel for the current slice as CSV.',
+                              'CN': '将当前切片的所选通道的原始数值导出为 CSV 文件。'},
     'btn_export_csv':       {'EN': 'Export CSV',                  'CN': '导出 CSV'},
     'btn_download_csv':     {'EN': 'Download CSV',                'CN': '下载 CSV'},
 }
@@ -148,6 +148,12 @@ def t(key):
     """Return the UI string for the current language."""
     lang = st.session_state.get('lang', 'EN')
     return STRINGS[key][lang]
+
+
+def export_csv(raw_slice):
+    buffer = io.StringIO()
+    np.savetxt(buffer, raw_slice, delimiter=",", fmt="%.6g")
+    return buffer.getvalue()
 
 
 # ── Cached helpers ────────────────────────────────────────────────
@@ -673,12 +679,13 @@ else:
             if st.button(t('btn_export_csv'), use_container_width=True):
                 current_z  = z_indices[st.session_state.current_z_idx]
                 slice_data = st.session_state.data.get_slice(current_z)
-                csv_data   = np.array2string(slice_data['amplitude'], separator=',')
+                ch_key = st.session_state.channel.lower()
+                csv_data = export_csv(slice_data[ch_key])
 
                 st.download_button(
                     label=t('btn_download_csv'),
                     data=csv_data,
-                    file_name=f"lfi_amplitude_z{current_z}.csv",
+                    file_name=f"lfi_{ch_key}_z{current_z}.csv",
                     mime="text/csv",
                     use_container_width=True
                 )
