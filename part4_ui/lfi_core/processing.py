@@ -55,10 +55,12 @@ def prepare_3d(data, mode='volume', percentile=60, colormap='Viridis',
     minimum, maximum = float(values.min()), float(values.max())
     cmap = get_export_colormap(colormap)
     if mode == 'volume':
-        normalized = (values - minimum) / (maximum - minimum + 1e-10)
+        lower, upper = map(float, np.percentile(values, [1, 99.5]))
+        result['normalization_range'] = (lower, upper)
+        normalized = (np.clip(values, lower, upper) - lower) / (upper - lower + 1e-10)
         adjusted = adjust_slice(normalized, brightness, contrast)
         rgba = cmap(adjusted)
-        rgba[..., 3] = adjusted * .12
+        rgba[..., 3] = adjusted**2 * .35
         # GLVolumeItem expects (X, Y, Z, RGBA); HDF5 is (Z, Y, X).
         result['rgba'] = np.ascontiguousarray((rgba.transpose(2, 1, 0, 3) * 255).astype(np.uint8))
     else:

@@ -124,3 +124,20 @@ def test_3d_degenerate_and_single_layer(mushroom, synthetic_volume):
     synthetic_volume.amplitude[:] = 1
     with pytest.raises(ValueError, match='distinct'):
         prepare_3d(synthetic_volume, 'isosurface')
+
+
+
+def test_volume_robust_clipping_and_nonlinear_opacity(synthetic_volume):
+    from part4_ui.lfi_core.processing import prepare_3d
+    values = synthetic_volume.amplitude
+    values[0,0,0], values[-1,-1,-1] = -1e9, 1e9
+    result = prepare_3d(synthetic_volume, brightness=50, contrast=50)
+    low, high = np.percentile(values, [1,99.5])
+    assert result['normalization_range'] == (low,high)
+    alpha = result['rgba'][...,3].transpose(2,1,0)
+    assert np.all(alpha[values <= low] == 0)
+    assert np.all(alpha[values >= high] == int(.35*255))
+    middle = (values-low)/(high-low)
+    mask = (middle > .4) & (middle < .6)
+    assert np.all(alpha[mask] < (middle[mask]*.35*255).astype(np.uint8))
+    assert values[-1,-1,-1] == 1e9
