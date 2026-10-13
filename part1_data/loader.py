@@ -50,6 +50,11 @@ except ImportError:  # running as scripts inside part1_data/
 
 FrameId = Union[int, str]
 
+
+class AnomalousOnlyError(ValueError):
+    """All selected frames are anomalous and were excluded (nothing left to load)."""
+
+
 DATA_SUFFIXES = (".hdf5", ".h5", ".mat")
 _FRAME_IN_NAME = re.compile(r"frame[_-]?(\d+)", re.IGNORECASE)
 _ANY_NUMBER = re.compile(r"(\d+)")
@@ -409,10 +414,10 @@ def _select_frame_ids(
         load_ids.append(fid)
 
     if not load_ids:
-        raise ValueError(
-            f"nothing left to load for frame(all marked anomalous and excluded)."
-            f" selected={selected}, anomalous={sorted(anomalous)}; "
-            f"To inspect anomalous frames, pass exclude_anomalous=False"
+        raise AnomalousOnlyError(
+            f"nothing left to load (all selected frames anomalous and excluded). "
+            f"selected={selected}, anomalous={sorted(anomalous)}; "
+            f"pass exclude_anomalous=False to inspect anomalous frames"
         )
     return load_ids, marked_anomalous
 
@@ -1247,17 +1252,17 @@ def load_volume(
                 exclude_anomalous=exclude_anomalous,
                 include_waveform=include_waveform,
             )
-        except ValueError as e:
-            # Per-file anomalous-only content (should be rare after pre-skip).
-            if exclude_anomalous and ("anomalous" in str(e).lower() or "nothing left" in str(e).lower()):
-                warnings.warn(
-                    f"[load_volume] skip {fp.name}: {e}",
-                    stacklevel=2,
-                )
-                skipped_anomalous.append(n)
-                anomalous_all.append(n)
-                continue
-            raise
+        except AnomalousOnlyError as e:
+            # Fallback if pre-skip missed a file (e.g. id not in filename).
+            if not exclude_anomalous:
+                raise
+            warnings.warn(
+                f"[load_volume] skip {fp.name}: {e}",
+                stacklevel=2,
+            )
+            skipped_anomalous.append(n)
+            anomalous_all.append(n)
+            continue
         if data.n_slices != 1:
             # multi-slice single files are concatenated in file-internal order
             pass

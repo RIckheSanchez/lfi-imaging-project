@@ -7,6 +7,7 @@ Prefer importing from this package (repo root on PYTHONPATH)::
 Or run tests/scripts from inside ``part1_data/`` with flat imports.
 """
 
+from .loader import AnomalousOnlyError  # noqa: F401
 from .output_interface import (  # noqa: F401
     PhaseNotConvertedError,
     SCHEMA_VERSION,
@@ -23,6 +24,7 @@ from .output_interface import (  # noqa: F401
 )
 
 __all__ = [
+    "AnomalousOnlyError",
     "SCHEMA_VERSION",
     "PhaseNotConvertedError",
     "batch_export",

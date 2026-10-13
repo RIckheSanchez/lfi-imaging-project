@@ -11,6 +11,7 @@ import warnings
 from pathlib import Path
 
 from loader import (
+    AnomalousOnlyError,
     load_single_scan,
     load_volume,
     get_z_slices,
@@ -255,9 +256,9 @@ def test_vegetables_real_anomalous_frame():
     # default exclude: file only has frame 20; must raise clearly instead of returning silently
     try:
         load_single_scan(VEG_FRAME_20)
-        raise AssertionError('frame 20 should be excluded by default')
-    except ValueError as e:
-        assert 'anomalous' in str(e).lower() or 'exclude' in str(e).lower()
+        raise AssertionError("frame 20 should be excluded by default (AnomalousOnlyError)")
+    except AnomalousOnlyError:
+        pass
 
     # explicit load: keep raw codes, flag, do not convert
     with warnings.catch_warnings(record=True):

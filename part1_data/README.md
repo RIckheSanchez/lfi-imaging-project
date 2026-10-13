@@ -29,8 +29,10 @@ See [`docs/INTEGRATION.md`](docs/INTEGRATION.md) for contracts and phase rules.
 ## Tests
 
 ```bash
-cd part1_data
-python3 -m pytest -v tests/
+# From team repo root (conftest.py puts part1_data on sys.path):
+python3 -m pytest -v part1_data
+# Or from inside this folder:
+cd part1_data && python3 -m pytest -v
 ```
 
 ## Default laser channel
