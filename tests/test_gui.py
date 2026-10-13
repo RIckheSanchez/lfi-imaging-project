@@ -289,3 +289,53 @@ def test_colorbar_bounds_fit_and_loaded_status(qtbot, window):
     window.colormap.setCurrentText('Plasma')
     wait_ready(qtbot, window)
     assert window.colorbar.levels() == tuple(map(float, (window.raw_slice.min(), window.raw_slice.max())))
+
+
+def test_backend_registration_controls_and_worker(qtbot, tmp_path):
+    from part4_ui.lfi_core.backend import register_preprocessor, register_reconstructor
+    calls = []
+    class Backend:
+        def preprocess(self, data, params):
+            calls.append(('preprocess', threading.get_ident(), params))
+            return data
+        def reconstruct(self, data, params):
+            calls.append(('reconstruct', threading.get_ident(), params))
+            return data
+    register_preprocessor(Backend(), {'sigma': 1.5})
+    register_reconstructor(Backend(), {'iterations': 2})
+    try:
+        widget = MainWindow(QtCore.QSettings(str(tmp_path/'registry.ini'), QtCore.QSettings.Format.IniFormat))
+        qtbot.addWidget(widget)
+        widget.errors = []
+        widget.show()
+        assert widget.pre_group.isVisible()
+        assert not widget.volume_panel.reconstruct.isHidden()
+        widget.apply_preprocessing.setChecked(True)
+        load_mushroom(qtbot, widget)
+        assert calls[0][0] == 'preprocess'
+        assert calls[0][1] != threading.get_ident()
+        assert calls[0][2] == {'sigma': 1.5}
+        widget.volume_panel.reconstruct.setChecked(True)
+        # Use a small multilayer scan to execute the registered reconstructor.
+        path = tmp_path/'registered.hdf5'
+        with h5py.File(path,'w') as handle:
+            for index in range(3):
+                handle.create_dataset(f'amplitude/{index}', data=np.arange(20).reshape(4,5)+index)
+                handle.create_dataset(f'phase/{index}', data=np.zeros((4,5)))
+        widget.open_file(path)
+        wait_ready(qtbot, widget)
+        widget.request_volume()
+        wait_ready(qtbot, widget)
+        reconstruct_call = next(call for call in calls if call[0] == 'reconstruct')
+        assert reconstruct_call[1] != threading.get_ident()
+        assert reconstruct_call[2] == {'iterations': 2}
+        widget.close()
+    finally:
+        register_preprocessor(None)
+        register_reconstructor(None)
+
+
+def test_default_backend_controls_hidden(window):
+    assert window.pre_group.isHidden()
+    assert window.volume_panel.reconstruct.isHidden()
+    assert 'Identity' not in window.volume_panel.hint.text()

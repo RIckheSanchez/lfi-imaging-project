@@ -1,4 +1,6 @@
 """Launch with python -m part4_ui.app from the repository root."""
+import json
+from copy import deepcopy
 import sys
 import traceback
 from pathlib import Path
@@ -9,7 +11,8 @@ from .i18n import text
 from .lfi_core.data_io import smart_load, local_data_key
 from .lfi_core.processing import normalized_slice, adjust_slice, prepare_3d
 from .lfi_core.export import scale_bar, export_csv, pixel_image, publication_png
-from .lfi_core.backend import IdentityPreprocessor, IdentityReconstructor
+from .lfi_core.backend import (IdentityPreprocessor, IdentityReconstructor,
+                               get_preprocessor_registration, get_reconstructor_registration)
 from .volume_panel import VolumePanel
 
 COLORMAPS = ['Viridis', 'Plasma', 'Inferno', 'Magma', 'Turbo', 'Hot', 'Cool']
@@ -68,8 +71,12 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, settings=None, preprocessor=None, reconstructor=None):
         super().__init__()
         self.settings = settings or QtCore.QSettings('LFI', 'Viewer')
-        self.preprocessor = preprocessor or IdentityPreprocessor()
-        self.reconstructor = reconstructor or IdentityReconstructor()
+        preprocessing = get_preprocessor_registration()
+        reconstruction = get_reconstructor_registration()
+        self.preprocessor = preprocessor or (preprocessing.implementation if preprocessing else IdentityPreprocessor())
+        self.reconstructor = reconstructor or (reconstruction.implementation if reconstruction else IdentityReconstructor())
+        self.preprocess_params = deepcopy(preprocessing.params) if preprocessing else {}
+        self.reconstruction_params = deepcopy(reconstruction.params) if reconstruction else {}
         self.language = self.settings.value('language', 'EN')
         self.data = self.raw_data = None
         self.data_key = None
@@ -143,12 +150,13 @@ class MainWindow(QtWidgets.QMainWindow):
         pre_layout = QtWidgets.QVBoxLayout(self.pre_group)
         self.apply_preprocessing = QtWidgets.QCheckBox()
         self.parameter = QtWidgets.QLineEdit()
-        self.parameter.setEnabled(False)
-        self.identity_label = QtWidgets.QLabel()
-        self.identity_label.setWordWrap(True)
+        self.parameter.setText(json.dumps(self.preprocess_params))
+        self.parameter.editingFinished.connect(self.update_preprocess_params)
+        self.parameter_label = QtWidgets.QLabel()
         pre_layout.addWidget(self.apply_preprocessing)
+        pre_layout.addWidget(self.parameter_label)
         pre_layout.addWidget(self.parameter)
-        pre_layout.addWidget(self.identity_label)
+        self.pre_group.setVisible(not isinstance(self.preprocessor, IdentityPreprocessor))
         dock_layout.addWidget(self.pre_group)
         dock_layout.addStretch()
         self.dock.setWidget(dock_widget)
@@ -198,6 +206,7 @@ class MainWindow(QtWidgets.QMainWindow):
         info_widget.setMaximumWidth(360)
         slice_layout.addWidget(info_widget, 1)
         self.volume_panel = VolumePanel()
+        self.volume_panel.reconstruct.setVisible(not isinstance(self.reconstructor, IdentityReconstructor))
         self.volume_panel.render_requested.connect(self.request_volume)
         self.volume_panel.invalidated.connect(self.invalidate_volume)
         self.brightness.valueChanged.connect(self.invalidate_volume)
@@ -256,8 +265,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.scale_hint.setText(self.tr_text('scale_hint'))
         self.pre_group.setTitle(self.tr_text('preprocessing'))
         self.apply_preprocessing.setText(self.tr_text('apply'))
-        self.parameter.setPlaceholderText(self.tr_text('parameter'))
-        self.identity_label.setText(self.tr_text('identity'))
+        self.parameter_label.setText(self.tr_text('parameters'))
         self.scan_group.setTitle(self.tr_text('scan_info'))
         self.pixel_group.setTitle(self.tr_text('pixel_info'))
         for index, key in enumerate(('slice', 'volume', 'waveform')):
@@ -294,12 +302,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.invalidate_volume()
         apply = self.apply_preprocessing.isChecked()
         backend = self.preprocessor
+        params = deepcopy(self.preprocess_params)
         def load():
             key = local_data_key(path)
             raw = smart_load(key[0])
-            processed = backend.preprocess(raw, {}) if apply else raw
+            processed = backend.preprocess(raw, params) if apply else raw
             return raw, processed, key
         self._submit('load', self.load_token, load)
+
+    def update_preprocess_params(self):
+        try:
+            params = json.loads(self.parameter.text())
+            if not isinstance(params, dict):
+                raise ValueError(self.tr_text('parameter_error'))
+            self.preprocess_params = params
+            if self.apply_preprocessing.isChecked():
+                self.reprocess()
+        except (ValueError, TypeError) as error:
+            self.show_error(f"{self.tr_text('parameter_error')}: {error}")
 
     def reprocess(self):
         if self.raw_data is None:
@@ -309,8 +329,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.invalidate_volume()
         raw, key = self.raw_data, self.data_key
         apply, backend = self.apply_preprocessing.isChecked(), self.preprocessor
+        params = deepcopy(self.preprocess_params)
         self._submit('load', self.load_token,
-                     lambda: (raw, backend.preprocess(raw, {}) if apply else raw, key))
+                     lambda: (raw, backend.preprocess(raw, params) if apply else raw, key))
 
     def _submit(self, kind, token, operation):
         worker = Worker(kind, token, operation)
@@ -428,12 +449,13 @@ class MainWindow(QtWidgets.QMainWindow):
         token = self.volume_token
         data, backend = self.data, self.reconstructor
         apply = self.volume_panel.reconstruct.isChecked()
+        params = deepcopy(self.reconstruction_params)
         mode = 'isosurface' if self.volume_panel.mode.currentIndex() else 'volume'
         percentile = self.volume_panel.percentile.value()
         colormap = self.colormap.currentText()
         brightness, contrast = self.brightness.value(), self.contrast.value()
         def compute():
-            reconstructed = backend.reconstruct(data, {}) if apply else data
+            reconstructed = backend.reconstruct(data, params) if apply else data
             return prepare_3d(reconstructed, mode, percentile, colormap, brightness, contrast)
         self._submit('volume', token, compute)
 
