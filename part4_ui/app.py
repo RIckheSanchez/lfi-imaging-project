@@ -283,9 +283,32 @@ class MainWindow(QtWidgets.QMainWindow):
         self.phase_plot.setLabel('left', self.tr_text('phase_rad'))
         self._build_menus()
         self.update_info()
+        self.update_histogram_theme()
         self.update_colorbar()
         if self.jobs:
             self.busy_label.setText(self.tr_text('busy'))
+
+    def update_histogram_theme(self):
+        palette = self.palette()
+        background = palette.color(QtGui.QPalette.ColorRole.Window)
+        foreground = palette.color(QtGui.QPalette.ColorRole.WindowText)
+        accent = palette.color(QtGui.QPalette.ColorRole.Highlight)
+        self.histogram.setBackground(background)
+        for name in ('left', 'bottom'):
+            axis = self.histogram.getAxis(name)
+            axis.setPen(pg.mkPen(foreground))
+            axis.setTextPen(pg.mkPen(foreground))
+        self.histogram.setTitle(self.tr_text('histogram'), color=foreground.name())
+        self.histogram_curve.setPen(pg.mkPen(accent, width=2))
+        fill = QtGui.QColor(accent)
+        fill.setAlpha(55)
+        self.histogram_curve.setBrush(pg.mkBrush(fill))
+
+    def changeEvent(self, event):
+        super().changeEvent(event)
+        if event.type() in (QtCore.QEvent.Type.PaletteChange, QtCore.QEvent.Type.ApplicationPaletteChange,
+                            QtCore.QEvent.Type.StyleChange) and hasattr(self, 'histogram'):
+            self.update_histogram_theme()
 
     def update_recent(self):
         self.recent_menu.clear()

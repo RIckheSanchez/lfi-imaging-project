@@ -6,7 +6,7 @@ import numpy as np
 import h5py
 import pytest
 from PIL import Image
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 from part4_ui.app import MainWindow
 from part4_ui.lfi_core.processing import normalized_slice, adjust_slice
 
@@ -419,3 +419,17 @@ def test_mode_specific_isosurface_controls(window):
     panel._update_info()
     assert 'Surfaces: 3' in panel.info.text()
     panel.clear_result()
+
+
+
+@pytest.mark.parametrize('background,foreground', [('#f4f5f6','#203040'),('#202830','#f0f0f0')])
+def test_histogram_tracks_theme_palette(window, background, foreground):
+    palette = QtGui.QPalette(window.palette())
+    palette.setColor(QtGui.QPalette.ColorRole.Window, QtGui.QColor(background))
+    palette.setColor(QtGui.QPalette.ColorRole.WindowText, QtGui.QColor(foreground))
+    window.setPalette(palette)
+    assert window.histogram.backgroundBrush().color().name() == background
+    for name in ('left','bottom'):
+        assert window.histogram.getAxis(name).textPen().color().name() == foreground
+    window.set_language('CN')
+    assert window.histogram.backgroundBrush().color().name() == background
