@@ -15,6 +15,7 @@ import io
 import tempfile
 import os
 import h5py
+import hashlib
 
 
 # ── Translations ──────────────────────────────────────────────────
@@ -294,6 +295,29 @@ def smart_load(filepath: str):
         raise
 
 
+def load_uploaded_bytes(name, data):
+    """Load upload bytes and return a stable key; always clean up the temporary file."""
+    data_key = ("upload", name, len(data), hashlib.sha1(data).hexdigest())
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.hdf5') as tmp_file:
+            tmp_path = tmp_file.name
+            tmp_file.write(data)
+        loaded_data = smart_load(tmp_path)
+        if loaded_data.target_type == 'Unknown':
+            known_types = ['Chip', 'Leaf', 'Skin', 'Marble', 'Mushroom',
+                           'Sound', 'Tomography', 'Beam Profile', 'Spectrum']
+            loaded_data.target_type = next(
+                (target for target in known_types if target.lower() in name.lower()), 'Unknown')
+        return loaded_data, data_key
+    finally:
+        if tmp_path is not None:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+
 # ── Constants ─────────────────────────────────────────────────────
 
 COLORMAP_MAPPING = {
@@ -357,6 +381,7 @@ st.markdown("""
 
 for key, default in {
     'data':          None,
+    'data_key':      None,
     'current_z_idx': 0,
     'brightness':    60,
     'contrast':      75,
@@ -412,7 +437,12 @@ with st.sidebar:
                 if os.path.exists(file_path):
                     try:
                         with st.spinner(t('loading_path')):
-                            st.session_state.data = smart_load(file_path)
+                            resolved_path = os.path.realpath(os.path.expanduser(file_path))
+                            loaded_data = smart_load(resolved_path)
+                            loaded_key = (resolved_path, os.path.getmtime(resolved_path),
+                                          os.path.getsize(resolved_path))
+                            st.session_state.data = loaded_data
+                            st.session_state.data_key = loaded_key
                             st.session_state.current_z_idx = 0
                         st.success(t('load_success'))
                         st.balloons()
@@ -424,30 +454,18 @@ with st.sidebar:
                     st.error(t('file_not_found') + file_path)
 
         if uploaded_file is not None:
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.hdf5') as tmp_file:
-                tmp_file.write(uploaded_file.read())
-                tmp_path = tmp_file.name
-
             if st.button(t('btn_load_upload'), type="primary", use_container_width=True):
                 try:
                     with st.spinner(t('loading_upload')):
-                        st.session_state.data = smart_load(tmp_path)
+                        loaded_data, loaded_key = load_uploaded_bytes(
+                            uploaded_file.name, uploaded_file.getvalue())
+                        st.session_state.data = loaded_data
+                        st.session_state.data_key = loaded_key
                         st.session_state.current_z_idx = 0
-                        if st.session_state.data.target_type == 'Unknown':
-                            known_types = ['Chip', 'Leaf', 'Skin', 'Marble', 'Mushroom',
-                                           'Sound', 'Tomography', 'Beam Profile', 'Spectrum']
-                            for tp in known_types:
-                                if tp.lower() in uploaded_file.name.lower():
-                                    st.session_state.data.target_type = tp
-                                    break
                     st.success(t('load_real_success'))
                     st.balloons()
                     with st.expander(t('data_summary')):
                         st.code(st.session_state.data.summary())
-                    try:
-                        os.unlink(tmp_path)
-                    except:
-                        pass
                 except Exception as e:
                     st.error(t('load_failed') + str(e))
                     st.exception(e)
@@ -502,8 +520,7 @@ else:
         unsafe_allow_html=True
     )
 
-    file_path = st.session_state.data.file_path
-    data_key = (file_path, os.path.getmtime(file_path))
+    data_key = st.session_state.data_key
 
     tab1, tab2, tab3, tab4 = st.tabs([
         t('tab_2d'), t('tab_3d'), t('tab_waveform'), t('tab_export')
