@@ -22,10 +22,13 @@ from loader import (
 from phase_encoding import get_phase_encoding, convert_phase
 import numpy as np
 
-# ── edit paths here ──────────────────────────────────────────────
-CHIP_FILE = '/Users/wangzeyu/Downloads/borad1.hdf5'
-SKIN_FILE = '/Users/wangzeyu/Downloads/2025-11-28_10-14-26.594507929.hdf5'
-PCB_FILE  = '/Users/wangzeyu/Downloads/frame-3.hdf5'
+# Optional local samples via env (never hardcode machine paths in the repo).
+#   export LFI_CHIP_FILE=/path/to/chip.hdf5
+#   export LFI_SKIN_FILE=/path/to/skin.hdf5
+#   export LFI_PCB_FILE=/path/to/frame-3.hdf5
+CHIP_FILE = os.environ.get("LFI_CHIP_FILE", "")
+SKIN_FILE = os.environ.get("LFI_SKIN_FILE", "")
+PCB_FILE = os.environ.get("LFI_PCB_FILE", "")
 _HERE = os.path.dirname(os.path.abspath(__file__))
 VEG_FRAME_20 = os.path.join(_HERE, 'data', '2026_Vegetables', 'frame-20.hdf5')
 VEG_FRAME_21 = os.path.join(_HERE, 'data', '2026_Vegetables', 'frame-21.hdf5')
@@ -38,6 +41,10 @@ def test_chip_zstack():
     print("\n" + "=" * 50)
     print("test 1: Chip z-stack")
     print("=" * 50)
+
+    if not CHIP_FILE or not os.path.exists(CHIP_FILE):
+        print("  skip: set LFI_CHIP_FILE to a local chip/z-stack hdf5")
+        return
 
     data = load_single_scan(CHIP_FILE, target_type='Chip')
     print(data.summary())
@@ -60,6 +67,10 @@ def test_skin_frames_unconfirmed_phase():
     print("\n" + "=" * 50)
     print("test 2: Skin frames(phase unconfirmed → keep raw codes)")
     print("=" * 50)
+
+    if not SKIN_FILE or not os.path.exists(SKIN_FILE):
+        print("  skip: set LFI_SKIN_FILE to a local skin hdf5")
+        return
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter('always')
@@ -88,6 +99,10 @@ def test_pcb_frames():
     print("\n" + "=" * 50)
     print("test 3: PCB frames(identity lookup → pcb_unconfirmed; do not reuse Vegetables formula by value range)")
     print("=" * 50)
+
+    if not PCB_FILE or not os.path.exists(PCB_FILE):
+        print("  skip: set LFI_PCB_FILE to a local PCB/frame hdf5")
+        return
 
     with warnings.catch_warnings(record=True):
         warnings.simplefilter('always')
@@ -159,6 +174,10 @@ def test_get_z_slices_both():
     print("test 5: get_z_slices works for both layouts")
     print("=" * 50)
 
+    if not CHIP_FILE or not os.path.exists(CHIP_FILE) or not SKIN_FILE or not os.path.exists(SKIN_FILE):
+        print("  skip: set LFI_CHIP_FILE and LFI_SKIN_FILE")
+        return
+
     z_chip = get_z_slices(CHIP_FILE)
     z_skin = get_z_slices(SKIN_FILE)
     assert z_chip[0] == 530 and z_chip[-1] == 599
@@ -181,8 +200,8 @@ def test_infer_target_type_path_identity():
     )
     assert _infer_target_type(veg) == "Vegetables", _infer_target_type(veg)
 
-    # loose local PCB sample (no type identity in parents)
-    assert _infer_target_type("/Users/wangzeyu/Downloads/frame-3.hdf5") == "PCB"
+    # loose sample (no type identity in parents → frame-N stem → PCB)
+    assert _infer_target_type("/tmp/local_samples/frame-3.hdf5") == "PCB"
 
     # exact folder name
     assert _infer_target_type("/data/Chip/borad1.hdf5") == "Chip"

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "target_type": "Marble",
-  "file_path": "/Users/wangzeyu/Desktop/REIT4841/data/Marble/maeble10%_1.hdf5",
+  "file_path": "data/Marble/maeble10%_1.hdf5",
   "shape": [
     1,
     1400,
@@ -33,7 +33,7 @@
     ],
     "dtype": "float64",
     "file_format": "hdf5_zstack",
-    "raw_file_path": "/Users/wangzeyu/Desktop/REIT4841/data/Marble/maeble10%_1.hdf5",
+    "raw_file_path": "data/Marble/maeble10%_1.hdf5",
     "rdm_source_path": "",
     "frame_ids": [
       1

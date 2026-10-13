@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "created_at": "2026-10-11T09:35:56+00:00",
-  "data_dir": "/Users/wangzeyu/Desktop/REIT4841/data",
+  "data_dir": "data",
   "arrays_exported": false,
   "n_files": 12,
   "n_ok": 12,

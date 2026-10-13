@@ -1,6 +1,6 @@
 # Real-data loader run results
 
-Data directory: `/Users/wangzeyu/Desktop/REIT4841/data`
+Data directory: `data/`
 
 Total 12 files: ok 12, failed 0, skip 0
 

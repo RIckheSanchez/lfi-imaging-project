@@ -29,7 +29,7 @@ from output_interface import (
 
 _HERE = Path(__file__).resolve().parent
 VEG_DIR = _HERE / "data" / "2026_Vegetables"
-SKIN_FILE = '/Users/wangzeyu/Downloads/2025-11-28_10-14-26.594507929.hdf5'
+SKIN_FILE = os.environ.get("LFI_SKIN_FILE", "")
 
 
 def _leaf_arrays(h=4, w=5, n=3, seed=0):
@@ -111,8 +111,8 @@ def test_mat_wrong_variable_names():
 
 def test_record_and_phase_guard():
     _section("test O1: scan_to_record is JSON-serializable; raw phase rejected")
-    if not os.path.exists(SKIN_FILE):
-        print(f"  skip: missing {SKIN_FILE}")
+    if not SKIN_FILE or not os.path.exists(SKIN_FILE):
+        print("  skip: set LFI_SKIN_FILE to a local skin hdf5")
         return
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
