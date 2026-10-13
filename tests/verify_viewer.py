@@ -1,4 +1,5 @@
-import ast, io, sys, time, gc, json, platform, subprocess
+import ast, io, sys, time, gc, json, platform, subprocess, tempfile
+import h5py
 from pathlib import Path
 import numpy as np
 from PIL import Image
@@ -17,7 +18,7 @@ for channel in ('amplitude','phase'):
  assert raw.shape==recovered.shape
  assert np.allclose(raw,recovered)
  print('CSV PASS',channel,raw.shape)
-X,Y,Z,values,step=namespace['get_downsampled_volume'].__wrapped__(data)
+X,Y,Z,values,step=namespace['get_downsampled_volume'].__wrapped__(data, (data.file_path, Path(data.file_path).stat().st_mtime))
 trace=namespace['create_3d_trace'](X,Y,Z,values,'Viridis','isosurface')
 assert trace.type=='isosurface' and trace.surface.count==3
 assert trace.isomin==np.percentile(values,60) and trace.isomax==np.percentile(values,95)
@@ -39,6 +40,50 @@ assert any(n.label=='Pixel X' for n in app.number_input)
 next(n for n in app.number_input if n.label=='Pixel size (μm)').set_value(10.).run()
 assert not app.exception,app.exception
 print('APPTEST PASS')
+# Capture results from the actual cached helpers inside an AppTest runtime.
+capture_source = source.read_text() + """
+if st.session_state.data is not None:
+    _, _, _, cached_values, _ = get_downsampled_volume(st.session_state.data, data_key)
+    st.session_state['test_volume_sum'] = float(cached_values.sum())
+    st.session_state['test_slice'] = get_normalized_slice(
+        st.session_state.data, data_key, current_z, channel_key)[0]
+    st.session_state['test_z'] = current_z
+"""
+cache_app = AppTest.from_string(capture_source, default_timeout=60).run()
+cache_app.checkbox[0].check().run()
+cache_app.text_input[0].set_value(str(root/'Realdata/chip_borad1.hdf5')).run()
+next(b for b in cache_app.button if b.label=='📥 Load from Path').click().run()
+assert not cache_app.exception, cache_app.exception
+# Chip uses z=530..599. Relabel only its in-memory test copy to 0..69
+# so the two files collide at exactly the same z cache argument (0).
+cache_app.session_state['data'].z_indices = list(range(70))
+cache_app.run()
+assert not cache_app.exception, cache_app.exception
+chip_sum = cache_app.session_state['test_volume_sum']
+chip_slice = cache_app.session_state['test_slice'].copy()
+assert cache_app.session_state['test_z'] == 0
+with tempfile.TemporaryDirectory() as directory:
+    temporary_path = Path(directory)/'cache-regression.hdf5'
+    height, width = chip_slice.shape
+    test_slice = np.arange(height * width, dtype=float).reshape(height, width)
+    with h5py.File(temporary_path, 'w') as handle:
+        for index in range(5):
+            handle.create_dataset(f'amplitude/{index}', data=test_slice + 1000000 + index)
+            handle.create_dataset(f'phase/{index}', data=-test_slice - index)
+    cache_app.text_input[0].set_value(str(temporary_path)).run()
+    next(b for b in cache_app.button if b.label=='📥 Load from Path').click().run()
+    assert not cache_app.exception, cache_app.exception
+    new_sum = cache_app.session_state['test_volume_sum']
+    new_slice = cache_app.session_state['test_slice']
+    assert cache_app.session_state['test_z'] == 0
+    assert chip_sum != new_sum
+    assert chip_slice.shape == new_slice.shape
+    assert not np.allclose(chip_slice, new_slice)
+    expected_slice = (test_slice - test_slice.min()) / (test_slice.max() - test_slice.min() + 1e-10)
+    assert np.allclose(new_slice, expected_slice)
+    print('CACHE REGRESSION PASS 3D', chip_sum, '->', new_sum)
+    print('CACHE REGRESSION PASS 2D same z=0, shape=', new_slice.shape)
+
 times=[]
 for i in range(5):
  gc.collect()

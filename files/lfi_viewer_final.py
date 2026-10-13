@@ -222,7 +222,7 @@ def create_3d_trace(X, Y, Z, values, colorscale, mode='volume', percentile=60):
 # ── Cached helpers ────────────────────────────────────────────────
 
 @st.cache_data
-def get_normalized_slice(_data, z_index, channel='amplitude'):
+def get_normalized_slice(_data, data_key, z_index, channel='amplitude'):
     """Return normalized [0,1] slice for the given channel ('amplitude' or 'phase')."""
     slice_data = _data.get_slice(z_index)
     arr = slice_data[channel]
@@ -231,7 +231,7 @@ def get_normalized_slice(_data, z_index, channel='amplitude'):
     return normalized, s_min, s_max
 
 @st.cache_data
-def get_downsampled_volume(_data, max_points=200_000):
+def get_downsampled_volume(_data, data_key, max_points=200_000):
     """Cache and downsample 3D amplitude volume for fast rendering."""
     amp   = _data.amplitude
     total = amp.size
@@ -502,6 +502,9 @@ else:
         unsafe_allow_html=True
     )
 
+    file_path = st.session_state.data.file_path
+    data_key = (file_path, os.path.getmtime(file_path))
+
     tab1, tab2, tab3, tab4 = st.tabs([
         t('tab_2d'), t('tab_3d'), t('tab_waveform'), t('tab_export')
     ])
@@ -534,7 +537,7 @@ else:
                 st.info(t('single_layer'))
 
             normalized, s_min, s_max = get_normalized_slice(
-                st.session_state.data, current_z, channel_key
+                st.session_state.data, data_key, current_z, channel_key
             )
             raw_slice = st.session_state.data.get_slice(current_z)[channel_key]
 
@@ -627,7 +630,7 @@ else:
             with col_3d:
                 if render_3d or st.session_state.get('3d_rendered'):
                     st.session_state['3d_rendered'] = True
-                    X, Y, Z, values, step = get_downsampled_volume(st.session_state.data)
+                    X, Y, Z, values, step = get_downsampled_volume(st.session_state.data, data_key)
                     camera = st.session_state.get('3d_camera') or dict(eye=dict(x=1.5, y=1.5, z=1.5))
 
                     fig_3d = go.Figure(data=create_3d_trace(
@@ -717,7 +720,7 @@ else:
             if st.button(t('btn_export_image'), use_container_width=True):
                 current_z  = z_indices[st.session_state.current_z_idx]
                 ch_key     = st.session_state.channel.lower()
-                norm, _, _ = get_normalized_slice(st.session_state.data, current_z, ch_key)
+                norm, _, _ = get_normalized_slice(st.session_state.data, data_key, current_z, ch_key)
 
                 brightness_offset = (st.session_state.brightness - 50) / 100
                 contrast_scale    = st.session_state.contrast / 50
