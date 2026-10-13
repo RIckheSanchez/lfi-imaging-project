@@ -67,16 +67,17 @@ Inspected from `data/leaf/leaf1.mat` (`scipy.io.whosmat`):
 
 | Variable | Shape | Dtype | Apparent role |
 | --- | --- | --- | --- |
-| `L_A` | `(1200, 400, 475)` | float64 | Demodulated amplitude image stack; third axis unconfirmed. |
+| `L_A` | `(1200, 400, 475)` | float64 | Demodulated amplitude image stack; third axis is a time series (confirmed by the group, 2026-10-13); no timestamps stored. |
 | `L_P` | `(1200, 400, 475)` | float64 | Encoded phase image stack; reference-consistent decoding `wrap(L_P*pi/4096 - pi)`. |
 | `L_P_U` | `(1200, 400, 91)` | float64 | Saved radian phase reference, numerically matched to raw indices 0..90. |
 | `L_P_U_M` | `(1200, 400, 91)` | float64 | Modified reference; difference from `U` supports smooth spatial background correction, not a simple validity mask. |
 
 Observations relevant to pre-processing:
 
-* **475 is a stack length, not proof of waveform samples.** Kashyap 2023
-  describes time-lapse imaging. Our stack-axis Leaf operators remain
-  exploratory pending metadata; the paper uses spatial 2D unwrapping.
+* **475 is a time series, not waveform samples or depth.** Confirmed by the
+  group on 2026-10-13, consistent with the time-lapse imaging in Kashyap 2023.
+  No timestamps are stored, so images are processed independently with
+  spatial 2D unwrapping.
 * **Leaf reference consistency is numerically resolved.** The loader uses
   `wrap(L_P*pi/4096 - pi)`. This is distinct from 2026 RDM signed-14
   decoding and is not absolute phase calibration. Stack-axis Itoh is no
@@ -171,7 +172,7 @@ The v0.4 pilot produced:
 | --- | --- | --- |
 | 1 | Skin `IMAGE_PHASE` uint16 encoding: `[0, 2π)` or `[-π, π)`? | Choice of `phase_encoding` in `io.load_skin_hdf5`. |
 | 2 | Confirm meaning of `frames/{id}` for Skin (frame index in a longer sequence, or simply a session id)? | Whether multi-frame skin scans should be aggregated into `(n_z, H, W)` rather than `(1, H, W)`. |
-| 3 | Leaf physical third-axis coordinate, timestamps, calibration and `_U_M` processing script? | Physical-coordinate/absolute calibration; same-index reference pairing 0..90 is now numerically validated. |
+| 3 | Leaf timestamps (third axis confirmed as a time series, 2026-10-13), calibration and `_U_M` processing script? | Physical-coordinate/absolute calibration; same-index reference pairing 0..90 is now numerically validated. |
 
 These do not block amplitude and fitted-waveform processing, but they do
 block claims of physically validated absolute phase reconstruction.
