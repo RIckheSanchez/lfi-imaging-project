@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.1",
+  "target_type": "Marble",
+  "file_path": "/Users/wangzeyu/Desktop/REIT4841/data/Marble/maeble10%_0.hdf5",
+  "shape": [
+    1,
+    1400,
+    400
+  ],
+  "z_indices": [
+    1
+  ],
+  "amplitude_dtype": "float64",
+  "phase_dtype": "float64",
+  "phase_units": "raw_code",
+  "has_waveform": false,
+  "depth_mm": null,
+  "metadata": {
+    "experiment_id": "",
+    "target_type": "Marble",
+    "timestamp": "",
+    "operator": "",
+    "scan_mode": "z_stack",
+    "n_z_slices": 1,
+    "z_start": null,
+    "z_end": null,
+    "x_pixels": 400,
+    "y_pixels": 1400,
+    "laser_type": "",
+    "laser_channel": "",
+    "wavelength_um": null,
+    "data_channels": [
+      "amplitude",
+      "phase"
+    ],
+    "dtype": "float64",
+    "file_format": "hdf5_zstack",
+    "raw_file_path": "/Users/wangzeyu/Desktop/REIT4841/data/Marble/maeble10%_0.hdf5",
+    "rdm_source_path": "",
+    "frame_ids": [
+      1
+    ],
+    "original_dtype": "float64",
+    "phase_encoding_used": "zstack_unconfirmed",
+    "anomalous_frame_ids": [],
+    "phase_converted": false,
+    "notes": "borad1.hdf5 and marble phase are float64 in [-180, 179.956], step 360/8192; looks like degrees not radians. Keeping raw values until units are confirmed.",
+    "depth_mm": null,
+    "experiment_details_path": ""
+  }
+}
