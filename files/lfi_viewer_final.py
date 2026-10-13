@@ -20,6 +20,11 @@ import h5py
 # ── Translations ──────────────────────────────────────────────────
 
 STRINGS = {
+    'render_mode': {"EN": '3D mode', "CN": '三维模式'},
+    'volume_mode': {"EN": 'Volume', "CN": '体渲染'},
+    'isosurface_mode': {"EN": 'Isosurface', "CN": '等值面'},
+    'iso_percentile': {"EN": 'Isomin percentile', "CN": '等值面下限百分位'},
+
     'export_kind': {"EN": 'Image type', "CN": '图像类型'},
     'pixel_image': {"EN": 'Pixel image', "CN": '像素图像'},
     'publication': {"EN": 'Publication figure', "CN": '论文插图'},
@@ -201,6 +206,17 @@ def publication_png(adjusted, colormap, pixel_size=0, color_label='Intensity',
     buffer = io.BytesIO()
     figure.savefig(buffer, format='png', dpi=300, bbox_inches='tight')
     return buffer.getvalue()
+
+
+def create_3d_trace(X, Y, Z, values, colorscale, mode='volume', percentile=60):
+    coordinates = dict(x=X.ravel(), y=Y.ravel(), z=Z.ravel(), value=values.ravel(),
+                       colorscale=colorscale)
+    if mode == 'isosurface':
+        return go.Isosurface(**coordinates, isomin=float(np.percentile(values, percentile)),
+                             isomax=float(np.percentile(values, 95)), surface_count=3,
+                             caps=dict(x_show=False, y_show=False, z_show=False))
+    return go.Volume(**coordinates, isomin=float(values.min()), isomax=float(values.max()),
+                     opacity=.1, surface_count=17)
 
 
 # ── Cached helpers ────────────────────────────────────────────────
@@ -596,6 +612,8 @@ else:
 
             with col_3d_info:
                 st.markdown(t('rendering_info'))
+                render_mode = st.radio(t('render_mode'), ['volume_mode', 'isosurface_mode'], format_func=t)
+                iso_percentile = st.slider(t('iso_percentile'), 0, 94, 60) if render_mode == 'isosurface_mode' else 60
                 st.info(t('rotate_hint'))
                 if st.button(t('btn_reset_camera'), use_container_width=True):
                     st.session_state['3d_camera'] = None
@@ -612,13 +630,10 @@ else:
                     X, Y, Z, values, step = get_downsampled_volume(st.session_state.data)
                     camera = st.session_state.get('3d_camera') or dict(eye=dict(x=1.5, y=1.5, z=1.5))
 
-                    fig_3d = go.Figure(data=go.Volume(
-                        x=X.flatten(), y=Y.flatten(), z=Z.flatten(),
-                        value=values.flatten(),
-                        isomin=values.min(), isomax=values.max(),
-                        opacity=0.1, surface_count=17,
-                        colorscale=COLORMAP_MAPPING.get(st.session_state.colormap, 'Viridis'),
-                    ))
+                    fig_3d = go.Figure(data=create_3d_trace(
+                        X, Y, Z, values,
+                        COLORMAP_MAPPING.get(st.session_state.colormap, 'Viridis'),
+                        'isosurface' if render_mode == 'isosurface_mode' else 'volume', iso_percentile))
                     fig_3d.update_layout(
                         scene=dict(
                             xaxis_title=t('x_axis'),
