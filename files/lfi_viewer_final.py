@@ -19,6 +19,11 @@ import h5py
 # ── Translations ──────────────────────────────────────────────────
 
 STRINGS = {
+    'raw_value': {"EN": 'Raw value', "CN": '原始值'},
+    'pixel_x': {"EN": 'Pixel X', "CN": '像素 X'},
+    'pixel_y': {"EN": 'Pixel Y', "CN": '像素 Y'},
+    'selected_value': {"EN": '**Selected pixel value:**', "CN": '**所选像素值：**'},
+
     # Sidebar — data import
     'data_import':          {'EN': '📁 Data Import',                         'CN': '📁 数据导入'},
     'load_real_title':      {'EN': '🎯 Load Data',                           'CN': '🎯 加载数据'},
@@ -468,7 +473,7 @@ else:
             normalized, s_min, s_max = get_normalized_slice(
                 st.session_state.data, current_z, channel_key
             )
-            raw_slice = normalized * (s_max - s_min) + s_min
+            raw_slice = st.session_state.data.get_slice(current_z)[channel_key]
 
             brightness_offset = (st.session_state.brightness - 50) / 100
             contrast_scale    = st.session_state.contrast / 50
@@ -484,6 +489,8 @@ else:
                 labels={'color': color_label},
                 zmin=0, zmax=1
             )
+            fig.update_traces(customdata=raw_slice,
+                              hovertemplate="x=%{x}<br>y=%{y}<br>" + t('raw_value') + "=%{customdata:.6g}<extra></extra>")
             fig.update_layout(
                 width=600, height=600,
                 xaxis_title=t('x_pixels'),
@@ -515,8 +522,9 @@ else:
             st.write(f"{t('channel_info')} {ch_display}")
             st.write(f"{t('current_z')} {current_z}")
             cx, cy = st.session_state.data.width // 2, st.session_state.data.height // 2
-            st.write(f"{t('center')} ({cx}, {cy})")
-            st.write(f"{t('value_center')} {raw_slice[cy, cx]:.3f}")
+            pixel_x = st.number_input(t('pixel_x'), 0, raw_slice.shape[1] - 1, cx)
+            pixel_y = st.number_input(t('pixel_y'), 0, raw_slice.shape[0] - 1, cy)
+            st.write(f"{t('selected_value')} {raw_slice[pixel_y, pixel_x]:.6g}")
             st.write(f"{t('range')} {raw_slice.min():.3f} – {raw_slice.max():.3f}")
             st.markdown('</div>', unsafe_allow_html=True)
 
