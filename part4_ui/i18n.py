@@ -1,0 +1,43 @@
+"""English and Chinese desktop UI text."""
+STRINGS = {
+    'title': ('LFI Imaging Viewer', 'LFI 成像查看器'),
+    'file': ('File', '文件'), 'open': ('Open…', '打开…'),
+    'recent': ('Open Recent', '最近打开'), 'export': ('Export…', '导出…'),
+    'quit': ('Quit', '退出'), 'view': ('View', '视图'),
+    'language': ('Language', '语言'), 'help': ('Help', '帮助'),
+    'about': ('About', '关于'), 'controls': ('Display Controls', '显示控制'),
+    'channel': ('Channel', '通道'), 'amplitude': ('Amplitude', '振幅'),
+    'phase': ('Phase', '相位'), 'brightness': ('Brightness', '亮度'),
+    'contrast': ('Contrast', '对比度'), 'colormap': ('Colormap', '色彩映射'),
+    'z': ('Z Depth', 'Z 深度'), 'pixel_size': ('Pixel size (μm)', '像素尺寸（μm）'),
+    'scale_hint': ('Set a positive pixel size to show a scale bar.', '请输入大于 0 的像素尺寸以显示比例尺。'),
+    'preprocessing': ('Pre-processing', '预处理'),
+    'apply': ('Apply pre-processing', '应用预处理'),
+    'parameter': ('Parameter placeholder', '参数占位'),
+    'identity': ('Identity implementation: returns the data unchanged.', '当前为 Identity 实现：原样返回数据。'),
+    'slice': ('2D Slice', '二维切片'), 'volume': ('3D', '三维'),
+    'waveform': ('Waveform', '波形'), 'scan_info': ('Scan Info', '扫描信息'),
+    'pixel_info': ('Pixel Info', '像素信息'), 'histogram': ('Histogram', '直方图'),
+    'target': ('Target', '目标类型'), 'size': ('Size', '尺寸'),
+    'slices': ('Slices', '层数'), 'z_range': ('Z Range', 'Z 范围'),
+    'filename': ('File', '文件'), 'raw': ('Raw value', '原始值'),
+    'x': ('X (pixels)', 'X（像素）'), 'y': ('Y (pixels)', 'Y（像素）'),
+    'intensity': ('Intensity', '强度'), 'count': ('Count', '计数'),
+    'z_index': ('Z index', 'Z 层编号'), 'phase_rad': ('Phase (rad)', '相位（rad）'),
+    'ready': ('Open or drop an HDF5 scan to begin.', '打开或拖入 HDF5 文件开始。'),
+    'busy': ('Working…', '正在处理…'), 'error': ('Unable to complete operation', '操作失败'),
+    'load_error': ('Could not load the file', '无法加载文件'),
+    'render_error': ('Could not update the slice', '无法更新切片'),
+    'export_error': ('Could not export the file', '无法导出文件'),
+    'export_done': ('Export saved', '导出已保存'),
+    'filter': ('HDF5 scans (*.hdf5 *.h5)', 'HDF5 扫描文件 (*.hdf5 *.h5)'),
+    'pending_3d': ('3D rendering will be added in the next stage.', '三维渲染将在下一阶段加入。'),
+    'about_text': ('LFI desktop viewer · PySide6 + pyqtgraph\nShared LFI core; Identity backend.', 'LFI 桌面查看器 · PySide6 + pyqtgraph\n共享 LFI 核心；Identity 后端。'),
+    'wait_close': ('Please wait for the current operation to finish before closing.', '请等待当前操作完成后再关闭。'),
+    'format': ('Export format', '导出格式'), 'publication': ('Publication PNG', '论文插图 PNG'),
+    'save': ('Save…', '保存…'), 'cancel': ('Cancel', '取消'),
+}
+
+
+def text(key, language):
+    return STRINGS[key][language == 'CN']

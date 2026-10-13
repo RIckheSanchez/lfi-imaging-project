@@ -1,0 +1,511 @@
+"""Launch with python -m part4_ui.app from the repository root."""
+import sys
+import traceback
+from pathlib import Path
+import numpy as np
+from PySide6 import QtCore, QtGui, QtWidgets
+import pyqtgraph as pg
+from .i18n import text
+from .lfi_core.data_io import smart_load, local_data_key
+from .lfi_core.processing import normalized_slice, adjust_slice
+from .lfi_core.export import scale_bar, export_csv, pixel_image, publication_png
+from .lfi_core.backend import IdentityPreprocessor
+
+COLORMAPS = ['Viridis', 'Plasma', 'Inferno', 'Magma', 'Turbo', 'Hot', 'Cool']
+
+
+class WorkerSignals(QtCore.QObject):
+    result = QtCore.Signal(object)
+    error = QtCore.Signal(object)
+    finished = QtCore.Signal()
+
+
+class Worker(QtCore.QRunnable):
+    """Run non-Qt computation on the pool, delivering results to GUI slots."""
+    def __init__(self, kind, token, operation):
+        super().__init__()
+        self.kind, self.token, self.operation = kind, token, operation
+        self.signals = WorkerSignals()
+
+    def run(self):
+        try:
+            self.signals.result.emit((self.kind, self.token, self.operation()))
+        except Exception as error:
+            self.signals.error.emit((self.kind, self.token, str(error)))
+        finally:
+            self.signals.finished.emit()
+
+
+class MainWindow(QtWidgets.QMainWindow):
+    def __init__(self, settings=None, preprocessor=None):
+        super().__init__()
+        self.settings = settings or QtCore.QSettings('LFI', 'Viewer')
+        self.preprocessor = preprocessor or IdentityPreprocessor()
+        self.language = self.settings.value('language', 'EN')
+        self.data = self.raw_data = None
+        self.data_key = None
+        self.selected_pixel = (0, 0)
+        self.raw_slice = self.adjusted = None
+        self.pool = QtCore.QThreadPool(self)
+        self.pool.setMaxThreadCount(2)
+        self.jobs = 0
+        self.load_token = self.slice_token = 0
+        self.workers = set()
+        self.scale_item = None
+        self.fit_next_slice = True
+        self.resize(1320, 860)
+        self.setAcceptDrops(True)
+        self._build_ui()
+        self.set_language(self.language)
+        self.statusBar().showMessage(self.tr_text('ready'))
+
+    def tr_text(self, key):
+        return text(key, self.language)
+
+    def _build_ui(self):
+        self.progress = QtWidgets.QProgressBar()
+        self.progress.setRange(0, 0)
+        self.progress.setMaximumWidth(150)
+        self.progress.hide()
+        self.statusBar().addPermanentWidget(self.progress)
+        self.busy_label = QtWidgets.QLabel()
+        self.statusBar().addPermanentWidget(self.busy_label)
+        self.dock = QtWidgets.QDockWidget(self)
+        self.dock.setObjectName('display_controls')
+        dock_widget = QtWidgets.QWidget()
+        dock_layout = QtWidgets.QVBoxLayout(dock_widget)
+        self.form = QtWidgets.QFormLayout()
+        self.labels = {}
+        self.channel = QtWidgets.QComboBox()
+        self.channel.addItems(['Amplitude', 'Phase'])
+        self.brightness = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self.brightness.setRange(0, 100)
+        self.brightness.setValue(60)
+        self.contrast = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self.contrast.setRange(0, 100)
+        self.contrast.setValue(75)
+        self.colormap = QtWidgets.QComboBox()
+        self.colormap.addItems(COLORMAPS)
+        self.z_slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self.z_spin = QtWidgets.QSpinBox()
+        self.z_slider.setRange(0, 0)
+        self.z_spin.setRange(0, 0)
+        z_widget = QtWidgets.QWidget()
+        z_layout = QtWidgets.QVBoxLayout(z_widget)
+        z_layout.setContentsMargins(0, 0, 0, 0)
+        z_layout.addWidget(self.z_slider)
+        z_layout.addWidget(self.z_spin)
+        self.z_label = QtWidgets.QLabel()
+        z_layout.addWidget(self.z_label)
+        self.pixel_size = QtWidgets.QDoubleSpinBox()
+        self.pixel_size.setDecimals(6)
+        self.pixel_size.setRange(0, 1e9)
+        for key, widget in [('channel', self.channel), ('brightness', self.brightness),
+                            ('contrast', self.contrast), ('colormap', self.colormap),
+                            ('z', z_widget), ('pixel_size', self.pixel_size)]:
+            label = QtWidgets.QLabel()
+            self.labels[key] = label
+            self.form.addRow(label, widget)
+        dock_layout.addLayout(self.form)
+        self.scale_hint = QtWidgets.QLabel()
+        self.scale_hint.setWordWrap(True)
+        dock_layout.addWidget(self.scale_hint)
+        self.pre_group = QtWidgets.QGroupBox()
+        pre_layout = QtWidgets.QVBoxLayout(self.pre_group)
+        self.apply_preprocessing = QtWidgets.QCheckBox()
+        self.parameter = QtWidgets.QLineEdit()
+        self.parameter.setEnabled(False)
+        self.identity_label = QtWidgets.QLabel()
+        self.identity_label.setWordWrap(True)
+        pre_layout.addWidget(self.apply_preprocessing)
+        pre_layout.addWidget(self.parameter)
+        pre_layout.addWidget(self.identity_label)
+        dock_layout.addWidget(self.pre_group)
+        dock_layout.addStretch()
+        self.dock.setWidget(dock_widget)
+        self.addDockWidget(QtCore.Qt.DockWidgetArea.LeftDockWidgetArea, self.dock)
+        self.tabs = QtWidgets.QTabWidget()
+        self.setCentralWidget(self.tabs)
+        self.slice_tab = QtWidgets.QWidget()
+        slice_layout = QtWidgets.QHBoxLayout(self.slice_tab)
+        self.image_plot = pg.PlotWidget(background='#151d2c')
+        self.image_plot.setMinimumSize(450, 450)
+        self.view = self.image_plot.getViewBox()
+        self.view.setAspectLocked(True)
+        self.view.invertY(True)
+        self.image = pg.ImageItem(axisOrder='row-major')
+        self.image_plot.addItem(self.image)
+        self.cross_x = pg.InfiniteLine(angle=90, pen=pg.mkPen('#ffcf57', width=1))
+        self.cross_y = pg.InfiniteLine(angle=0, pen=pg.mkPen('#ffcf57', width=1))
+        self.image_plot.addItem(self.cross_x)
+        self.image_plot.addItem(self.cross_y)
+        self.cross_x.hide()
+        self.cross_y.hide()
+        self.image_plot.scene().sigMouseMoved.connect(self.hover_pixel)
+        self.image_plot.scene().sigMouseClicked.connect(self.click_pixel)
+        slice_layout.addWidget(self.image_plot, 3)
+        info_widget = QtWidgets.QWidget()
+        info_layout = QtWidgets.QVBoxLayout(info_widget)
+        self.scan_group = QtWidgets.QGroupBox()
+        self.scan_label = QtWidgets.QLabel()
+        self.scan_label.setWordWrap(True)
+        self.scan_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+        scan_layout = QtWidgets.QVBoxLayout(self.scan_group)
+        scan_layout.addWidget(self.scan_label)
+        self.pixel_group = QtWidgets.QGroupBox()
+        self.pixel_label = QtWidgets.QLabel()
+        pixel_layout = QtWidgets.QVBoxLayout(self.pixel_group)
+        pixel_layout.addWidget(self.pixel_label)
+        self.histogram = pg.PlotWidget()
+        self.histogram.setMinimumHeight(200)
+        self.histogram_curve = self.histogram.plot(pen=pg.mkPen('#5bb8eb', width=2), fillLevel=0, brush=(91,184,235,60))
+        info_layout.addWidget(self.scan_group)
+        info_layout.addWidget(self.pixel_group)
+        info_layout.addWidget(self.histogram, 1)
+        info_widget.setMinimumWidth(240)
+        info_widget.setMaximumWidth(360)
+        slice_layout.addWidget(info_widget, 1)
+        self.volume_placeholder = QtWidgets.QLabel(alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
+        self.waveform_tab = QtWidgets.QWidget()
+        wave_layout = QtWidgets.QVBoxLayout(self.waveform_tab)
+        self.amplitude_plot = pg.PlotWidget()
+        self.phase_plot = pg.PlotWidget()
+        wave_layout.addWidget(self.amplitude_plot)
+        wave_layout.addWidget(self.phase_plot)
+        self.tabs.addTab(self.slice_tab, '')
+        self.tabs.addTab(self.volume_placeholder, '')
+        self.tabs.addTab(self.waveform_tab, '')
+        self.channel.currentIndexChanged.connect(self.request_slice)
+        self.brightness.valueChanged.connect(self.request_slice)
+        self.contrast.valueChanged.connect(self.request_slice)
+        self.colormap.currentIndexChanged.connect(self.request_slice)
+        self.z_slider.valueChanged.connect(self._z_changed)
+        self.z_spin.valueChanged.connect(self.z_slider.setValue)
+        self.pixel_size.valueChanged.connect(self.update_scale)
+        self.apply_preprocessing.toggled.connect(self.reprocess)
+        self._build_menus()
+
+    def _build_menus(self):
+        self.menuBar().clear()
+        self.file_menu = self.menuBar().addMenu(self.tr_text('file'))
+        self.open_action = self.file_menu.addAction(self.tr_text('open'), self.open_dialog)
+        self.open_action.setShortcut(QtGui.QKeySequence.StandardKey.Open)
+        self.recent_menu = self.file_menu.addMenu(self.tr_text('recent'))
+        self.export_action = self.file_menu.addAction(self.tr_text('export'), self.export_dialog)
+        self.export_action.setEnabled(self.data is not None)
+        self.file_menu.addSeparator()
+        self.file_menu.addAction(self.tr_text('quit'), self.close).setShortcut(QtGui.QKeySequence.StandardKey.Quit)
+        view_menu = self.menuBar().addMenu(self.tr_text('view'))
+        view_menu.addAction(self.dock.toggleViewAction())
+        language_menu = self.menuBar().addMenu(self.tr_text('language'))
+        language_menu.addAction('English', lambda: self.set_language('EN'))
+        language_menu.addAction('中文', lambda: self.set_language('CN'))
+        help_menu = self.menuBar().addMenu(self.tr_text('help'))
+        help_menu.addAction(self.tr_text('about'), lambda: QtWidgets.QMessageBox.information(
+            self, self.tr_text('about'), self.tr_text('about_text')))
+        self.update_recent()
+
+    def set_language(self, language):
+        self.language = language
+        self.settings.setValue('language', language)
+        self.setWindowTitle(self.tr_text('title'))
+        self.dock.setWindowTitle(self.tr_text('controls'))
+        for key, label in self.labels.items():
+            label.setText(self.tr_text(key))
+        self.channel.setItemText(0, self.tr_text('amplitude'))
+        self.channel.setItemText(1, self.tr_text('phase'))
+        self.scale_hint.setText(self.tr_text('scale_hint'))
+        self.pre_group.setTitle(self.tr_text('preprocessing'))
+        self.apply_preprocessing.setText(self.tr_text('apply'))
+        self.parameter.setPlaceholderText(self.tr_text('parameter'))
+        self.identity_label.setText(self.tr_text('identity'))
+        self.scan_group.setTitle(self.tr_text('scan_info'))
+        self.pixel_group.setTitle(self.tr_text('pixel_info'))
+        for index, key in enumerate(('slice', 'volume', 'waveform')):
+            self.tabs.setTabText(index, self.tr_text(key))
+        self.volume_placeholder.setText(self.tr_text('pending_3d'))
+        self.image_plot.setLabel('bottom', self.tr_text('x'))
+        self.image_plot.setLabel('left', self.tr_text('y'))
+        self.histogram.setTitle(self.tr_text('histogram'))
+        self.histogram.setLabel('bottom', self.tr_text('intensity'))
+        self.histogram.setLabel('left', self.tr_text('count'))
+        self.amplitude_plot.setLabel('bottom', self.tr_text('z_index'))
+        self.amplitude_plot.setLabel('left', self.tr_text('amplitude'))
+        self.phase_plot.setLabel('bottom', self.tr_text('z_index'))
+        self.phase_plot.setLabel('left', self.tr_text('phase_rad'))
+        self._build_menus()
+        self.update_info()
+        if self.jobs:
+            self.busy_label.setText(self.tr_text('busy'))
+
+    def update_recent(self):
+        self.recent_menu.clear()
+        for path in self.settings.value('recent_files', [], type=list)[:5]:
+            self.recent_menu.addAction(path, lambda checked=False, filename=path: self.open_file(filename))
+
+    def open_dialog(self):
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(self, self.tr_text('open'), '', self.tr_text('filter'))
+        if path:
+            self.open_file(path)
+
+    def open_file(self, path):
+        self.load_token += 1
+        self.slice_token += 1
+        apply = self.apply_preprocessing.isChecked()
+        backend = self.preprocessor
+        def load():
+            key = local_data_key(path)
+            raw = smart_load(key[0])
+            processed = backend.preprocess(raw, {}) if apply else raw
+            return raw, processed, key
+        self._submit('load', self.load_token, load)
+
+    def reprocess(self):
+        if self.raw_data is None:
+            return
+        self.load_token += 1
+        self.slice_token += 1
+        raw, key = self.raw_data, self.data_key
+        apply, backend = self.apply_preprocessing.isChecked(), self.preprocessor
+        self._submit('load', self.load_token,
+                     lambda: (raw, backend.preprocess(raw, {}) if apply else raw, key))
+
+    def _submit(self, kind, token, operation):
+        worker = Worker(kind, token, operation)
+        self.workers.add(worker)
+        self.jobs += 1
+        self.progress.show()
+        self.busy_label.setText(self.tr_text('busy'))
+        worker.signals.result.connect(self._result)
+        worker.signals.error.connect(self._error)
+        worker.signals.finished.connect(self._finished)
+        self.pool.start(worker)
+
+    @QtCore.Slot(object)
+    def _result(self, message):
+        kind, token, value = message
+        try:
+            if kind == 'load' and token == self.load_token:
+                self.raw_data, self.data, self.data_key = value
+                self.selected_pixel = (self.data.width // 2, self.data.height // 2)
+                self.raw_slice = self.adjusted = None
+                self.fit_next_slice = True
+                self.slice_token += 1
+                with QtCore.QSignalBlocker(self.z_slider), QtCore.QSignalBlocker(self.z_spin):
+                    self.z_slider.setRange(0, self.data.n_slices - 1)
+                    self.z_spin.setRange(0, self.data.n_slices - 1)
+                    self.z_slider.setValue(0)
+                    self.z_spin.setValue(0)
+                recent = self.settings.value('recent_files', [], type=list)
+                self.settings.setValue('recent_files', [self.data_key[0]] + [p for p in recent if p != self.data_key[0]][:4])
+                self.update_recent()
+                self.export_action.setEnabled(True)
+                self.update_info()
+                self.request_slice()
+            elif kind == 'slice' and token == self.slice_token:
+                self.raw_slice, self.adjusted, counts, edges = value
+                cmap = pg.colormap.get(self.colormap.currentText().lower(), source='matplotlib')
+                self.image.setLookupTable(cmap.getLookupTable(0., 1., 256))
+                self.image.setImage(self.adjusted, levels=(0, 1), autoLevels=False)
+                if self.fit_next_slice:
+                    self.view.setRange(QtCore.QRectF(0, 0, self.data.width, self.data.height), padding=.03)
+                    self.fit_next_slice = False
+                self.histogram.setLabel('bottom', self.tr_text('phase_rad' if self.channel.currentIndex() else 'intensity'))
+                self.histogram_curve.setData((edges[:-1] + edges[1:]) / 2, counts)
+                self.update_scale()
+                self.select_pixel(*self.selected_pixel, switch_tab=False)
+                self.update_info()
+            elif kind == 'export':
+                self.statusBar().showMessage(f"{self.tr_text('export_done')}: {value}", 10000)
+        except Exception as error:
+            self.show_error(str(error))
+
+    @QtCore.Slot(object)
+    def _error(self, message):
+        kind, token, error = message
+        if kind == 'load' and token != self.load_token:
+            return
+        if kind == 'slice' and token != self.slice_token:
+            return
+        key = {'load': 'load_error', 'slice': 'render_error', 'export': 'export_error'}[kind]
+        self.show_error(f'{self.tr_text(key)}:\n{error}')
+
+    def show_error(self, message):
+        QtWidgets.QMessageBox.warning(self, self.tr_text('error'), message)
+
+    @QtCore.Slot()
+    def _finished(self):
+        self.jobs -= 1
+        if not self.jobs:
+            self.progress.hide()
+            self.busy_label.clear()
+            self.workers.clear()
+
+    def _z_changed(self, index):
+        with QtCore.QSignalBlocker(self.z_spin):
+            self.z_spin.setValue(index)
+        self.request_slice()
+
+    def request_slice(self, *args):
+        if self.data is None:
+            return
+        self.slice_token += 1
+        data, z = self.data, self.data.z_indices[self.z_slider.value()]
+        channel = 'phase' if self.channel.currentIndex() else 'amplitude'
+        brightness, contrast = self.brightness.value(), self.contrast.value()
+        def process():
+            normalized, _, _ = normalized_slice(data, z, channel)
+            raw = data.get_slice(z)[channel]
+            counts, edges = np.histogram(raw, bins=50)
+            return raw, adjust_slice(normalized, brightness, contrast), counts, edges
+        self._submit('slice', self.slice_token, process)
+
+    def update_info(self):
+        if self.data is None:
+            return
+        data = self.data
+        rows = [('target', data.target_type), ('size', f'{data.width} × {data.height}'),
+                ('slices', data.n_slices), ('z_range', f'{data.z_indices[0]} → {data.z_indices[-1]}'),
+                ('filename', Path(data.file_path).name)]
+        self.scan_label.setText('\n'.join(f'{self.tr_text(key)}: {value}' for key, value in rows))
+        self.z_label.setText(f"{self.tr_text('z')}: {data.z_indices[self.z_slider.value()]}")
+        if self.raw_slice is not None:
+            x, y = self.selected_pixel
+            self.pixel_label.setText(f"X: {x}   Y: {y}\n{self.tr_text('raw')}: {self.raw_slice[y, x]:.6g}")
+
+    def _pixel_at(self, position):
+        if self.raw_slice is None or not self.image.sceneBoundingRect().contains(position):
+            return None
+        point = self.image.mapFromScene(position)
+        x, y = int(np.floor(point.x())), int(np.floor(point.y()))
+        if 0 <= x < self.raw_slice.shape[1] and 0 <= y < self.raw_slice.shape[0]:
+            return x, y
+        return None
+
+    def hover_pixel(self, position):
+        pixel = self._pixel_at(position)
+        if pixel is not None:
+            x, y = pixel
+            self.statusBar().showMessage(f"x={x}  y={y}  {self.tr_text('raw')}={self.raw_slice[y, x]:.6g}")
+
+    def click_pixel(self, event):
+        if event.button() != QtCore.Qt.MouseButton.LeftButton:
+            return
+        pixel = self._pixel_at(event.scenePos())
+        if pixel is not None:
+            event.accept()
+            self.select_pixel(*pixel)
+
+    def select_pixel(self, x, y, switch_tab=True):
+        if self.raw_slice is None:
+            return
+        x = max(0, min(int(x), self.data.width - 1))
+        y = max(0, min(int(y), self.data.height - 1))
+        self.selected_pixel = (x, y)
+        self.cross_x.setPos(x + .5)
+        self.cross_y.setPos(y + .5)
+        self.cross_x.show()
+        self.cross_y.show()
+        self.update_info()
+        self.amplitude_plot.clear()
+        self.phase_plot.clear()
+        self.amplitude_plot.plot(self.data.z_indices, self.data.amplitude[:, y, x], pen='#55b3e5', symbol='o')
+        self.phase_plot.plot(self.data.z_indices, self.data.phase[:, y, x], pen='#c590ed', symbol='o')
+        if switch_tab:
+            self.tabs.setCurrentIndex(2)
+
+    def update_scale(self, *args):
+        if self.scale_item is not None:
+            # pyqtgraph ScaleBar reanchors even when detached unless offset is None.
+            self.scale_item.offset = None
+            self.view.removeItem(self.scale_item)
+            self.scale_item.deleteLater()
+            self.scale_item = None
+        self.scale_hint.setVisible(self.pixel_size.value() == 0)
+        if self.data is None or self.pixel_size.value() == 0:
+            return
+        length, label = scale_bar(self.data.width, self.pixel_size.value())
+        self.scale_item = pg.ScaleBar(length, suffix='', offset=(-20, -35), brush='white', pen='white')
+        self.scale_item.setParentItem(self.view)
+        self.scale_item.text.setText(label)
+
+    def dragEnterEvent(self, event):
+        if any(url.isLocalFile() and Path(url.toLocalFile()).suffix.lower() in ('.h5', '.hdf5')
+               for url in event.mimeData().urls()):
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        for url in event.mimeData().urls():
+            if url.isLocalFile() and Path(url.toLocalFile()).suffix.lower() in ('.h5', '.hdf5'):
+                self.open_file(url.toLocalFile())
+                event.acceptProposedAction()
+                break
+
+    def export_dialog(self):
+        if self.data is None:
+            return
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle(self.tr_text('export'))
+        layout = QtWidgets.QFormLayout(dialog)
+        formats = QtWidgets.QComboBox()
+        formats.addItems(['CSV', 'PNG', 'JPEG', 'TIFF', self.tr_text('publication')])
+        layout.addRow(self.tr_text('format'), formats)
+        buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Save | QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        buttons.button(QtWidgets.QDialogButtonBox.StandardButton.Save).setText(self.tr_text('save'))
+        buttons.button(QtWidgets.QDialogButtonBox.StandardButton.Cancel).setText(self.tr_text('cancel'))
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addRow(buttons)
+        if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return
+        image_format = ['CSV', 'PNG', 'JPEG', 'TIFF', 'publication'][formats.currentIndex()]
+        channel = 'phase' if self.channel.currentIndex() else 'amplitude'
+        z = self.data.z_indices[self.z_slider.value()]
+        extension = 'png' if image_format == 'publication' else image_format.lower()
+        filename = f'lfi_{channel}_z{z}.{extension}'
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, self.tr_text('export'), filename, f'{image_format} (*.{extension})')
+        if path:
+            self.export_to(path, image_format)
+
+    def export_to(self, path, image_format):
+        data = self.data
+        z = data.z_indices[self.z_slider.value()]
+        channel = 'phase' if self.channel.currentIndex() else 'amplitude'
+        brightness, contrast = self.brightness.value(), self.contrast.value()
+        colormap, pixel_size = self.colormap.currentText(), self.pixel_size.value()
+        color_label = self.tr_text('phase_rad' if channel == 'phase' else 'intensity')
+        x_label, y_label = self.tr_text('x'), self.tr_text('y')
+        def save():
+            if image_format == 'CSV':
+                Path(path).write_text(export_csv(data.get_slice(z)[channel]))
+            else:
+                norm, _, _ = normalized_slice(data, z, channel)
+                adjusted = adjust_slice(norm, brightness, contrast)
+                content = publication_png(adjusted, colormap, pixel_size, color_label, x_label, y_label) if image_format == 'publication' else pixel_image(adjusted, colormap, image_format)
+                Path(path).write_bytes(content)
+            return str(path)
+        self._submit('export', 0, save)
+
+    def closeEvent(self, event):
+        if self.jobs:
+            QtWidgets.QMessageBox.information(self, self.tr_text('busy'), self.tr_text('wait_close'))
+            event.ignore()
+        else:
+            event.accept()
+
+
+def main():
+    pg.setConfigOptions(imageAxisOrder='row-major', antialias=True)
+    application = QtWidgets.QApplication(sys.argv)
+    application.setApplicationName('LFI Viewer')
+    window = MainWindow()
+    def handle_exception(error_type, value, trace):
+        traceback.print_exception(error_type, value, trace)
+        window.show_error(str(value))
+    sys.excepthook = handle_exception
+    window.show()
+    return application.exec()
+
+
+if __name__ == '__main__':
+    sys.exit(main())
