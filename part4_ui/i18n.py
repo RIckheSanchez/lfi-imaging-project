@@ -1,5 +1,6 @@
 """English and Chinese desktop UI text."""
 STRINGS = {
+    'fit': ('Fit to window', '适应窗口'),
     'volume_mode': ('Volume', '体渲染'),
     'isosurface_mode': ('Isosurface', '等值面'),
     'iso_percentile': ('Isomin percentile', '等值面下限百分位'),

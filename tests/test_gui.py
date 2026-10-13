@@ -269,3 +269,23 @@ def test_3d_failure_is_readable(qtbot, window, tmp_path):
     assert 'Could not render 3D' in window.errors[0]
     assert 'distinct' in window.errors[0]
     assert window.volume_panel.result is None
+
+
+
+def test_colorbar_bounds_fit_and_loaded_status(qtbot, window):
+    load_mushroom(qtbot, window)
+    assert window.colorbar.levels() == tuple(map(float, (window.raw_slice.min(), window.raw_slice.max())))
+    assert window.colorbar.axis.labelText == 'Amplitude'
+    assert 'mushroom.hdf5' in window.statusBar().currentMessage()
+    assert '1300 × 400' in window.statusBar().currentMessage()
+    window.channel.setCurrentIndex(1)
+    wait_ready(qtbot, window)
+    assert window.colorbar.axis.labelText == 'Phase (rad)'
+    window.view.setRange(QtCore.QRectF(10,20,100,100), padding=0)
+    window.fit_action.trigger()
+    x_range, y_range = window.view.viewRange()
+    assert x_range[0] >= -26.01 and x_range[1] <= 1326.01
+    assert y_range[0] >= -8.01 and y_range[1] <= 408.01
+    window.colormap.setCurrentText('Plasma')
+    wait_ready(qtbot, window)
+    assert window.colorbar.levels() == tuple(map(float, (window.raw_slice.min(), window.raw_slice.max())))

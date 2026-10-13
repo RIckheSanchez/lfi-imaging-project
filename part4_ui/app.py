@@ -15,6 +15,33 @@ from .volume_panel import VolumePanel
 COLORMAPS = ['Viridis', 'Plasma', 'Inferno', 'Magma', 'Turbo', 'Hot', 'Cool']
 
 
+class ImagePlotHost(QtWidgets.QWidget):
+    """Size the plot to the sensor aspect ratio instead of stretching its bounds."""
+    def __init__(self, plot):
+        super().__init__()
+        self.plot = plot
+        plot.setParent(self)
+        self.shape = (400, 400)
+        self.setMinimumSize(240, 240)
+
+    def set_data_shape(self, width, height):
+        self.shape = (width, height)
+        self.resize_plot()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.resize_plot()
+
+    def resize_plot(self):
+        width, height = self.shape
+        available_width, available_height = self.width(), self.height()
+        scale = max(.01, min((available_width-160)/width, (available_height-65)/height))
+        plot_width = min(available_width, int(width*scale+160))
+        plot_height = min(available_height, int(height*scale+65))
+        self.plot.setGeometry((available_width-plot_width)//2, (available_height-plot_height)//2,
+                              plot_width, plot_height)
+
+
 class WorkerSignals(QtCore.QObject):
     result = QtCore.Signal(object)
     error = QtCore.Signal(object)
@@ -131,7 +158,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.slice_tab = QtWidgets.QWidget()
         slice_layout = QtWidgets.QHBoxLayout(self.slice_tab)
         self.image_plot = pg.PlotWidget(background='#151d2c')
-        self.image_plot.setMinimumSize(450, 450)
+        self.image_plot.setMinimumSize(160, 160)
         self.view = self.image_plot.getViewBox()
         self.view.setAspectLocked(True)
         self.view.invertY(True)
@@ -145,7 +172,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.cross_y.hide()
         self.image_plot.scene().sigMouseMoved.connect(self.hover_pixel)
         self.image_plot.scene().sigMouseClicked.connect(self.click_pixel)
-        slice_layout.addWidget(self.image_plot, 3)
+        self.colorbar = pg.ColorBarItem(values=(0,1), interactive=False, colorMapMenu=False)
+        self.image_plot.getPlotItem().layout.addItem(self.colorbar, 2, 5)
+        self.plot_host = ImagePlotHost(self.image_plot)
+        slice_layout.addWidget(self.plot_host, 3)
         info_widget = QtWidgets.QWidget()
         info_layout = QtWidgets.QVBoxLayout(info_widget)
         self.scan_group = QtWidgets.QGroupBox()
@@ -204,6 +234,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.file_menu.addAction(self.tr_text('quit'), self.close).setShortcut(QtGui.QKeySequence.StandardKey.Quit)
         view_menu = self.menuBar().addMenu(self.tr_text('view'))
         view_menu.addAction(self.dock.toggleViewAction())
+        self.fit_action = view_menu.addAction(self.tr_text('fit'), self.fit_view)
+        self.fit_action.setShortcut(QtGui.QKeySequence('Meta+0'))
         language_menu = self.menuBar().addMenu(self.tr_text('language'))
         language_menu.addAction('English', lambda: self.set_language('EN'))
         language_menu.addAction('中文', lambda: self.set_language('CN'))
@@ -242,6 +274,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.phase_plot.setLabel('left', self.tr_text('phase_rad'))
         self._build_menus()
         self.update_info()
+        self.update_colorbar()
         if self.jobs:
             self.busy_label.setText(self.tr_text('busy'))
 
@@ -300,6 +333,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.selected_pixel = (self.data.width // 2, self.data.height // 2)
                 self.raw_slice = self.adjusted = None
                 self.fit_next_slice = True
+                self.plot_host.set_data_shape(self.data.width, self.data.height)
+                self.view.setLimits(xMin=-self.data.width*.02, xMax=self.data.width*1.02,
+                                    yMin=-self.data.height*.02, yMax=self.data.height*1.02,
+                                    minXRange=min(2,self.data.width), minYRange=min(2,self.data.height),
+                                    maxXRange=self.data.width*1.04, maxYRange=self.data.height*1.04)
                 self.slice_token += 1
                 with QtCore.QSignalBlocker(self.z_slider), QtCore.QSignalBlocker(self.z_spin):
                     self.z_slider.setRange(0, self.data.n_slices - 1)
@@ -312,6 +350,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.export_action.setEnabled(True)
                 self.volume_panel.set_data_available(self.data.n_slices > 1)
                 self.update_info()
+                self.statusBar().showMessage(self.loaded_status())
                 self.request_slice()
             elif kind == 'slice' and token == self.slice_token:
                 self.raw_slice, self.adjusted, counts, edges = value
@@ -319,10 +358,11 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.image.setLookupTable(cmap.getLookupTable(0., 1., 256))
                 self.image.setImage(self.adjusted, levels=(0, 1), autoLevels=False)
                 if self.fit_next_slice:
-                    self.view.setRange(QtCore.QRectF(0, 0, self.data.width, self.data.height), padding=.03)
+                    self.fit_view()
                     self.fit_next_slice = False
                 self.histogram.setLabel('bottom', self.tr_text('phase_rad' if self.channel.currentIndex() else 'intensity'))
                 self.histogram_curve.setData((edges[:-1] + edges[1:]) / 2, counts)
+                self.update_colorbar()
                 self.update_scale()
                 self.select_pixel(*self.selected_pixel, switch_tab=False)
                 self.update_info()
@@ -355,6 +395,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.progress.hide()
             self.busy_label.clear()
             self.workers.clear()
+            if self.data is not None:
+                self.statusBar().showMessage(self.loaded_status())
 
     def _z_changed(self, index):
         with QtCore.QSignalBlocker(self.z_spin):
@@ -394,6 +436,25 @@ class MainWindow(QtWidgets.QMainWindow):
             reconstructed = backend.reconstruct(data, {}) if apply else data
             return prepare_3d(reconstructed, mode, percentile, colormap, brightness, contrast)
         self._submit('volume', token, compute)
+
+    def fit_view(self):
+        if self.data is not None:
+            self.view.setRange(QtCore.QRectF(0, 0, self.data.width, self.data.height), padding=.01)
+
+    def update_colorbar(self):
+        if self.raw_slice is None:
+            return
+        cmap = pg.colormap.get(self.colormap.currentText().lower(), source='matplotlib')
+        positions = np.linspace(0, 1, 256)
+        colors = cmap.map(adjust_slice(positions, self.brightness.value(), self.contrast.value()), mode='byte')
+        self.colorbar.setColorMap(pg.ColorMap(positions, colors))
+        minimum, maximum = float(self.raw_slice.min()), float(self.raw_slice.max())
+        self.colorbar.setLevels((minimum, maximum if maximum > minimum else minimum+1))
+        self.colorbar.axis.setLabel(self.tr_text('phase_rad' if self.channel.currentIndex() else 'amplitude'))
+
+    def loaded_status(self):
+        data = self.data
+        return f"{Path(data.file_path).name} · {data.width} × {data.height} · {data.n_slices} {self.tr_text('slices')}"
 
     def update_info(self):
         if self.data is None:
