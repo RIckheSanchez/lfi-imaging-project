@@ -20,139 +20,128 @@ import h5py
 
 STRINGS = {
     # Sidebar — data import
-    'data_import':            {'EN': '📁 Data Import',                        'CN': '📁 数据导入'},
-    'load_real_title':        {'EN': '🎯 Load Real Data',                     'CN': '🎯 真实数据加载'},
-    'modules_detected':       {'EN': '✅ loader.py and data_types.py detected','CN': '✅ 检测到 loader.py 和 data_types.py'},
-    'upload_label':           {'EN': 'Upload HDF5 file',                      'CN': '上传 HDF5 文件'},
-    'upload_help':            {'EN': 'Upload a real LFI scan file',            'CN': '上传真实的 LFI 扫描数据'},
-    'or':                     {'EN': '**or**',                                 'CN': '**或者**'},
-    'use_local_path':         {'EN': 'Use local file path (supports large files)', 'CN': '使用本地文件路径（支持大文件）'},
-    'path_input_label':       {'EN': 'Full path to HDF5 file',                'CN': '输入 HDF5 文件完整路径'},
-    'path_placeholder':       {'EN': '/Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5',
-                                'CN': '/Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5'},
-    'path_help':              {'EN': 'Supports files of any size',             'CN': '支持任意大小的文件'},
-    'btn_load_path':          {'EN': '📥 Load from Path',                     'CN': '📥 从路径加载'},
-    'file_not_found':         {'EN': '❌ File not found: ',                   'CN': '❌ 文件不存在：'},
-    'loading_path':           {'EN': 'Loading from local path...',             'CN': '正在从本地路径加载...'},
-    'load_success':           {'EN': '✅ Loaded successfully!',                'CN': '✅ 加载成功！'},
-    'data_summary':           {'EN': '📊 Data Summary',                       'CN': '📊 数据摘要'},
-    'load_failed':            {'EN': '❌ Load failed: ',                       'CN': '❌ 加载失败：'},
-    'btn_load_upload':        {'EN': '📥 Load Uploaded File',                 'CN': '📥 加载上传文件'},
-    'loading_upload':         {'EN': 'Loading via loader.py...',               'CN': '正在使用 loader.py 加载...'},
-    'load_real_success':      {'EN': '✅ Real data loaded successfully!',      'CN': '✅ 真实数据加载成功！'},
-    'demo_mode_title':        {'EN': '🎲 Demo Mode',                          'CN': '🎲 模拟数据模式'},
-    'demo_mode_info':         {'EN': 'Place loader.py and data_types.py in the same folder to enable real data loading.',
-                                'CN': '将 loader.py 和 data_types.py 放在同一目录下即可使用真实数据。'},
-    'dataset_type':           {'EN': 'Dataset Type',                           'CN': '数据集类型'},
-    'btn_gen_demo':           {'EN': 'Generate Demo Data',                    'CN': '生成模拟数据'},
-    'generating_demo':        {'EN': 'Generating demo data...',               'CN': '生成模拟数据中...'},
-    'demo_ready':             {'EN': '✅ demo data ready!',                   'CN': '✅ 模拟数据已生成！'},
-    'no_modules_warning':     {'EN': '⚠️ loader.py or data_types.py not found — running in demo mode.',
-                                'CN': '⚠️ 未找到 loader.py 或 data_types.py，将使用模拟数据模式。'},
+    'data_import':          {'EN': '📁 Data Import',                         'CN': '📁 数据导入'},
+    'load_real_title':      {'EN': '🎯 Load Data',                           'CN': '🎯 加载数据'},
+    'modules_detected':     {'EN': '✅ loader.py and data_types.py detected', 'CN': '✅ 检测到 loader.py 和 data_types.py'},
+    'no_modules_warning':   {'EN': '⚠️ loader.py or data_types.py not found. Place them in the same folder and restart.',
+                              'CN': '⚠️ 未找到 loader.py 或 data_types.py，请将文件放在同目录后重启。'},
+    'upload_label':         {'EN': 'Upload HDF5 file',                       'CN': '上传 HDF5 文件'},
+    'upload_help':          {'EN': 'Upload a real LFI scan file',             'CN': '上传真实的 LFI 扫描数据'},
+    'or':                   {'EN': '**or**',                                  'CN': '**或者**'},
+    'use_local_path':       {'EN': 'Use local file path (supports large files)', 'CN': '使用本地文件路径（支持大文件）'},
+    'path_input_label':     {'EN': 'Full path to HDF5 file',                 'CN': '输入 HDF5 文件完整路径'},
+    'path_placeholder':     {'EN': '/Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5',
+                              'CN': '/Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5'},
+    'path_help':            {'EN': 'Supports files of any size',              'CN': '支持任意大小的文件'},
+    'btn_load_path':        {'EN': '📥 Load from Path',                      'CN': '📥 从路径加载'},
+    'file_not_found':       {'EN': '❌ File not found: ',                    'CN': '❌ 文件不存在：'},
+    'loading_path':         {'EN': 'Loading from local path...',              'CN': '正在从本地路径加载...'},
+    'load_success':         {'EN': '✅ Loaded successfully!',                 'CN': '✅ 加载成功！'},
+    'data_summary':         {'EN': '📊 Data Summary',                        'CN': '📊 数据摘要'},
+    'load_failed':          {'EN': '❌ Load failed: ',                        'CN': '❌ 加载失败：'},
+    'btn_load_upload':      {'EN': '📥 Load Uploaded File',                  'CN': '📥 加载上传文件'},
+    'loading_upload':       {'EN': 'Loading via loader.py...',                'CN': '正在使用 loader.py 加载...'},
+    'load_real_success':    {'EN': '✅ Data loaded successfully!',            'CN': '✅ 数据加载成功！'},
 
     # Sidebar — display settings
-    'display_settings':       {'EN': '### Display Settings',                  'CN': '### 显示参数'},
-    'channel_label':          {'EN': 'Channel',                               'CN': '通道'},
-    'channel_help':           {'EN': 'Amplitude = reflectivity / structure. Phase = depth / sub-surface detail.',
-                                'CN': '振幅 = 反射率 / 结构轮廓。相位 = 深度 / 内部细节。'},
-    'channel_amp':            {'EN': 'Amplitude',                             'CN': '振幅'},
-    'channel_phase':          {'EN': 'Phase',                                 'CN': '相位'},
-    'brightness':             {'EN': 'Brightness',                            'CN': '亮度'},
-    'contrast':               {'EN': 'Contrast',                              'CN': '对比度'},
-    'colormap':               {'EN': 'Colormap',                              'CN': '色彩映射'},
+    'display_settings':     {'EN': '### Display Settings',                   'CN': '### 显示参数'},
+    'channel_label':        {'EN': 'Channel',                                'CN': '通道'},
+    'channel_help':         {'EN': 'Amplitude = reflectivity / structure. Phase = depth / sub-surface detail.',
+                              'CN': '振幅 = 反射率 / 结构轮廓。相位 = 深度 / 内部细节。'},
+    'channel_amp':          {'EN': 'Amplitude',                              'CN': '振幅'},
+    'channel_phase':        {'EN': 'Phase',                                  'CN': '相位'},
+    'brightness':           {'EN': 'Brightness',                             'CN': '亮度'},
+    'contrast':             {'EN': 'Contrast',                               'CN': '对比度'},
+    'colormap':             {'EN': 'Colormap',                               'CN': '色彩映射'},
 
     # Welcome screen
-    'welcome_info':           {'EN': '👈 Load a dataset from the sidebar to get started.',
-                                'CN': '👈 请从左侧边栏加载数据。'},
-    'real_data_mode':         {'EN': '### 📤 Real Data Mode',                 'CN': '### 📤 真实数据模式'},
-    'real_data_available':    {'EN': '- ✅ Uses Zeyu Wang\'s loader.py\n- ✅ Standard LFIRawData format\n- ✅ Real HDF5 file loading\n- ✅ Full metadata support',
-                                'CN': '- ✅ 使用 Zeyu Wang 的 loader.py\n- ✅ 标准 LFIRawData 格式\n- ✅ 真实 HDF5 文件加载\n- ✅ 完整元数据支持'},
-    'real_data_missing':      {'EN': '- ⚠️ Requires loader.py and data_types.py\n- 📁 Place both files in the same folder\n- 🔄 Restart the app to enable',
-                                'CN': '- ⚠️ 需要 loader.py 和 data_types.py\n- 📁 将两个文件放在应用同目录\n- 🔄 重新运行应用即可启用'},
-    'demo_mode_welcome':      {'EN': '### 🎲 Demo Mode',                      'CN': '### 🎲 模拟数据模式'},
-    'demo_mode_desc':         {'EN': '- Quick feature preview\n- No real files needed\n- Synthetic data auto-generated\n- Good for UI demonstration',
-                                'CN': '- 快速功能演示\n- 无需真实文件\n- 自动生成测试数据\n- 适合 UI 展示'},
+    'welcome_info':         {'EN': '👈 Load a dataset from the sidebar to get started.',
+                              'CN': '👈 请从左侧边栏加载数据。'},
+    'welcome_how':          {'EN': '### How to load data',                   'CN': '### 如何加载数据'},
+    'welcome_steps':        {'EN': '1. **Upload** an HDF5 file directly, or\n2. **Check** "Use local file path" and paste the full path to your file',
+                              'CN': '1. 直接**上传** HDF5 文件，或\n2. **勾选**"使用本地文件路径"并粘贴文件完整路径'},
+    'welcome_formats':      {'EN': '### Supported formats',                  'CN': '### 支持的格式'},
+    'welcome_formats_desc': {'EN': '- Standard LFI format: `/amplitude/<z>`, `/phase/<z>`\n- Frame format: `/frames/<id>/Image Data/QCL0/Left/IMAGE_AMPLITUDE`',
+                              'CN': '- 标准 LFI 格式：`/amplitude/<z>`、`/phase/<z>`\n- 帧格式：`/frames/<id>/Image Data/QCL0/Left/IMAGE_AMPLITUDE`'},
 
     # Data source banner
-    'using_demo_data':        {'EN': '🎲 Currently viewing simulated demo data.',
-                                'CN': '🎲 当前使用模拟数据。'},
-    'using_real_data':        {'EN': '✅ Viewing <b>real HDF5 data</b> loaded via loader.py',
-                                'CN': '✅ 当前使用<b>真实 HDF5 数据</b>（通过 loader.py 加载）'},
+    'using_real_data':      {'EN': '✅ Viewing <b>real HDF5 data</b> loaded via loader.py',
+                              'CN': '✅ 当前使用<b>真实 HDF5 数据</b>（通过 loader.py 加载）'},
 
     # Tab names
-    'tab_2d':                 {'EN': '📊 2D Slice',                           'CN': '📊 二维切片'},
-    'tab_3d':                 {'EN': '🎲 3D Reconstruction',                  'CN': '🎲 三维重建'},
-    'tab_waveform':           {'EN': '📈 Waveform',                           'CN': '📈 波形分析'},
-    'tab_export':             {'EN': '💾 Export',                             'CN': '💾 导出'},
+    'tab_2d':               {'EN': '📊 2D Slice',          'CN': '📊 二维切片'},
+    'tab_3d':               {'EN': '🎲 3D Reconstruction',  'CN': '🎲 三维重建'},
+    'tab_waveform':         {'EN': '📈 Waveform',           'CN': '📈 波形分析'},
+    'tab_export':           {'EN': '💾 Export',             'CN': '💾 导出'},
 
     # Tab 1 — 2D Slice
-    'slice_viewer_title':     {'EN': '2D Slice Viewer',                       'CN': '二维切片查看器'},
-    'z_depth':                {'EN': 'Z Depth',                               'CN': 'Z 深度'},
-    'z_index':                {'EN': 'Z Index: ',                             'CN': 'Z 层编号：'},
-    'single_layer':           {'EN': 'Single-layer 2D data.',                 'CN': '单层 2D 数据。'},
-    'scan_info':              {'EN': '### Scan Info',                         'CN': '### 扫描信息'},
-    'target':                 {'EN': '**Target:**',                           'CN': '**目标类型：**'},
-    'size':                   {'EN': '**Size:**',                             'CN': '**尺寸：**'},
-    'slices':                 {'EN': '**Slices:**',                           'CN': '**层数：**'},
-    'z_range':                {'EN': '**Z Range:**',                          'CN': '**Z 范围：**'},
-    'file':                   {'EN': '**File:**',                             'CN': '**文件：**'},
-    'pixel_info':             {'EN': '### Pixel Info',                        'CN': '### 像素信息'},
-    'channel_info':           {'EN': '**Channel:**',                          'CN': '**通道：**'},
-    'current_z':              {'EN': '**Current Z:**',                        'CN': '**当前 Z：**'},
-    'center':                 {'EN': '**Center:**',                           'CN': '**中心：**'},
-    'value_center':           {'EN': '**Value at center:**',                  'CN': '**中心点数值：**'},
-    'range':                  {'EN': '**Range:**',                            'CN': '**数值范围：**'},
-    'histogram':              {'EN': '### Histogram',                         'CN': '### 强度直方图'},
-    'intensity':              {'EN': 'Intensity',                             'CN': '强度'},
-    'phase_rad':              {'EN': 'Phase (rad)',                           'CN': '相位（rad）'},
-    'count':                  {'EN': 'Count',                                 'CN': '计数'},
-    'x_pixels':               {'EN': 'X (pixels)',                           'CN': 'X（像素）'},
-    'y_pixels':               {'EN': 'Y (pixels)',                           'CN': 'Y（像素）'},
+    'slice_viewer_title':   {'EN': '2D Slice Viewer',       'CN': '二维切片查看器'},
+    'z_depth':              {'EN': 'Z Depth',               'CN': 'Z 深度'},
+    'z_index':              {'EN': 'Z Index: ',             'CN': 'Z 层编号：'},
+    'single_layer':         {'EN': 'Single-layer 2D data.', 'CN': '单层 2D 数据。'},
+    'scan_info':            {'EN': '### Scan Info',         'CN': '### 扫描信息'},
+    'target':               {'EN': '**Target:**',           'CN': '**目标类型：**'},
+    'size':                 {'EN': '**Size:**',             'CN': '**尺寸：**'},
+    'slices':               {'EN': '**Slices:**',           'CN': '**层数：**'},
+    'z_range':              {'EN': '**Z Range:**',          'CN': '**Z 范围：**'},
+    'file':                 {'EN': '**File:**',             'CN': '**文件：**'},
+    'pixel_info':           {'EN': '### Pixel Info',        'CN': '### 像素信息'},
+    'channel_info':         {'EN': '**Channel:**',          'CN': '**通道：**'},
+    'current_z':            {'EN': '**Current Z:**',        'CN': '**当前 Z：**'},
+    'center':               {'EN': '**Center:**',           'CN': '**中心：**'},
+    'value_center':         {'EN': '**Value at center:**',  'CN': '**中心点数值：**'},
+    'range':                {'EN': '**Range:**',            'CN': '**数值范围：**'},
+    'histogram':            {'EN': '### Histogram',         'CN': '### 强度直方图'},
+    'intensity':            {'EN': 'Intensity',             'CN': '强度'},
+    'phase_rad':            {'EN': 'Phase (rad)',           'CN': '相位（rad）'},
+    'count':                {'EN': 'Count',                 'CN': '计数'},
+    'x_pixels':             {'EN': 'X (pixels)',            'CN': 'X（像素）'},
+    'y_pixels':             {'EN': 'Y (pixels)',            'CN': 'Y（像素）'},
 
     # Tab 2 — 3D
-    '3d_title':               {'EN': '### 3D Volume Reconstruction',          'CN': '### 三维体积重建'},
-    'rendering_info':         {'EN': '### Rendering Info',                    'CN': '### 渲染信息'},
-    'rotate_hint':            {'EN': '🔄 **Rotate:** Drag\n\n🔍 **Zoom:** Scroll',
-                                'CN': '🔄 **旋转：** 拖拽\n\n🔍 **缩放：** 滚轮'},
-    'btn_reset_camera':       {'EN': '↩️ Reset Camera',                      'CN': '↩️ 重置视角'},
-    'btn_render_3d':          {'EN': '▶️ Render / Refresh 3D',               'CN': '▶️ 渲染 / 刷新三维'},
-    'volume_info':            {'EN': '### Volume Info',                       'CN': '### 体积信息'},
-    'dimensions':             {'EN': '**Dimensions:**',                       'CN': '**数据维度：**'},
-    'total_points':           {'EN': '**Total Points:**',                     'CN': '**总点数：**'},
-    'displayed_points':       {'EN': '**Displayed:**',                        'CN': '**显示点数：**'},
-    'downsample':             {'EN': '**Downsample:**',                       'CN': '**降采样：**'},
-    'render_hint':            {'EN': '👉 Click **▶️ Render / Refresh 3D** on the right to start rendering.',
-                                'CN': '👉 点击右侧 **▶️ 渲染 / 刷新三维** 按钮开始渲染。'},
-    '3d_single_layer':        {'EN': 'Single-layer 2D data — 3D reconstruction is not available.',
-                                'CN': '单层 2D 数据，无法进行三维重建。'},
-    'x_axis':                 {'EN': 'X',                                     'CN': 'X'},
-    'y_axis':                 {'EN': 'Y',                                     'CN': 'Y'},
-    'z_axis':                 {'EN': 'Z Depth',                              'CN': 'Z 深度'},
+    '3d_title':             {'EN': '### 3D Volume Reconstruction', 'CN': '### 三维体积重建'},
+    'rendering_info':       {'EN': '### Rendering Info',           'CN': '### 渲染信息'},
+    'rotate_hint':          {'EN': '🔄 **Rotate:** Drag\n\n🔍 **Zoom:** Scroll',
+                              'CN': '🔄 **旋转：** 拖拽\n\n🔍 **缩放：** 滚轮'},
+    'btn_reset_camera':     {'EN': '↩️ Reset Camera',             'CN': '↩️ 重置视角'},
+    'btn_render_3d':        {'EN': '▶️ Render / Refresh 3D',      'CN': '▶️ 渲染 / 刷新三维'},
+    'volume_info':          {'EN': '### Volume Info',              'CN': '### 体积信息'},
+    'dimensions':           {'EN': '**Dimensions:**',              'CN': '**数据维度：**'},
+    'total_points':         {'EN': '**Total Points:**',            'CN': '**总点数：**'},
+    'displayed_points':     {'EN': '**Displayed:**',               'CN': '**显示点数：**'},
+    'downsample':           {'EN': '**Downsample:**',              'CN': '**降采样：**'},
+    'render_hint':          {'EN': '👉 Click **▶️ Render / Refresh 3D** on the right to start rendering.',
+                              'CN': '👉 点击右侧 **▶️ 渲染 / 刷新三维** 按钮开始渲染。'},
+    '3d_single_layer':      {'EN': 'Single-layer 2D data — 3D reconstruction is not available.',
+                              'CN': '单层 2D 数据，无法进行三维重建。'},
+    'x_axis':               {'EN': 'X',        'CN': 'X'},
+    'y_axis':               {'EN': 'Y',        'CN': 'Y'},
+    'z_axis':               {'EN': 'Z Depth',  'CN': 'Z 深度'},
 
     # Tab 3 — Waveform
-    'waveform_title':         {'EN': '### Signal Waveform Analysis',          'CN': '### 信号波形分析'},
-    'x_position':             {'EN': 'X Position',                            'CN': 'X 坐标'},
-    'y_position':             {'EN': 'Y Position',                            'CN': 'Y 坐标'},
-    'amp_profile_title':      {'EN': 'Amplitude Profile at',                  'CN': '振幅剖面（坐标'},
-    'phase_profile_title':    {'EN': 'Phase Profile at',                      'CN': '相位剖面（坐标'},
-    'z_index_axis':           {'EN': 'Z Index',                              'CN': 'Z 层编号'},
-    'amplitude_axis':         {'EN': 'Amplitude',                            'CN': '振幅'},
-    'waveform_single_layer':  {'EN': 'Single-layer data — Z-depth waveform is not available.',
-                                'CN': '单层数据，无法显示 Z 深度波形。'},
+    'waveform_title':           {'EN': '### Signal Waveform Analysis', 'CN': '### 信号波形分析'},
+    'x_position':               {'EN': 'X Position',                   'CN': 'X 坐标'},
+    'y_position':               {'EN': 'Y Position',                   'CN': 'Y 坐标'},
+    'amp_profile_title':        {'EN': 'Amplitude Profile at',         'CN': '振幅剖面（坐标'},
+    'phase_profile_title':      {'EN': 'Phase Profile at',             'CN': '相位剖面（坐标'},
+    'z_index_axis':             {'EN': 'Z Index',                      'CN': 'Z 层编号'},
+    'amplitude_axis':           {'EN': 'Amplitude',                    'CN': '振幅'},
+    'waveform_single_layer':    {'EN': 'Single-layer data — Z-depth waveform is not available.',
+                                  'CN': '单层数据，无法显示 Z 深度波形。'},
 
     # Tab 4 — Export
-    'export_title':           {'EN': '### Export Data & Images',              'CN': '### 数据与图像导出'},
-    'export_slice_title':     {'EN': '#### 📄 Export Current Slice',          'CN': '#### 📄 导出当前切片'},
-    'export_slice_caption':   {'EN': 'Exports with current channel, colormap, brightness & contrast applied.',
-                                'CN': '导出时将应用当前通道、色彩映射及亮度/对比度设置。'},
-    'format_label':           {'EN': 'Format',                                'CN': '格式'},
-    'btn_export_image':       {'EN': 'Export Image',                         'CN': '导出图像'},
-    'btn_download':           {'EN': 'Download',                             'CN': '下载'},
-    'export_csv_title':       {'EN': '#### 📊 Export Raw Data',              'CN': '#### 📊 导出原始数据'},
-    'export_csv_caption':     {'EN': 'Exports raw amplitude values for the current slice as CSV.',
-                                'CN': '将当前切片的原始振幅数值导出为 CSV 文件。'},
-    'btn_export_csv':         {'EN': 'Export CSV',                           'CN': '导出 CSV'},
-    'btn_download_csv':       {'EN': 'Download CSV',                         'CN': '下载 CSV'},
+    'export_title':         {'EN': '### Export Data & Images',    'CN': '### 数据与图像导出'},
+    'export_slice_title':   {'EN': '#### 📄 Export Current Slice','CN': '#### 📄 导出当前切片'},
+    'export_slice_caption': {'EN': 'Exports with current channel, colormap, brightness & contrast applied.',
+                              'CN': '导出时将应用当前通道、色彩映射及亮度/对比度设置。'},
+    'format_label':         {'EN': 'Format',                      'CN': '格式'},
+    'btn_export_image':     {'EN': 'Export Image',                'CN': '导出图像'},
+    'btn_download':         {'EN': 'Download',                    'CN': '下载'},
+    'export_csv_title':     {'EN': '#### 📊 Export Raw Data',    'CN': '#### 📊 导出原始数据'},
+    'export_csv_caption':   {'EN': 'Exports raw amplitude values for the current slice as CSV.',
+                              'CN': '将当前切片的原始振幅数值导出为 CSV 文件。'},
+    'btn_export_csv':       {'EN': 'Export CSV',                  'CN': '导出 CSV'},
+    'btn_download_csv':     {'EN': 'Download CSV',                'CN': '下载 CSV'},
 }
 
 def t(key):
@@ -218,7 +207,7 @@ def _load_frames_format(filepath: str):
 
     stem   = os.path.splitext(os.path.basename(filepath))[0]
     known  = ['Chip', 'Leaf', 'Skin', 'Marble', 'Mushroom', 'Sound', 'Tomography']
-    target = next((t for t in known if t.lower() in stem.lower()), 'Unknown')
+    target = next((tp for tp in known if tp.lower() in stem.lower()), 'Unknown')
 
     return LFIRawData(
         amplitude=amplitude, phase=phase, z_indices=z_indices,
@@ -265,6 +254,19 @@ st.markdown("""
         color: #065A82;
         margin-bottom: 1rem;
     }
+    .hero-title {
+        font-size: 4.5rem;
+        font-weight: 900;
+        color: #065A82;
+        letter-spacing: -1px;
+        line-height: 1.1;
+        margin-bottom: 0.5rem;
+    }
+    .hero-subtitle {
+        font-size: 1.2rem;
+        color: #888;
+        margin-bottom: 2rem;
+    }
     .metric-card {
         background-color: #f0f2f6;
         padding: 1rem;
@@ -279,7 +281,6 @@ st.markdown("""
         color: #155724;
         margin: 1rem 0;
     }
-    .lang-btn { font-size: 1.1rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -298,49 +299,10 @@ for key, default in {
         st.session_state[key] = default
 
 
-# ── Demo data ─────────────────────────────────────────────────────
-
-def create_mock_data(target_type="Leaf"):
-    np.random.seed(42)
-    n_slices = 30
-    height, width = 256, 256
-    amplitude = np.zeros((n_slices, height, width))
-    phase     = np.zeros((n_slices, height, width))
-    for z in range(n_slices):
-        x = np.linspace(-3, 3, width)
-        y = np.linspace(-3, 3, height)
-        X, Y = np.meshgrid(x, y)
-        pattern = np.sin(X * (z + 1) / 10) * np.cos(Y * (z + 1) / 10)
-        noise   = np.random.randn(height, width) * 0.1
-        amplitude[z] = np.abs(pattern) + noise + 0.5
-        phase[z]     = pattern + noise + z * 0.05
-
-    class MockLFIRawData:
-        def __init__(self):
-            self.amplitude   = amplitude
-            self.phase       = phase
-            self.z_indices   = list(range(530, 530 + n_slices))
-            self.target_type = target_type
-            self.file_path   = f"mock_{target_type}.hdf5"
-            self.metadata    = {"mode": "simulated"}
-            self.n_slices    = n_slices
-            self.height      = height
-            self.width       = width
-        def get_slice(self, z_index):
-            if z_index not in self.z_indices:
-                raise KeyError(f"z_index {z_index} not found")
-            i = self.z_indices.index(z_index)
-            return {'amplitude': self.amplitude[i], 'phase': self.phase[i]}
-        def summary(self):
-            return f"Mock LFI Data: {self.target_type}, {self.n_slices} slices"
-
-    return MockLFIRawData()
-
-
 # ── Sidebar ───────────────────────────────────────────────────────
 
 with st.sidebar:
-    # Language toggle — top of sidebar
+    # Language toggle
     lang_col1, lang_col2 = st.columns(2)
     with lang_col1:
         if st.button("🇬🇧 English", use_container_width=True,
@@ -357,9 +319,8 @@ with st.sidebar:
     st.markdown(f'<p class="main-header">{t("data_import")}</p>', unsafe_allow_html=True)
 
     if not REAL_MODULES_AVAILABLE:
-        st.warning(t('no_modules_warning'))
-
-    if REAL_MODULES_AVAILABLE:
+        st.error(t('no_modules_warning'))
+    else:
         st.markdown(f"### {t('load_real_title')}")
         st.success(t('modules_detected'))
 
@@ -422,28 +383,13 @@ with st.sidebar:
                     st.error(t('load_failed') + str(e))
                     st.exception(e)
 
-    else:
-        st.markdown(f"### {t('demo_mode_title')}")
-        st.info(t('demo_mode_info'))
-
-        dataset_type = st.selectbox(
-            t('dataset_type'),
-            ["Chip", "Leaf", "Skin", "Marble", "Mushroom"],
-            index=1
-        )
-        if st.button(t('btn_gen_demo'), type="primary", use_container_width=True):
-            with st.spinner(t('generating_demo')):
-                st.session_state.data = create_mock_data(dataset_type)
-                st.session_state.current_z_idx = 0
-            st.success(f"✅ {dataset_type} {t('demo_ready')}")
-
     st.divider()
 
     if st.session_state.data:
         st.markdown(t('display_settings'))
 
         ch_options = [t('channel_amp'), t('channel_phase')]
-        ch_index   = 1 if st.session_state.channel in ('Phase', '相位') else 0
+        ch_index   = 1 if st.session_state.channel == 'Phase' else 0
         ch_choice  = st.radio(
             t('channel_label'),
             ch_options,
@@ -451,7 +397,6 @@ with st.sidebar:
             horizontal=True,
             help=t('channel_help')
         )
-        # Normalise channel to internal key
         st.session_state.channel = 'Phase' if ch_choice == t('channel_phase') else 'Amplitude'
 
         st.session_state.brightness = st.slider(t('brightness'), 0, 100, st.session_state.brightness)
@@ -464,28 +409,24 @@ with st.sidebar:
 
 # ── Main content ──────────────────────────────────────────────────
 
-st.markdown('<p class="main-header">🔬 LFI Imaging Viewer</p>', unsafe_allow_html=True)
+st.markdown('<p style="font-size:4.5rem; font-weight:900; color:#065A82; letter-spacing:-1px; line-height:1.1; margin-bottom:0.2rem;">🔬 LFI Imaging Viewer</p>', unsafe_allow_html=True)
+st.markdown('<p style="font-size:1.1rem; color:#999; margin-top:0; margin-bottom:1.5rem;">Laser Feedback Interferometry</p>', unsafe_allow_html=True)
 
 if st.session_state.data is None:
     st.info(t('welcome_info'))
-
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown(t('real_data_mode'))
-        st.markdown(t('real_data_available') if REAL_MODULES_AVAILABLE else t('real_data_missing'))
+        st.markdown(t('welcome_how'))
+        st.markdown(t('welcome_steps'))
     with col2:
-        st.markdown(t('demo_mode_welcome'))
-        st.markdown(t('demo_mode_desc'))
+        st.markdown(t('welcome_formats'))
+        st.markdown(t('welcome_formats_desc'))
 
 else:
-    data_source = st.session_state.data.metadata.get('mode', 'real')
-    if data_source == 'simulated':
-        st.info(t('using_demo_data'))
-    else:
-        st.markdown(
-            f'<div class="success-box">{t("using_real_data")}</div>',
-            unsafe_allow_html=True
-        )
+    st.markdown(
+        f'<div class="success-box">{t("using_real_data")}</div>',
+        unsafe_allow_html=True
+    )
 
     tab1, tab2, tab3, tab4 = st.tabs([
         t('tab_2d'), t('tab_3d'), t('tab_waveform'), t('tab_export')
@@ -494,7 +435,7 @@ else:
     # ── Tab 1: 2D Slice Viewer ────────────────────────────────────
     with tab1:
         col_main, col_info = st.columns([2, 1])
-        channel_key = st.session_state.channel.lower()  # 'amplitude' or 'phase'
+        channel_key = st.session_state.channel.lower()
 
         with col_main:
             ch_display = t('channel_phase') if channel_key == 'phase' else t('channel_amp')
@@ -653,6 +594,7 @@ else:
             amp_profile   = st.session_state.data.amplitude[:, sample_y, sample_x]
             phase_profile = st.session_state.data.phase[:, sample_y, sample_x]
 
+            suffix = "）" if st.session_state.lang == 'CN' else ""
             fig_amp = go.Figure()
             fig_amp.add_trace(go.Scatter(
                 x=z_indices, y=amp_profile,
@@ -660,7 +602,7 @@ else:
                 line=dict(color='#065A82', width=2)
             ))
             fig_amp.update_layout(
-                title=f"{t('amp_profile_title')} ({sample_x}, {sample_y})" + ("）" if st.session_state.lang == 'CN' else ""),
+                title=f"{t('amp_profile_title')} ({sample_x}, {sample_y}){suffix}",
                 xaxis_title=t('z_index_axis'),
                 yaxis_title=t('amplitude_axis'),
                 height=300
@@ -674,7 +616,7 @@ else:
                 line=dict(color='#1C7293', width=2)
             ))
             fig_phase.update_layout(
-                title=f"{t('phase_profile_title')} ({sample_x}, {sample_y})" + ("）" if st.session_state.lang == 'CN' else ""),
+                title=f"{t('phase_profile_title')} ({sample_x}, {sample_y}){suffix}",
                 xaxis_title=t('z_index_axis'),
                 yaxis_title=t('phase_rad'),
                 height=300
@@ -719,10 +661,7 @@ else:
                 st.download_button(
                     label=f"{t('btn_download')} {export_format}",
                     data=buf.getvalue(),
-                    file_name=(
-                        f"lfi_{ch_key}_z{current_z}"
-                        f"_{st.session_state.colormap}.{export_format.lower()}"
-                    ),
+                    file_name=f"lfi_{ch_key}_z{current_z}_{st.session_state.colormap}.{export_format.lower()}",
                     mime=f"image/{export_format.lower()}",
                     use_container_width=True
                 )
@@ -747,7 +686,8 @@ else:
 # ── Footer ────────────────────────────────────────────────────────
 st.divider()
 st.markdown("""
-<div style='text-align: center; color: #666; padding: 1rem;'>
-    <p>LFI Imaging Viewer v1.0 (Integrated with Real Modules) | He Zhenyu (49174058) | REIT4841</p>
+<div style='text-align: center; color: #888; padding: 1rem; font-size: 0.85rem;'>
+    <p>LFI Imaging Viewer v1.3 &nbsp;|&nbsp; REIT4841 &nbsp;|&nbsp; EECS</p>
+    <p>Zhenyu He &nbsp;·&nbsp; Zeyu Wang &nbsp;·&nbsp; Mingxuan Tang &nbsp;·&nbsp; Haobo Yu</p>
 </div>
 """, unsafe_allow_html=True)
