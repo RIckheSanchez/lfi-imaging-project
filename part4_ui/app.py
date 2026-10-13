@@ -181,6 +181,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_plot.scene().sigMouseMoved.connect(self.hover_pixel)
         self.image_plot.scene().sigMouseClicked.connect(self.click_pixel)
         self.colorbar = pg.ColorBarItem(values=(0,1), interactive=False, colorMapMenu=False)
+        self.colorbar.axis.setWidth(85)
         self.image_plot.getPlotItem().layout.addItem(self.colorbar, 2, 5)
         self.plot_host = ImagePlotHost(self.image_plot)
         slice_layout.addWidget(self.plot_host, 3)
@@ -330,8 +331,8 @@ class MainWindow(QtWidgets.QMainWindow):
         raw, key = self.raw_data, self.data_key
         apply, backend = self.apply_preprocessing.isChecked(), self.preprocessor
         params = deepcopy(self.preprocess_params)
-        self._submit('load', self.load_token,
-                     lambda: (raw, backend.preprocess(raw, params) if apply else raw, key))
+        self._submit('reprocess', self.load_token,
+                     lambda: backend.preprocess(raw, params) if apply else raw)
 
     def _submit(self, kind, token, operation):
         worker = Worker(kind, token, operation)
@@ -373,6 +374,29 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.update_info()
                 self.statusBar().showMessage(self.loaded_status())
                 self.request_slice()
+            elif kind == 'reprocess' and token == self.load_token:
+                old_shape = self.data.amplitude.shape
+                index, pixel = self.z_slider.value(), self.selected_pixel
+                self.data = value
+                self.raw_slice = self.adjusted = None
+                with QtCore.QSignalBlocker(self.z_slider), QtCore.QSignalBlocker(self.z_spin):
+                    self.z_slider.setRange(0, self.data.n_slices - 1)
+                    self.z_spin.setRange(0, self.data.n_slices - 1)
+                    self.z_slider.setValue(min(index, self.data.n_slices - 1))
+                    self.z_spin.setValue(self.z_slider.value())
+                if old_shape[1:] == self.data.amplitude.shape[1:]:
+                    self.selected_pixel = pixel
+                else:
+                    self.selected_pixel = (self.data.width // 2, self.data.height // 2)
+                    self.plot_host.set_data_shape(self.data.width, self.data.height)
+                    self.view.setLimits(xMin=-self.data.width*.02, xMax=self.data.width*1.02,
+                                        yMin=-self.data.height*.02, yMax=self.data.height*1.02,
+                                        minXRange=min(2,self.data.width), minYRange=min(2,self.data.height),
+                                        maxXRange=self.data.width*1.04, maxYRange=self.data.height*1.04)
+                    self.fit_next_slice = True
+                self.volume_panel.set_data_available(self.data.n_slices > 1)
+                self.update_info()
+                self.request_slice()
             elif kind == 'slice' and token == self.slice_token:
                 self.raw_slice, self.adjusted, counts, edges = value
                 cmap = pg.colormap.get(self.colormap.currentText().lower(), source='matplotlib')
@@ -397,13 +421,13 @@ class MainWindow(QtWidgets.QMainWindow):
     @QtCore.Slot(object)
     def _error(self, message):
         kind, token, error = message
-        if kind == 'load' and token != self.load_token:
+        if kind in ('load', 'reprocess') and token != self.load_token:
             return
         if kind == 'slice' and token != self.slice_token:
             return
         if kind == 'volume' and token != self.volume_token:
             return
-        key = {'load': 'load_error', 'slice': 'render_error', 'export': 'export_error', 'volume': '3d_error'}[kind]
+        key = {'reprocess': 'render_error', 'load': 'load_error', 'slice': 'render_error', 'export': 'export_error', 'volume': '3d_error'}[kind]
         self.show_error(f'{self.tr_text(key)}:\n{error}')
 
     def show_error(self, message):

@@ -339,3 +339,39 @@ def test_default_backend_controls_hidden(window):
     assert window.pre_group.isHidden()
     assert window.volume_panel.reconstruct.isHidden()
     assert 'Identity' not in window.volume_panel.hint.text()
+
+
+
+def test_reprocess_preserves_z_pixel_and_view(qtbot, window, tmp_path):
+    from dataclasses import replace
+    calls = []
+    class Backend:
+        def preprocess(self, data, params):
+            calls.append(threading.get_ident())
+            return replace(data, amplitude=data.amplitude+1000)
+    window.preprocessor = Backend()
+    path = tmp_path/'preserve.hdf5'
+    with h5py.File(path,'w') as handle:
+        for index in range(5):
+            handle.create_dataset(f'amplitude/{index}', data=np.arange(100).reshape(10,10)+index)
+            handle.create_dataset(f'phase/{index}', data=np.zeros((10,10)))
+    window.open_file(path)
+    wait_ready(qtbot, window)
+    window.z_spin.setValue(3)
+    wait_ready(qtbot, window)
+    window.select_pixel(2,4, switch_tab=False)
+    window.view.setRange(QtCore.QRectF(1,1,5,5),padding=0)
+    view_range = np.array(window.view.viewRange())
+    recent = window.settings.value('recent_files',[],type=list)
+    for enabled in (True, False):
+        window.apply_preprocessing.setChecked(enabled)
+        wait_ready(qtbot, window)
+        assert window.z_slider.value() == window.z_spin.value() == 3
+        assert window.selected_pixel == (2,4)
+        current_range = np.array(window.view.viewRange())
+        # Aspect-lock may expand one axis slightly while tick labels settle.
+        assert np.allclose(current_range.mean(axis=1), view_range.mean(axis=1))
+        assert np.isclose(np.ptp(current_range,axis=1).min(), np.ptp(view_range,axis=1).min())
+        assert window.raw_slice[4,2] == 45 + (1000 if enabled else 0)
+        assert window.settings.value('recent_files',[],type=list) == recent
+    assert calls and calls[0] != threading.get_ident()
