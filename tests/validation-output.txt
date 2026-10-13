@@ -1,0 +1,73 @@
+
+Fontconfig error: No writable cache directories
+	/opt/homebrew/var/cache/fontconfig
+	/Users/vincent/.cache/fontconfig
+	/Users/vincent/.fontconfig
+
+Fontconfig error: No writable cache directories
+	/opt/homebrew/var/cache/fontconfig
+	/Users/vincent/.cache/fontconfig
+	/Users/vincent/.fontconfig
+Matplotlib is building the font cache; this may take a moment.
+2026-10-14 00:00:32.533 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-10-14 00:00:32.535 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-10-14 00:00:33.862 WARNING streamlit.runtime.scriptrunner_utils.script_run_context: Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 00:00:34.120 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 00:00:34.255 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 00:00:34.310 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 00:00:34.310 Session state does not function when running a script without `streamlit run`
+2026-10-14 00:00:34.311 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 00:00:34.356 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 00:00:34.487 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+CSV PASS amplitude (400, 1300)
+CSV PASS phase (400, 1300)
+ISOSURFACE PASS (single plane mushroom; object validation only)
+PUBLICATION DPI PASS (299.9994, 299.9994)
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+APPTEST PASS
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+[load_single_scan] 加载完成 → (70, 1400, 400)
+TIMING 1 1.6488204170000245
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+[load_single_scan] 加载完成 → (70, 1400, 400)
+TIMING 2 1.5210339169998406
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+[load_single_scan] 加载完成 → (70, 1400, 400)
+TIMING 3 1.4906669160000092
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+[load_single_scan] 加载完成 → (70, 1400, 400)
+TIMING 4 1.456887542000004
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+[load_single_scan] 加载完成 → (70, 1400, 400)
+TIMING 5 1.4892890829996759
+RESULT {"seconds": [1.6488204170000245, 1.5210339169998406, 1.4906669160000092, 1.456887542000004, 1.4892890829996759], "mean": 1.5213395749999108, "population_std": 0.06689330177121382, "sample_std": 0.0747889849999206, "python": "3.13.5 | packaged by Anaconda, Inc. | (main, Jun 12 2025, 11:09:21) [Clang 14.0.6 ]", "platform": "macOS-10.16-x86_64-i386-64bit-Mach-O"}
+Hardware:
+
+    Hardware Overview:
+
+      Model Name: Mac
+      Model Identifier: Mac16,7
+      Model Number: MX2X3X/A
+      Chip: Unknown
+      Total Number of Cores: 14 (10 performance and 4 efficiency)
+      Memory: 24 GB
+      System Firmware Version: 11881.121.1
+      OS Loader Version: 11881.121.1
+      

@@ -60,3 +60,13 @@ Thumbs.db
 # Project specific
 outputs/
 cache/
+files.zip
+Realdata/
+__pycache__/
+*.pyc
+
+# Local Python environments and generated macOS bundles
+.venv/
+.venv-*/
+.conda/
+*.app/

@@ -1,187 +1,160 @@
-# LFI Imaging Project - MEGA
+# LFI Viewer
 
-**Imaging using Laser Feedback Interferometry**
+LFI Viewer is a macOS desktop application for exploring Laser Feedback
+Interferometry scans. It uses PySide6 and pyqtgraph, with a shared Python core
+for HDF5 loading, processing and export. The project is part of the University
+of Queensland imaging thesis supervised by Karl Bertling.
 
-University of Queensland - Final Year Thesis Project  
-Supervisor: Karl Bertling
+## Install and run from source
 
-## Team Members
+Use Python 3.10 or newer in a Conda environment:
 
-| Part | Module | Responsible | Branch | Status |
-|------|--------|-------------|---------|--------|
-| Part 1 | Data Import & Management | Zeyu Wang | `zeyu/part1-data` | ✅ Complete |
-| Part 2 | Signal Pre-processing | Yu Haobo | `haobo/part2-preprocess` | 🔄 In Progress |
-| Part 3 | Image Generation & Reconstruction | Tang Mingxuan | `mingxuan/part3-reconstruction` | ⏳ Pending |
-| Part 4 | UI Design & Usability Evaluation | He Zhenyu (Vincent) | `vincent/part4-ui` | ⏳ Pending |
-
-## Project Structure
-
-```
-lfi-imaging-project/
-├── part1_data/              # Data import and management (Zeyu)
-│   ├── __init__.py
-│   ├── loader.py
-│   ├── data_types.py
-│   └── utils.py
-├── part2_preprocess/        # Signal pre-processing (Mingxuan)
-│   ├── __init__.py
-│   ├── filters.py
-│   └── noise_reduction.py
-├── part3_reconstruction/    # Image reconstruction (Haobo)
-│   ├── __init__.py
-│   ├── reconstruction.py
-│   └── tomography.py
-├── part4_ui/                # UI and integration (Vincent)
-│   ├── __init__.py
-│   ├── main.py
-│   └── widgets.py
-├── shared/                  # Shared types and utilities
-│   ├── __init__.py
-│   └── data_types.py
-├── tests/                   # Unit tests
-│   ├── test_part1.py
-│   ├── test_part2.py
-│   ├── test_part3.py
-│   └── test_part4.py
-├── docs/                    # Documentation
-│   └── interface_spec.md
-├── requirements.txt
-└── README.md
+```sh
+conda create -n lfi-viewer python=3.13
+conda activate lfi-viewer
+python -m pip install -r requirements.txt
+python -m part4_ui.app
 ```
 
-## Getting Started
+You can also run `./run.sh` from the repository. The launcher uses `LFI_PYTHON`
+when provided, then an active venv or Conda environment, then local Miniconda
+or `python3`. For example:
 
-### 1. Clone the repository
-```bash
-git clone https://github.com/YOUR_USERNAME/lfi-imaging-project.git
-cd lfi-imaging-project
+```sh
+LFI_PYTHON=/path/to/environment/bin/python ./run.sh
 ```
 
-### 2. Install dependencies
-```bash
-pip install -r requirements.txt
+## Run the macOS application
+
+The local build is `dist/LFI Viewer.app`. Open it in Finder or run:
+
+```sh
+open "dist/LFI Viewer.app"
 ```
 
-### 3. Switch to your branch
-```bash
-# For Zeyu
-git checkout zeyu/part1-data
+This build is arm64 for Apple Silicon and was tested on macOS 15.5. Its bundled
+Qt wheels require macOS 14 or newer. It includes the runtime dependencies and
+does not require Python to be installed. Test datasets are not included.
+The build is ad-hoc signed, not Developer ID signed or notarized. Distribution
+and Gatekeeper approval on another machine have not been verified.
 
-# For Mingxuan
-git checkout mingxuan/part2-preprocess
+To rebuild, use an **arm64** Python environment:
 
-# For Haobo
-git checkout haobo/part3-reconstruction
-
-# For Vincent
-git checkout vincent/part4-ui
+```sh
+python -m pip install -r requirements.txt -r requirements-dev.txt
+python -m PyInstaller --clean --noconfirm "LFI Viewer.spec"
 ```
 
-## Development Workflow
+`build/` and `dist/` are generated and ignored. The spec intentionally excludes
+Streamlit, Plotly and their frontend dependencies from the desktop application.
 
-### Working on your part
-```bash
-# 1. Make sure you're on your branch
-git checkout your-branch-name
+## Supported HDF5 structures
 
-# 2. Make changes and commit
-git add .
-git commit -m "Description of changes"
+Standard scans contain `/amplitude/<z>` and `/phase/<z>` datasets. Each dataset
+is a two-dimensional `(height, width)` array; numeric z keys are sorted and
+stacked into `(slices, height, width)`.
 
-# 3. Push to your branch
-git push origin your-branch-name
+Frame scans contain these datasets beneath each numeric frame id:
+
+```text
+/frames/<id>/Image Data/QCL0/Left/IMAGE_AMPLITUDE
+/frames/<id>/Image Data/QCL0/Left/IMAGE_PHASE
 ```
 
-### Integration workflow
-```bash
-# 1. Make sure your branch is up to date
-git checkout your-branch-name
-git pull origin main
+Both amplitude and phase must be present with compatible dimensions.
 
-# 2. Test your changes
-python -m pytest tests/
+## Features
 
-# 3. Create pull request on GitHub
-# Review by at least one team member before merging
+- Native open dialog, file drag/drop and five recent files saved with QSettings.
+- English and Chinese interface switching.
+- Amplitude/phase selection, brightness, contrast, and seven colormaps.
+- Z slider and numeric slice index, with the actual HDF5 z value displayed.
+- Aspect-locked 2D image with bounded pan/zoom and **Fit to window** / Cmd+0.
+- Colorbar with raw data range and the effective display color transform.
+- Raw-value mouse hover, selected-pixel crosshairs, pixel information and histogram.
+- Amplitude and phase waveforms at the selected pixel.
+- Calibrated 2D scale bar when a positive pixel size is entered.
+- Downsampled amplitude Volume and three uncapped Isosurface meshes; adjustable
+  lower percentile (default 90), fixed 99.5th-percentile upper threshold and camera reset.
+  Outer-to-inner mesh opacity is 0.12, 0.30 and 0.60. Volume clips its sampled
+  values to the 1st–99.5th percentile range before normalization and uses a
+  quadratic opacity transfer function. Isosurface controls are hidden in Volume mode.
+- Raw selected-channel CSV, colored pixel PNG/JPEG/TIFF and publication PNG
+  with axes/colorbar. PNG/TIFF and publication PNG carry 300 DPI.
+- Thread-pool loading, slice/histogram preparation, backend processing, 3D
+  computation and export, with busy state and readable error dialogs.
+- Registered preprocessing/reconstruction interfaces; controls stay hidden
+  until a real implementation is registered.
+
+## Tests
+
+Install development dependencies and run the full pytest suite offscreen:
+
+```sh
+python -m pip install -r requirements.txt -r requirements-dev.txt
+QT_QPA_PLATFORM=offscreen PYTHONDONTWRITEBYTECODE=1 python -m pytest -q
 ```
 
-## Branching Strategy
+Tests use the local sample files `Realdata/mushroom.hdf5` and
+`Realdata/chip_borad1.hdf5`. `Realdata/` is ignored by Git; obtain these scan
+fixtures separately when cloning the project. GUI tests use pytest-qt and
+exercise worker-thread execution, interaction, exports, registration and
+preprocessing state preservation. The chip test saves an offscreen screenshot.
 
-- `main` - Stable release branch (protected)
-- `dev` - Integration branch for testing
-- `zeyu/part1-data` - Zeyu's development branch
-- `mingxuan/part2-preprocess` - Mingxuan's development branch
-- `haobo/part3-reconstruction` - Haobo's development branch
-- `vincent/part4-ui` - Vincent's development branch
+To test the retained Streamlit prototype as well:
 
-## Module Interfaces
-
-### Part 1 Output (Zeyu → Mingxuan)
-```python
-from shared.data_types import LFIRawData
-
-data = load_single_scan('file.h5')
-# Returns: LFIRawData with signal, coordinates, metadata
+```sh
+python -m pip install -r legacy/requirements-legacy.txt
+PYTHONDONTWRITEBYTECODE=1 python tests/verify_viewer.py
 ```
 
-### Part 2 Output (Mingxuan → Haobo)
-```python
-from shared.data_types import ProcessedSignal
+Qt's offscreen platform does not support OpenGL viewports. Tests validate real
+GL objects and computed geometry there. Native packaged-app evidence is in
+`docs/screenshots/bundle-validation/`, including Cocoa 2D/3D captures and a JSON
+report. The opt-in validation helper uses the real packaged application, not
+mocked graphics:
 
-processed = preprocess_signal(raw_data)
-# Returns: ProcessedSignal with cleaned signal
+```sh
+LFI_VALIDATE_BUNDLE=/tmp/lfi-bundle-check \
+LFI_VALIDATE_FILE="$(pwd)/Realdata/chip_borad1.hdf5" \
+"dist/LFI Viewer.app/Contents/MacOS/LFI Viewer"
 ```
 
-### Part 3 Output (Haobo → Vincent)
-```python
-from shared.data_types import ReconstructedImage
+## Known limitations
 
-image = reconstruct_image(processed_signal)
-# Returns: ReconstructedImage with 2D/3D data
-```
+- Pixel size must be entered manually. The supplied scan files contain no
+  calibration metadata; no 10 μm step or 100 kHz rate is inferred.
+- 3D has no physical Z spacing. XYZ coordinates are sensor/sample indices.
+- Team preprocessing and reconstruction modules are not integrated by default.
+  The inactive Gaussian example illustrates registration and is not a validated
+  scientific processing pipeline.
+- The loader retains complete amplitude/phase arrays in memory. Large scans
+  require sufficient RAM; downsampling limits 3D display work, not load memory.
+- 3D is amplitude-based. Flat/degenerate or single-layer data may not define
+  valid isosurfaces. Display changes require Render / Refresh 3D again.
+- The local bundle is arm64 only and has not been tested on other macOS machines.
 
-### Part 4 Integration (Vincent)
-```python
-# UI calls all three modules in sequence
-from part1_data import load_single_scan
-from part2_preprocess import preprocess_signal
-from part3_reconstruction import reconstruct_image
+## Architecture
 
-# Pipeline
-data = load_single_scan(filepath)
-processed = preprocess_signal(data)
-result = reconstruct_image(processed)
-# Display in UI
-```
+`part4_ui/lfi_core/` contains loaders, LFIRawData, pure processing functions,
+exports and backend protocols/registration. It does not import Qt or Streamlit.
+`part4_ui/app.py` owns the desktop window and worker lifecycle;
+`volume_panel.py` owns OpenGL scene presentation; `i18n.py` stores UI text.
 
-## Testing
+`legacy/streamlit_app.py` is the retained Streamlit prototype and uses the same
+core. The lightweight `streamlit-final` tag identifies its pre-migration
+baseline. See `docs/backend-integration.md` for teammate integration and
+`docs/gaussian_preprocessor_example.py` for an inactive example. Existing
+`part1_data`, `part2_preprocess`, `part3_reconstruction` and `shared` modules
+remain available for team development; they are not automatically wired into
+the desktop backend pipeline.
 
-Run all tests:
-```bash
-pytest tests/
-```
+## Team responsibilities
 
-Run specific module tests:
-```bash
-pytest tests/test_part1.py
-```
+- Zeyu Wang: data import and management (Part 1).
+- Mingxuan Tang: signal preprocessing (Part 2).
+- Haobo Yu: image generation and reconstruction (Part 3).
+- He Zhenyu (Vincent): UI design, integration and usability evaluation (Part 4).
+- Karl Bertling: project supervision.
 
-## Documentation
-
-See `docs/` folder for detailed documentation:
-- Interface specifications
-- Data format definitions
-- API references
-
-## Contact
-
-For questions about:
-- **Data loading**: Contact Zeyu Wang
-- **Signal processing**: Contact Mingxuan Tang
-- **Image reconstruction**: Contact Haobo Yu
-- **UI/Integration**: Contact He Zhenyu (Vincent)
-- **Overall project**: Contact supervisor Karl Bertling
-
-## License
-
-University of Queensland - Academic Use Only
+University of Queensland — academic use.
