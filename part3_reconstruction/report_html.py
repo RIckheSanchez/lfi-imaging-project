@@ -33,7 +33,8 @@ FIGURES = {
                  "Vegetables stack after depth-only resampling to a uniform z grid: XY plane at the "
                  "strongest slice and XZ/YZ sections. Lateral axes in pixels."),
     "profile": ("handoff_veg_depth_profile.png",
-                "Mean raw amplitude of each Vegetables slice against its recorded scan position."),
+                "Mean raw amplitude of each Vegetables slice against its focus position "
+                "(30.05 mm at frame 20, 0.1 mm deeper per frame)."),
 }
 
 CSS = """
@@ -219,7 +220,8 @@ Command: <code>{_e(' '.join(sys.argv) or 'python -m part3_reconstruction handoff
     parts.append("<h2>7. Open questions</h2><ul>"
                  "<li>Pixel size in millimetres: the length of one mirror step at the sample is not recorded.</li>"
                  "<li>Phase scale of &pi;/8192 rad per code: supported by the code range, not yet confirmed.</li>"
-                 "<li>Meaning of z: whether a scan position changes the imaged depth or mainly the focus.</li>"
+                 "<li>Depth: z is the beam focus, moved 0.1 mm deeper per frame from the surface (confirmed by the "
+                 "acquisition team); how much signal at each focus comes from inside the sample is not known.</li>"
                  "<li>Leaf: whether the 91 images are a time or a depth series.</li></ul>")
 
     frame_rows = [[_e(r["file"]), r.get("frame_id", ""), "yes" if r.get("phase_available") else "no",

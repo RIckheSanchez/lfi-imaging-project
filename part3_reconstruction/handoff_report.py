@@ -137,8 +137,8 @@ def depth_study(root, out, spacing=0.1):
     for p in profile:
         if p["frame_id"] in (21, 30, 100, 130, 140):
             ax.annotate(str(p["frame_id"]), (p["z_mm"], p["raw_mean"]), textcoords="offset points", xytext=(0, 6), fontsize=8, ha="center")
-    ax.set(xlabel="z (mm, scan position)", ylabel="mean raw amplitude (a.u.)",
-           title="Vegetables stack: signal strength against scan position")
+    ax.set(xlabel="z (mm, beam focus position; deeper to the right)", ylabel="mean raw amplitude (a.u.)",
+           title="Vegetables stack: signal strength against focus position")
     ax.grid(alpha=.3)
     fig.savefig(out / "handoff_veg_depth_profile.png", dpi=150)
     return {"input_shape_zyx": list(data.amplitude.shape), "z_mm_input": z.tolist(), "frame_ids": ids.tolist(),
