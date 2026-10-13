@@ -17,14 +17,14 @@
   "bundle-volume": {
     "context_valid": true,
     "framebuffer_saved": true,
-    "sampled_framebuffer_colors": 118,
+    "sampled_framebuffer_colors": 144,
     "window_saved": true
   },
   "bundle-isosurface": {
     "context_valid": true,
     "framebuffer_saved": true,
-    "sampled_framebuffer_colors": 16,
+    "sampled_framebuffer_colors": 23,
     "window_saved": true
   },
-  "elapsed_seconds": 6.644125291999444
+  "elapsed_seconds": 6.781274624998332
 }

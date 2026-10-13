@@ -75,7 +75,10 @@ Both amplitude and phase must be present with compatible dimensions.
 - Amplitude and phase waveforms at the selected pixel.
 - Calibrated 2D scale bar when a positive pixel size is entered.
 - Downsampled amplitude Volume and three uncapped Isosurface meshes; adjustable
-  lower percentile, fixed 99.5th-percentile upper threshold and camera reset.
+  lower percentile (default 90), fixed 99.5th-percentile upper threshold and camera reset.
+  Outer-to-inner mesh opacity is 0.12, 0.30 and 0.60. Volume clips its sampled
+  values to the 1st–99.5th percentile range before normalization and uses a
+  quadratic opacity transfer function. Isosurface controls are hidden in Volume mode.
 - Raw selected-channel CSV, colored pixel PNG/JPEG/TIFF and publication PNG
   with axes/colorbar. PNG/TIFF and publication PNG carry 300 DPI.
 - Thread-pool loading, slice/histogram preparation, backend processing, 3D
