@@ -9,7 +9,8 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from PIL import Image
-import matplotlib.cm as mcm
+import matplotlib
+from matplotlib.figure import Figure
 import io
 import tempfile
 import os
@@ -19,6 +20,10 @@ import h5py
 # ── Translations ──────────────────────────────────────────────────
 
 STRINGS = {
+    'export_kind': {"EN": 'Image type', "CN": '图像类型'},
+    'pixel_image': {"EN": 'Pixel image', "CN": '像素图像'},
+    'publication': {"EN": 'Publication figure', "CN": '论文插图'},
+
     'pixel_size': {"EN": 'Pixel size (μm)', "CN": '像素尺寸（μm）'},
     'scale_hint': {"EN": 'Set a positive pixel size to display a scale bar.', "CN": '请输入大于 0 的像素尺寸以显示比例尺。'},
 
@@ -172,6 +177,30 @@ def scale_bar(width, pixel_size):
     length = max(value * base for value in (1, 2, 5) if value * base <= target)
     label = f"{length / 1000:g} mm" if length >= 1000 else f"{length:g} μm"
     return length / pixel_size, label
+
+
+def get_export_colormap(name):
+    cmap_name = {'Cool': 'cool', 'ice': 'cool'}.get(name, name.lower())
+    return matplotlib.colormaps[cmap_name if cmap_name in matplotlib.colormaps else 'viridis']
+
+
+def publication_png(adjusted, colormap, pixel_size=0, color_label='Intensity',
+                    x_label='X (pixels)', y_label='Y (pixels)'):
+    figure = Figure(figsize=(6, 5))
+    axis = figure.subplots()
+    image = axis.imshow(adjusted, cmap=get_export_colormap(colormap), vmin=0, vmax=1)
+    axis.set_xlabel(x_label)
+    axis.set_ylabel(y_label)
+    figure.colorbar(image, ax=axis, label=color_label)
+    if pixel_size > 0:
+        length, label = scale_bar(adjusted.shape[1], pixel_size)
+        x, y = adjusted.shape[1] * .06, adjusted.shape[0] * .9
+        axis.plot([x, x + length], [y, y], color='white', linewidth=3)
+        axis.text(x + length / 2, y - adjusted.shape[0] * .03, label,
+                  ha='center', color='black', bbox=dict(facecolor='white', edgecolor='none'))
+    buffer = io.BytesIO()
+    figure.savefig(buffer, format='png', dpi=300, bbox_inches='tight')
+    return buffer.getvalue()
 
 
 # ── Cached helpers ────────────────────────────────────────────────
@@ -667,7 +696,8 @@ else:
         with col_e1:
             st.markdown(t('export_slice_title'))
             st.caption(t('export_slice_caption'))
-            export_format = st.selectbox(t('format_label'), ["PNG", "JPEG", "TIFF"])
+            export_kind = st.radio(t('export_kind'), ['pixel_image', 'publication'], format_func=t)
+            export_format = 'PNG' if export_kind == 'publication' else st.selectbox(t('format_label'), ["PNG", "JPEG", "TIFF"])
 
             if st.button(t('btn_export_image'), use_container_width=True):
                 current_z  = z_indices[st.session_state.current_z_idx]
@@ -679,22 +709,22 @@ else:
                 adjusted = (norm - 0.5) * contrast_scale + 0.5 + brightness_offset
                 adjusted = np.clip(adjusted, 0, 1)
 
-                cmap_name = COLORMAP_MAPPING.get(st.session_state.colormap, 'viridis').lower()
-                try:
-                    cmap = mcm.get_cmap(cmap_name)
-                except ValueError:
-                    cmap = mcm.get_cmap('viridis')
-                rgba = cmap(adjusted)
-                rgb  = (rgba[:, :, :3] * 255).astype(np.uint8)
-                img  = Image.fromarray(rgb, mode='RGB')
-
-                buf = io.BytesIO()
-                img.save(buf, format=export_format)
+                if export_kind == 'publication':
+                    image_bytes = publication_png(adjusted, st.session_state.colormap, pixel_size,
+                                                  color_label, t('x_pixels'), t('y_pixels'))
+                else:
+                    rgba = get_export_colormap(st.session_state.colormap)(adjusted)
+                    rgb = (rgba[:, :, :3] * 255).astype(np.uint8)
+                    img = Image.fromarray(rgb)
+                    buf = io.BytesIO()
+                    save_options = {'dpi': (300, 300)} if export_format in ('PNG', 'TIFF') else {}
+                    img.save(buf, format=export_format, **save_options)
+                    image_bytes = buf.getvalue()
 
                 st.download_button(
                     label=f"{t('btn_download')} {export_format}",
-                    data=buf.getvalue(),
-                    file_name=f"lfi_{ch_key}_z{current_z}_{st.session_state.colormap}.{export_format.lower()}",
+                    data=image_bytes,
+                    file_name=f"lfi_{export_kind}_{ch_key}_z{current_z}_{st.session_state.colormap}.{export_format.lower()}",
                     mime=f"image/{export_format.lower()}",
                     use_container_width=True
                 )
