@@ -57,10 +57,12 @@ class VolumePanel(QtWidgets.QWidget):
         self.reset_button.setEnabled(False)
         self.render_button.clicked.connect(self.render_requested)
         self.reset_button.clicked.connect(self.reset_camera)
+        self.mode.currentIndexChanged.connect(self.update_mode_controls)
         self.mode.currentIndexChanged.connect(self.invalidate)
         self.percentile.valueChanged.connect(self.invalidate)
         self.reconstruct.toggled.connect(self.invalidate)
         self.set_language('EN')
+        self.update_mode_controls()
 
     def set_language(self, language):
         self.language = language
@@ -74,6 +76,11 @@ class VolumePanel(QtWidgets.QWidget):
         self.placeholder.setText(text('3d_offscreen' if QtWidgets.QApplication.platformName() == 'offscreen' else '3d_start', language))
         if self.result is not None:
             self._update_info()
+
+    def update_mode_controls(self, *args):
+        isosurface = self.mode.currentIndex() == 1
+        for widget in (self.percentile_label, self.percentile, self.percentile_value):
+            widget.setVisible(isosurface)
 
     def invalidate(self, *args):
         self.invalidated.emit()
@@ -140,5 +147,6 @@ class VolumePanel(QtWidgets.QWidget):
         result = self.result
         self.info.setText(f"{text('volume_dimensions', self.language)}: {result['original_shape']}   "
                           f"{text('sampled_points', self.language)}: {result['sampled_points']:,}   "
-                          f"{text('downsample', self.language)}: 1/{result['step']}   "
-                          f"{text('surface_count', self.language)}: {len(result.get('meshes', []))}")
+                          f"{text('downsample', self.language)}: 1/{result['step']}")
+        if result['mode'] == 'isosurface':
+            self.info.setText(self.info.text() + f"   {text('surface_count', self.language)}: {len(result['meshes'])}")

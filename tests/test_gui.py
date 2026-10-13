@@ -400,3 +400,20 @@ def test_documented_gaussian_example_in_worker(qtbot, tmp_path):
         widget.close()
     finally:
         register_preprocessor(None)
+
+
+
+def test_mode_specific_isosurface_controls(window):
+    panel = window.volume_panel
+    for widget in (panel.percentile_label, panel.percentile, panel.percentile_value):
+        assert widget.isHidden()
+    panel.result = dict(mode='volume',original_shape=(2,3,4),sampled_points=24,step=1)
+    panel._update_info()
+    assert 'Surfaces' not in panel.info.text()
+    panel.mode.setCurrentIndex(1)
+    for widget in (panel.percentile_label, panel.percentile, panel.percentile_value):
+        assert not widget.isHidden()
+    panel.result = dict(mode='isosurface',original_shape=(2,3,4),sampled_points=24,step=1,meshes=[1,2,3])
+    panel._update_info()
+    assert 'Surfaces: 3' in panel.info.text()
+    panel.clear_result()
