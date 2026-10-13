@@ -6,8 +6,11 @@ Author: He Zhenyu (49174058)
 
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "files"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from part4_ui.lfi_core.data_io import smart_load, load_uploaded_bytes, local_data_key
+from part4_ui.lfi_core.processing import normalized_slice, downsampled_volume, adjust_slice, isosurface_thresholds
+from part4_ui.lfi_core.export import export_csv, scale_bar, get_export_colormap, publication_png, pixel_image
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
@@ -173,52 +176,12 @@ def t(key):
     return STRINGS[key][lang]
 
 
-def export_csv(raw_slice):
-    buffer = io.StringIO()
-    np.savetxt(buffer, raw_slice, delimiter=",", fmt="%.6g")
-    return buffer.getvalue()
-
-
-def scale_bar(width, pixel_size):
-    """Choose a 1/2/5 physical length within one quarter of image width."""
-    target = width * pixel_size / 4
-    exponent = np.floor(np.log10(target))
-    base = 10 ** exponent
-    length = max(value * base for value in (1, 2, 5) if value * base <= target)
-    label = f"{length / 1000:g} mm" if length >= 1000 else f"{length:g} μm"
-    return length / pixel_size, label
-
-
-def get_export_colormap(name):
-    cmap_name = {'Cool': 'cool', 'ice': 'cool'}.get(name, name.lower())
-    return matplotlib.colormaps[cmap_name if cmap_name in matplotlib.colormaps else 'viridis']
-
-
-def publication_png(adjusted, colormap, pixel_size=0, color_label='Intensity',
-                    x_label='X (pixels)', y_label='Y (pixels)'):
-    figure = Figure(figsize=(6, 5))
-    axis = figure.subplots()
-    image = axis.imshow(adjusted, cmap=get_export_colormap(colormap), vmin=0, vmax=1)
-    axis.set_xlabel(x_label)
-    axis.set_ylabel(y_label)
-    figure.colorbar(image, ax=axis, label=color_label)
-    if pixel_size > 0:
-        length, label = scale_bar(adjusted.shape[1], pixel_size)
-        x, y = adjusted.shape[1] * .06, adjusted.shape[0] * .9
-        axis.plot([x, x + length], [y, y], color='white', linewidth=3)
-        axis.text(x + length / 2, y - adjusted.shape[0] * .03, label,
-                  ha='center', color='black', bbox=dict(facecolor='white', edgecolor='none'))
-    buffer = io.BytesIO()
-    figure.savefig(buffer, format='png', dpi=300, bbox_inches='tight')
-    return buffer.getvalue()
-
-
 def create_3d_trace(X, Y, Z, values, colorscale, mode='volume', percentile=60):
     coordinates = dict(x=X.ravel(), y=Y.ravel(), z=Z.ravel(), value=values.ravel(),
                        colorscale=colorscale)
     if mode == 'isosurface':
-        return go.Isosurface(**coordinates, isomin=float(np.percentile(values, percentile)),
-                             isomax=float(np.percentile(values, 95)), surface_count=3,
+        return go.Isosurface(**coordinates, isomin=isosurface_thresholds(values, percentile)[0],
+                             isomax=isosurface_thresholds(values, percentile)[1], surface_count=3,
                              caps=dict(x_show=False, y_show=False, z_show=False))
     return go.Volume(**coordinates, isomin=float(values.min()), isomax=float(values.max()),
                      opacity=.1, surface_count=17)
@@ -228,98 +191,15 @@ def create_3d_trace(X, Y, Z, values, colorscale, mode='volume', percentile=60):
 
 @st.cache_data
 def get_normalized_slice(_data, data_key, z_index, channel='amplitude'):
-    """Return normalized [0,1] slice for the given channel ('amplitude' or 'phase')."""
-    slice_data = _data.get_slice(z_index)
-    arr = slice_data[channel]
-    s_min, s_max = arr.min(), arr.max()
-    normalized = (arr - s_min) / (s_max - s_min + 1e-10)
-    return normalized, s_min, s_max
+    return normalized_slice(_data, z_index, channel)
+
 
 @st.cache_data
 def get_downsampled_volume(_data, data_key, max_points=200_000):
-    """Cache and downsample 3D amplitude volume for fast rendering."""
-    amp   = _data.amplitude
-    total = amp.size
-    step  = max(1, int((total / max_points) ** (1 / 3)))
-    sampled = amp[::step, ::step, ::step]
-    Z, Y, X = np.mgrid[
-        0:amp.shape[0]:step,
-        0:amp.shape[1]:step,
-        0:amp.shape[2]:step
-    ]
-    return X, Y, Z, sampled, step
+    return downsampled_volume(_data, max_points)
 
 
-# ── Module imports ────────────────────────────────────────────────
-
-try:
-    from loader import load_single_scan
-    from data_types import LFIRawData
-    REAL_MODULES_AVAILABLE = True
-except ImportError:
-    REAL_MODULES_AVAILABLE = False
-
-
-# ── Loaders ───────────────────────────────────────────────────────
-
-def _load_frames_format(filepath: str):
-    """Fallback loader for HDF5 files using /frames/.../IMAGE_AMPLITUDE structure."""
-    with h5py.File(filepath, 'r') as f:
-        frames_group = f['frames']
-        frame_keys   = sorted(frames_group.keys(), key=lambda x: int(x))
-
-        amp_slices, phase_slices, z_indices = [], [], []
-        for k in frame_keys:
-            base = frames_group[k]['Image Data']['QCL0']['Left']
-            amp_slices.append(base['IMAGE_AMPLITUDE'][:].astype(np.float64))
-            phase_slices.append(base['IMAGE_PHASE'][:].astype(np.float64))
-            z_indices.append(int(k))
-
-        amplitude = np.stack(amp_slices,   axis=0)
-        phase     = np.stack(phase_slices, axis=0)
-        metadata  = {k: v for k, v in f.attrs.items()}
-
-    stem   = os.path.splitext(os.path.basename(filepath))[0]
-    known  = ['Chip', 'Leaf', 'Skin', 'Marble', 'Mushroom', 'Sound', 'Tomography']
-    target = next((tp for tp in known if tp.lower() in stem.lower()), 'Unknown')
-
-    return LFIRawData(
-        amplitude=amplitude, phase=phase, z_indices=z_indices,
-        target_type=target, file_path=filepath, metadata=metadata
-    )
-
-
-def smart_load(filepath: str):
-    """Try standard loader first; fall back to frames-format loader."""
-    try:
-        return load_single_scan(filepath)
-    except ValueError as e:
-        if 'frames' in str(e) or 'amplitude' in str(e):
-            return _load_frames_format(filepath)
-        raise
-
-
-def load_uploaded_bytes(name, data):
-    """Load upload bytes and return a stable key; always clean up the temporary file."""
-    data_key = ("upload", name, len(data), hashlib.sha1(data).hexdigest())
-    tmp_path = None
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.hdf5') as tmp_file:
-            tmp_path = tmp_file.name
-            tmp_file.write(data)
-        loaded_data = smart_load(tmp_path)
-        if loaded_data.target_type == 'Unknown':
-            known_types = ['Chip', 'Leaf', 'Skin', 'Marble', 'Mushroom',
-                           'Sound', 'Tomography', 'Beam Profile', 'Spectrum']
-            loaded_data.target_type = next(
-                (target for target in known_types if target.lower() in name.lower()), 'Unknown')
-        return loaded_data, data_key
-    finally:
-        if tmp_path is not None:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
+REAL_MODULES_AVAILABLE = True
 
 
 # ── Constants ─────────────────────────────────────────────────────
@@ -443,8 +323,7 @@ with st.sidebar:
                         with st.spinner(t('loading_path')):
                             resolved_path = os.path.realpath(os.path.expanduser(file_path))
                             loaded_data = smart_load(resolved_path)
-                            loaded_key = (resolved_path, os.path.getmtime(resolved_path),
-                                          os.path.getsize(resolved_path))
+                            loaded_key = local_data_key(resolved_path)
                             st.session_state.data = loaded_data
                             st.session_state.data_key = loaded_key
                             st.session_state.current_z_idx = 0
@@ -564,8 +443,7 @@ else:
 
             brightness_offset = (st.session_state.brightness - 50) / 100
             contrast_scale    = st.session_state.contrast / 50
-            adjusted = (normalized - 0.5) * contrast_scale + 0.5 + brightness_offset
-            adjusted = np.clip(adjusted, 0, 1)
+            adjusted = adjust_slice(normalized, st.session_state.brightness, st.session_state.contrast)
 
             color_label = t('phase_rad') if channel_key == 'phase' else t('intensity')
 
@@ -745,20 +623,13 @@ else:
 
                 brightness_offset = (st.session_state.brightness - 50) / 100
                 contrast_scale    = st.session_state.contrast / 50
-                adjusted = (norm - 0.5) * contrast_scale + 0.5 + brightness_offset
-                adjusted = np.clip(adjusted, 0, 1)
+                adjusted = adjust_slice(norm, st.session_state.brightness, st.session_state.contrast)
 
                 if export_kind == 'publication':
                     image_bytes = publication_png(adjusted, st.session_state.colormap, pixel_size,
                                                   color_label, t('x_pixels'), t('y_pixels'))
                 else:
-                    rgba = get_export_colormap(st.session_state.colormap)(adjusted)
-                    rgb = (rgba[:, :, :3] * 255).astype(np.uint8)
-                    img = Image.fromarray(rgb)
-                    buf = io.BytesIO()
-                    save_options = {'dpi': (300, 300)} if export_format in ('PNG', 'TIFF') else {}
-                    img.save(buf, format=export_format, **save_options)
-                    image_bytes = buf.getvalue()
+                    image_bytes = pixel_image(adjusted, st.session_state.colormap, export_format)
 
                 st.download_button(
                     label=f"{t('btn_download')} {export_format}",

@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 root=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(root/'files'))
+sys.path.insert(0,str(root))
 source=root/'legacy/streamlit_app.py'
 tree=ast.parse(source.read_text())
 # Execute the real application helpers without running its Streamlit UI.
