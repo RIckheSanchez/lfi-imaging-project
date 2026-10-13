@@ -15,26 +15,43 @@ class LFIRawData:
     """
     Raw data from Part 1 (Zeyu)
     Output of data loading module
+    
+    Data format from Zeyu's loader:
+    - amplitude: shape (70, 1400, 400) - amplitude data at different z-depths
+    - phase: shape (70, 1400, 400) - phase data at different z-depths
+    - 70 z-slices, 1400x400 XY scan resolution
     """
-    # Core signal data
-    signal: np.ndarray              # Raw LFI signal, shape: (X, Y) or (X, Y, Z)
+    # Core LFI signal data
+    amplitude: np.ndarray          # Amplitude signal, shape: (z_slices, x, y)
+    phase: np.ndarray              # Phase signal, shape: (z_slices, x, y)
     
     # Coordinate information
-    x_coords: np.ndarray           # X coordinates
-    y_coords: np.ndarray           # Y coordinates
-    z_depth: float                 # Current z-depth value
+    x_coords: Optional[np.ndarray] = None    # X coordinates
+    y_coords: Optional[np.ndarray] = None    # Y coordinates
+    z_coords: Optional[np.ndarray] = None    # Z-depth coordinates
     
     # Metadata
-    target_type: str               # 'Chip', 'Leaf', 'Skin', 'Marble', 'Mushroom'
-    scan_params: Dict              # Scanning parameters
+    target_type: Optional[str] = None        # 'Chip', 'Leaf', 'Skin', 'Marble', 'Mushroom'
+    scan_params: Optional[Dict] = None       # Scanning parameters
     
     # Optional fields
     timestamp: Optional[str] = None
     file_path: Optional[str] = None
     
     def __repr__(self):
-        return (f"LFIRawData(signal_shape={self.signal.shape}, "
-                f"target={self.target_type}, z_depth={self.z_depth})")
+        return (f"LFIRawData(amplitude_shape={self.amplitude.shape}, "
+                f"phase_shape={self.phase.shape}, "
+                f"target={self.target_type})")
+    
+    @property
+    def num_z_slices(self) -> int:
+        """Number of z-depth slices"""
+        return self.amplitude.shape[0]
+    
+    @property
+    def xy_resolution(self) -> tuple:
+        """XY scan resolution (width, height)"""
+        return (self.amplitude.shape[1], self.amplitude.shape[2])
 
 
 @dataclass
