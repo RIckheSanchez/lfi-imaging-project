@@ -1,0 +1,22 @@
+..................................                                       [100%]
+=============================== warnings summary ===============================
+tests/test_core.py: 48 warnings
+  /private/tmp/lfi-clean-arm64/lib/python3.13/site-packages/skimage/measure/_marching_cubes_lewiner.py:237: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+    ar.shape = shape
+
+tests/test_core.py::test_three_uncapped_isosurfaces
+tests/test_core.py::test_three_uncapped_isosurfaces
+tests/test_core.py::test_three_uncapped_isosurfaces
+tests/test_gui.py::test_chip_load_responsive_and_screenshot
+tests/test_gui.py::test_chip_load_responsive_and_screenshot
+tests/test_gui.py::test_chip_load_responsive_and_screenshot
+tests/test_gui.py::test_volume_mesh_worker_and_invalidation
+tests/test_gui.py::test_volume_mesh_worker_and_invalidation
+tests/test_gui.py::test_volume_mesh_worker_and_invalidation
+  /private/tmp/lfi-clean-arm64/lib/python3.13/site-packages/skimage/measure/_marching_cubes_lewiner.py:213: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+    faces.shape = -1, 3
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+34 passed, 57 warnings in 4.90s
