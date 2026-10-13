@@ -4,7 +4,6 @@ import warnings
 
 import h5py
 import numpy as np
-import pytest
 
 from loader import load_volume
 from output_interface import get_phase_radians
