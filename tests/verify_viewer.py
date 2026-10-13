@@ -7,7 +7,7 @@ import numpy as np
 from PIL import Image
 root=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(root/'files'))
-source=root/'files/lfi_viewer_final.py'
+source=root/'legacy/streamlit_app.py'
 tree=ast.parse(source.read_text())
 # Execute the real application helpers without running its Streamlit UI.
 nodes=[n for n in tree.body if isinstance(n,(ast.Import,ast.ImportFrom,ast.FunctionDef,ast.Try))]

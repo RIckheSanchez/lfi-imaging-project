@@ -4,6 +4,10 @@ Integrated with Zeyu Wang's loader.py and data_types.py
 Author: He Zhenyu (49174058)
 """
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "files"))
+
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
