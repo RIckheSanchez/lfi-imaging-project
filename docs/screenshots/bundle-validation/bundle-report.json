@@ -1,0 +1,30 @@
+{
+  "architecture": "arm64",
+  "frozen": true,
+  "executable": "/Users/vincent/Desktop/LFI Viewer/dist/LFI Viewer.app/Contents/MacOS/LFI Viewer",
+  "qt_platform": "cocoa",
+  "errors": [],
+  "qt_messages": [],
+  "2d": {
+    "shape": [
+      70,
+      1400,
+      400
+    ],
+    "raw_sum": 702180334.0,
+    "saved": true
+  },
+  "bundle-volume": {
+    "context_valid": true,
+    "framebuffer_saved": true,
+    "sampled_framebuffer_colors": 118,
+    "window_saved": true
+  },
+  "bundle-isosurface": {
+    "context_valid": true,
+    "framebuffer_saved": true,
+    "sampled_framebuffer_colors": 16,
+    "window_saved": true
+  },
+  "elapsed_seconds": 6.644125291999444
+}

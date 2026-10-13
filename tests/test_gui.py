@@ -375,3 +375,28 @@ def test_reprocess_preserves_z_pixel_and_view(qtbot, window, tmp_path):
         assert window.raw_slice[4,2] == 45 + (1000 if enabled else 0)
         assert window.settings.value('recent_files',[],type=list) == recent
     assert calls and calls[0] != threading.get_ident()
+
+
+def test_documented_gaussian_example_in_worker(qtbot, tmp_path):
+    import runpy
+    from part4_ui.lfi_core.backend import register_preprocessor
+    example = runpy.run_path(str(ROOT/'docs/gaussian_preprocessor_example.py'))['GaussianPreprocessor']
+    calls = []
+    class ObservedGaussian(example):
+        def preprocess(self, data, params):
+            calls.append(threading.get_ident())
+            return super().preprocess(data, params)
+    register_preprocessor(ObservedGaussian(), {'sigma': .6})
+    try:
+        widget = MainWindow(QtCore.QSettings(str(tmp_path/'gaussian.ini'), QtCore.QSettings.Format.IniFormat))
+        qtbot.addWidget(widget)
+        widget.errors = []
+        widget.show()
+        assert widget.pre_group.isVisible()
+        widget.apply_preprocessing.setChecked(True)
+        load_mushroom(qtbot, widget)
+        assert calls[0] != threading.get_ident()
+        assert not np.array_equal(widget.data.amplitude, widget.raw_data.amplitude)
+        widget.close()
+    finally:
+        register_preprocessor(None)
