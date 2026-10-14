@@ -152,8 +152,8 @@ the desktop backend pipeline.
 ## Team responsibilities
 
 - Zeyu Wang: data import and management (Part 1).
-- Mingxuan Tang: signal preprocessing (Part 2).
-- Haobo Yu: image generation and reconstruction (Part 3).
+- Haobo Yu: signal preprocessing (Part 2).
+- Mingxuan Tang: image generation and reconstruction (Part 3).
 - He Zhenyu (Vincent): UI design, integration and usability evaluation (Part 4).
 - Karl Bertling: project supervision.
 

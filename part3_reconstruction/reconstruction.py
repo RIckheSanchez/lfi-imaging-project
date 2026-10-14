@@ -1,6 +1,6 @@
 """
 Part 3: Image Generation & Reconstruction
-Responsible: Haobo Yu
+Responsible: Mingxuan Tang
 
 This module handles image reconstruction from processed LFI signals.
 """
@@ -22,7 +22,7 @@ def reconstruct_image(processed_signal: ProcessedSignal) -> ReconstructedImage:
         
     TODO: Implement reconstruction algorithm
     """
-    raise NotImplementedError("TODO: Haobo to implement")
+    raise NotImplementedError("TODO: Mingxuan to implement")
 
 
 def reconstruct_3d(signals: List[ProcessedSignal], 
@@ -39,7 +39,7 @@ def reconstruct_3d(signals: List[ProcessedSignal],
         
     TODO: Implement 3D tomographic reconstruction
     """
-    raise NotImplementedError("TODO: Haobo to implement")
+    raise NotImplementedError("TODO: Mingxuan to implement")
 
 
 def calculate_quality_score(image: np.ndarray) -> float:
@@ -52,4 +52,4 @@ def calculate_quality_score(image: np.ndarray) -> float:
     Returns:
         Quality score (0-1)
     """
-    raise NotImplementedError("TODO: Haobo to implement")
+    raise NotImplementedError("TODO: Mingxuan to implement")

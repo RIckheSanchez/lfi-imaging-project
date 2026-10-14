@@ -51,7 +51,7 @@ STRINGS = {
     'export_done': ('Export saved', '导出已保存'),
     'filter': ('HDF5 scans (*.hdf5 *.h5)', 'HDF5 扫描文件 (*.hdf5 *.h5)'),
     'pending_3d': ('3D rendering will be added in the next stage.', '三维渲染将在下一阶段加入。'),
-    'about_text': ('LFI desktop viewer · PySide6 + pyqtgraph\nShared LFI core.', 'LFI 桌面查看器 · PySide6 + pyqtgraph\n共享 LFI 核心。'),
+    'about_text': ('LFI desktop viewer · PySide6 + pyqtgraph\nZeyu Wang: Part 1 · Haobo Yu: Part 2 · Mingxuan Tang: Part 3 · He Zhenyu: Part 4.', 'LFI 桌面查看器 · PySide6 + pyqtgraph\nZeyu Wang：数据导入；Haobo Yu：信号预处理；Mingxuan Tang：图像生成与重建；He Zhenyu：UI。'),
     'wait_close': ('Please wait for the current operation to finish before closing.', '请等待当前操作完成后再关闭。'),
     'format': ('Export format', '导出格式'), 'publication': ('Publication PNG', '论文插图 PNG'),
     'save': ('Save…', '保存…'), 'cancel': ('Cancel', '取消'),

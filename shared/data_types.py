@@ -13,7 +13,7 @@ import numpy as np
 @dataclass
 class LFIRawData:
     """
-    Raw data from Part 1 (Zeyu)
+    Raw data from Part 1 (Zeyu Wang)
     Output of data loading module
     
     Data format from Zeyu's loader:
@@ -57,7 +57,7 @@ class LFIRawData:
 @dataclass
 class ProcessedSignal:
     """
-    Processed signal from Part 2 (Mingxuan)
+    Processed signal from Part 2 (Haobo Yu)
     Output of signal pre-processing module
     """
     # Cleaned signal
@@ -79,7 +79,7 @@ class ProcessedSignal:
 @dataclass
 class ReconstructedImage:
     """
-    Reconstructed image from Part 3 (Haobo)
+    Reconstructed image from Part 3 (Mingxuan Tang)
     Output of image reconstruction module
     """
     # Image data
