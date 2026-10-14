@@ -22,11 +22,6 @@ wheels/
 
 # Virtual Environment
 venv/
-.venv/
-*.nii
-*.nii.gz
-*.npy
-*.npz
 ENV/
 env/
 
@@ -52,6 +47,10 @@ htmlcov/
 *.csv
 data/
 datasets/
+*.nii
+*.nii.gz
+*.npy
+*.npz
 
 # Temporary files
 *.log
@@ -65,3 +64,13 @@ Thumbs.db
 # Project specific
 outputs/
 cache/
+files.zip
+Realdata/
+__pycache__/
+*.pyc
+
+# Local Python environments and generated macOS bundles
+.venv/
+.venv-*/
+.conda/
+*.app/

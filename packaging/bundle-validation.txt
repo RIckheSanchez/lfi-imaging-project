@@ -1,0 +1,4 @@
+dist/LFI Viewer.app/Contents/MacOS/LFI Viewer: Mach-O 64-bit executable arm64
+File content size (excluding symlink aliases): 222457034 bytes
+219092	dist/LFI Viewer.app
+codesign --verify --deep --strict: passed (ad-hoc signature)

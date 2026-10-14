@@ -1,0 +1,4 @@
+/Users/vincent/Desktop/LFI Viewer
+-B
+-m
+part4_ui.app

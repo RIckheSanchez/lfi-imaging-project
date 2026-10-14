@@ -1,0 +1,180 @@
+# Default configuration for the THz LFI pre-processing pipeline.
+#
+# Layout
+# ------
+# Top-level sections give the **base defaults** applied to every scan.
+# Optional `[targets.<name>...]` sub-tables override base values for
+# specific `target_type` strings (matched case-insensitively).
+#
+# Algorithm choices are guided by proposal §3.2.2; per-target overrides
+# implement §3.2.6 ("Shared scope versus individual contribution")
+# without forking the code.
+
+[noise_reduction]
+# Method dispatch: choose one of
+#   "median2d"     — 2D median over (H, W) per z-slice (image-level)
+#   "gaussian2d"   — 2D Gaussian over (H, W) per z-slice
+#   "savgol_1d"    — Savitzky–Golay along z (sweep axis, requires n_z > 1)
+#   "bandpass_1d"  — Digital IIR band-pass along z (requires n_z > 1)
+#   "none"         — pass-through
+method = "median2d"
+
+# --- median2d ---
+median_window = 3  # pixels (odd integer)
+
+# --- gaussian2d ---
+gaussian_sigma = 1.0  # pixels
+
+# --- savgol_1d (along z) ---
+savgol_window = 11  # samples (odd integer)
+savgol_polyorder = 3
+
+# --- bandpass_1d (along z) ---
+# Cutoffs are expressed as a fraction of the Nyquist frequency so the
+# defaults are sampling-rate independent. Override with `sampling_hz`
+# in a derived config to specify physical Hz.
+bandpass_low_norm = 0.02   # = 0.02 * Nyquist
+bandpass_high_norm = 0.45  # = 0.45 * Nyquist
+bandpass_order = 4
+
+[normalisation]
+# Method dispatch: choose one of
+#   "baseline"   — subtract per-z-slice baseline (percentile)
+#   "zscore"     — z-score per z-slice (robust if `robust = true`)
+#   "none"       — pass-through
+method = "baseline"
+robust = true                 # zscore uses MAD instead of std when true
+baseline_percentile = 5.0     # used by "baseline"
+
+[phase_unwrapping]
+# Method dispatch: choose one of
+#   "skimage_2d" — quality-guided 2D unwrap per z-slice (skimage)
+#   "itoh_1d"    — Itoh-style 1D unwrap along z (requires n_z > 1)
+#   "none"       — pass-through (wrapped phase passes through)
+enabled = false
+method = "skimage_2d"
+# Reproducible initialisation for scikit-image's reliability-sorted unwrap.
+rng_seed = 0
+# "amplitude_otsu" evaluates the gate and unwraps only inside the largest
+# connected signal region; released phase is NaN elsewhere. "none" uses the
+# whole image. mask_threshold_scale multiplies Otsu's threshold, and a slice
+# is released only if the region covers at least min_signal_fraction.
+mask = "none"
+mask_threshold_scale = 1.0
+min_signal_fraction = 0.2
+# Project guardrail, not a universal physical constant. A slice is released
+# as unwrapped only if at most this fraction of 2x2 cells (inside the mask)
+# carries a phase residue, i.e. when unwrapping is close to path independent.
+# Review 2026-10-11: on Leaf (residues 2-5%) an independent unwrap matched the
+# group's saved result on only 14-48% of pixels, so the earlier 0.06 was not
+# defensible. Skin has 0.01% residues inside its signal region and passes.
+max_residue_fraction = 0.001
+low_quality_action = "keep_wrapped"
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Per-target overrides
+# ─────────────────────────────────────────────────────────────────────
+#
+# spatial_correction keys
+#   background_sigma_pixels  Gaussian scale for phase background removal and
+#                            for the amplitude_detail product. The default
+#                            amplitude_corrected product keeps the background.
+#   stripe_window_lines      neighbouring scan lines used as the robust
+#                            baseline when estimating line offsets (odd).
+#   mask                     "amplitude_otsu" restricts detail/phase products
+#                            to the signal region.
+
+[targets.skin]
+# Image-level (n_z == 1): only 2D operators meaningful.
+[targets.skin.noise_reduction]
+# Gaussian sigma=1 removed more high-frequency content than a 3x3 median
+# at equal or better gradient correlation (evaluation E7).
+method = "gaussian2d"
+gaussian_sigma = 1.0
+[targets.skin.normalisation]
+method = "none"
+baseline_percentile = 5.0
+[targets.skin.phase_unwrapping]
+enabled = true
+method = "skimage_2d"
+rng_seed = 0
+mask = "amplitude_otsu"
+max_residue_fraction = 0.001
+low_quality_action = "keep_wrapped"
+
+[targets.skin.spatial_correction]
+enabled = true
+mask = "amplitude_otsu"
+background_sigma_pixels = 32.0
+stripe_axis = "rows"
+stripe_window_lines = 15
+
+[targets.leaf]
+# Process each stored image independently; no physical third-axis assumption.
+[targets.leaf.noise_reduction]
+method = "none"
+savgol_window = 11
+savgol_polyorder = 3
+[targets.leaf.normalisation]
+method = "none"
+robust = true
+[targets.leaf.phase_unwrapping]
+# Leaf phase is decoded on the supervisor-stated scale (code * pi / 8192) and
+# unwrapped by this module. The leaf fills the frame, so Otsu's threshold is
+# lowered to 0.65 to keep the lamina in one connected region (about 70% of the
+# image). Frames whose region still exceeds the gate stay wrapped.
+enabled = true
+method = "skimage_2d"
+mask = "amplitude_otsu"
+mask_threshold_scale = 0.65
+min_signal_fraction = 0.2
+max_residue_fraction = 0.001
+
+[targets.leaf.spatial_correction]
+# sigma=20, truncate=2, nearest is the kernel that reproduces the group's saved
+# U_M from their saved U (both on the historical doubled phase scale).
+enabled = true
+mask = "none"
+background_sigma_pixels = 20.0
+background_boundary_mode = "nearest"
+background_truncate = 2.0
+stripe_axis = "rows"
+stripe_window_lines = 15
+
+[targets.chip]
+# Mirrors leaf defaults until chip-specific characterisation is available.
+[targets.chip.noise_reduction]
+method = "savgol_1d"
+[targets.chip.normalisation]
+method = "zscore"
+[targets.chip.phase_unwrapping]
+enabled = true
+method = "itoh_1d"
+
+[targets.vegetable]
+# 2026 RDM files are loaded as image slices in a depth volume. Residues sit
+# almost entirely where the sample absorbs the beam, so the gate is evaluated
+# inside the signal mask; frames still above it keep wrapped phase.
+[targets.vegetable.noise_reduction]
+# Gaussian sigma=1 removed more high-frequency content than a 3x3 median
+# at equal or better gradient correlation (evaluation E7).
+method = "gaussian2d"
+gaussian_sigma = 1.0
+[targets.vegetable.normalisation]
+method = "none"
+baseline_percentile = 5.0
+[targets.vegetable.phase_unwrapping]
+enabled = true
+method = "skimage_2d"
+rng_seed = 0
+mask = "amplitude_otsu"
+max_residue_fraction = 0.001
+low_quality_action = "keep_wrapped"
+
+[targets.vegetable.spatial_correction]
+enabled = true
+mask = "amplitude_otsu"
+background_sigma_pixels = 32.0
+stripe_axis = "rows"
+stripe_window_lines = 15
