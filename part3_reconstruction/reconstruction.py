@@ -1,55 +1,28 @@
-"""
-Part 3: Image Generation & Reconstruction
-Responsible: Mingxuan Tang
-
-This module handles image reconstruction from processed LFI signals.
-"""
-
-from typing import List
-from shared.data_types import ProcessedSignal, ReconstructedImage
+"""Explicit adapters for the original team entry points."""
 import numpy as np
+from .data import ImagingData
+from .volume_reconstructor import VolumeReconstructor
+from .image_generator import ImageGenerator
+from .validation import image_metrics
 
 
-def reconstruct_image(processed_signal: ProcessedSignal) -> ReconstructedImage:
-    """
-    Reconstruct 2D image from processed signal
-    
-    Args:
-        processed_signal: Cleaned signal from Part 2
-        
-    Returns:
-        ReconstructedImage with 2D image data
-        
-    TODO: Implement reconstruction algorithm
-    """
-    raise NotImplementedError("TODO: Mingxuan to implement")
+def reconstruct_image(processed_signal, *, phase_mode="cyclic"):
+    """Return a dual-channel figure. Legacy clean_signal input is ambiguous."""
+    if not isinstance(processed_signal, ImagingData):
+        raise TypeError("Pass ImagingData(amplitude, phase, metadata) in yx order")
+    return ImageGenerator(processed_signal).generate_comparison(phase_mode=phase_mode)
 
 
-def reconstruct_3d(signals: List[ProcessedSignal], 
-                   z_levels: List[float]) -> ReconstructedImage:
-    """
-    Reconstruct 3D volume from multiple z-depth scans
-    
-    Args:
-        signals: List of processed signals at different depths
-        z_levels: Corresponding z-depth values
-        
-    Returns:
-        ReconstructedImage with 3D data
-        
-    TODO: Implement 3D tomographic reconstruction
-    """
-    raise NotImplementedError("TODO: Mingxuan to implement")
+def reconstruct_3d(signals, z_levels, *, spacing_xy, spatial_unit="mm"):
+    if not signals or not all(isinstance(s, ImagingData) and s.amplitude.ndim == 2 for s in signals):
+        raise TypeError("signals must be a nonempty sequence of 2D ImagingData")
+    if len({(s.metadata.get("phase_state"), s.metadata["phase_unit"]) for s in signals}) != 1:
+        raise ValueError("slices must have consistent phase semantics")
+    data = ImagingData(np.stack([s.amplitude for s in signals]), np.stack([s.phase for s in signals]), signals[0].metadata)
+    return VolumeReconstructor(data, spacing_xy=spacing_xy, z_coordinates=z_levels, spatial_unit=spatial_unit)
 
 
-def calculate_quality_score(image: np.ndarray) -> float:
-    """
-    Calculate reconstruction quality metric
-    
-    Args:
-        image: Reconstructed image
-        
-    Returns:
-        Quality score (0-1)
-    """
-    raise NotImplementedError("TODO: Mingxuan to implement")
+def calculate_quality_score(image, reference=None, *, data_range=None):
+    if reference is None or data_range is None:
+        raise ValueError("quality requires a reference and explicit data_range")
+    return image_metrics(reference, image, data_range=data_range)["ssim"]

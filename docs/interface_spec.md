@@ -1,5 +1,10 @@
 # Module Interface Specification
 
+> Historical team skeleton. The rebuilt Person 3 contract is documented in
+> [part3_rebuild.md](part3_rebuild.md). It uses explicit amplitude/phase
+> `ImagingData`; the legacy single `clean_signal` interface below cannot express
+> the required units and geometry. End-to-end team migration is still pending.
+
 ## Overview
 
 This document defines the interfaces between different modules in the LFI Imaging Project.

@@ -47,6 +47,10 @@ htmlcov/
 *.csv
 data/
 datasets/
+*.nii
+*.nii.gz
+*.npy
+*.npz
 
 # Temporary files
 *.log

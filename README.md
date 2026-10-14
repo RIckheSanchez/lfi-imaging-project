@@ -149,6 +149,26 @@ baseline. See `docs/backend-integration.md` for teammate integration and
 remain available for team development; they are not automatically wired into
 the desktop backend pipeline.
 
+## Part 3 imaging and reconstruction module
+
+`part3_reconstruction` turns pre-processed amplitude and phase into figures and
+volumes: amplitude/phase display with explicit phase units, HSL fusion,
+physical-coordinate and depth-only resampling, NIfTI export, a reader for the
+Part 2 handoff, and a handoff check that writes a self-contained HTML report.
+It is not yet wired into the desktop backend. Details, API and validation:
+[docs/part3_rebuild.md](docs/part3_rebuild.md).
+
+```sh
+python -m pip install scipy scikit-image nibabel h5py matplotlib pytest
+python -m pytest -q tests/test_imaging.py tests/test_volume.py tests/test_handoff.py \r
+    tests/test_sequence.py tests/test_audit.py tests/test_benchmark.py tests/test_integration.py
+python -m part3_reconstruction --help
+python -m part3_reconstruction handoff <handoff folder> --output outputs/handoff --raw <raw HDF5 folder>
+```
+
+Exact versions used for the reported results are in
+`requirements-part3-tested.txt`.
+
 ## Team responsibilities
 
 - Zeyu Wang: data import and management (Part 1).
