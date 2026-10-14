@@ -1,5 +1,7 @@
 """English and Chinese desktop UI text."""
 STRINGS = {
+    'phase_raw': ('Phase (raw, uncalibrated)', '相位（原始值，未校准）'),
+    'phase_status': ('Phase encoding status', '相位编码状态'),
     'parameters': ('Parameters (JSON)', '参数（JSON）'),
     'parameter_error': ('Parameters must be a valid JSON object', '参数必须为有效的 JSON 对象'),
     'fit': ('Fit to window', '适应窗口'),

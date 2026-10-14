@@ -280,7 +280,7 @@ def test_colorbar_bounds_fit_and_loaded_status(qtbot, window):
     assert '1300 × 400' in window.statusBar().currentMessage()
     window.channel.setCurrentIndex(1)
     wait_ready(qtbot, window)
-    assert window.colorbar.axis.labelText == 'Phase (rad)'
+    assert window.colorbar.axis.labelText == 'Phase (raw, uncalibrated)'
     window.view.setRange(QtCore.QRectF(10,20,100,100), padding=0)
     window.fit_action.trigger()
     x_range, y_range = window.view.viewRange()
@@ -433,3 +433,31 @@ def test_histogram_tracks_theme_palette(window, background, foreground):
         assert window.histogram.getAxis(name).textPen().color().name() == foreground
     window.set_language('CN')
     assert window.histogram.backgroundBrush().color().name() == background
+
+
+
+@pytest.mark.parametrize('converted', [False, True])
+def test_phase_labels_and_publication_metadata(qtbot, window, tmp_path, monkeypatch, converted):
+    import part4_ui.app as module
+    load_mushroom(qtbot, window)
+    window.data.metadata.update(phase_converted=converted, phase_encoding_used='test_encoding')
+    window.update_info()
+    window.channel.setCurrentIndex(1)
+    wait_ready(qtbot, window)
+    label = 'Phase (rad)' if converted else 'Phase (raw, uncalibrated)'
+    assert window.colorbar.axis.labelText == label
+    assert window.histogram.getAxis('bottom').labelText == label
+    assert window.phase_plot.getAxis('left').labelText == label
+    assert label in window.pixel_label.text()
+    assert f'phase_converted={converted}' in window.scan_label.text()
+    recorded = []
+    original = module.publication_png
+    def capture(adjusted, colormap, pixel_size, color_label, *labels):
+        recorded.append(color_label)
+        return original(adjusted,colormap,pixel_size,color_label,*labels)
+    monkeypatch.setattr(module,'publication_png',capture)
+    window.export_to(tmp_path/'phase.png','publication')
+    wait_ready(qtbot, window)
+    assert recorded == [label]
+    window.set_language('CN')
+    assert window.phase_plot.getAxis('left').labelText == ('相位（rad）' if converted else '相位（原始值，未校准）')

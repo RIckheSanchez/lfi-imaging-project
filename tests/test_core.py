@@ -149,3 +149,13 @@ def test_volume_robust_clipping_and_nonlinear_opacity(synthetic_volume):
 def test_isosurface_invalid_percentile(synthetic_volume, percentile):
     with pytest.raises(ValueError,match='below 99.5'):
         isosurface_thresholds(synthetic_volume.amplitude, percentile)
+
+
+
+def test_phase_semantics_unknown_and_confirmed():
+    from part4_ui.lfi_core.phase_semantics import phase_label_key, phase_encoding_status
+    assert phase_label_key({}) == 'phase_raw'
+    assert phase_encoding_status({}) == 'unknown'
+    assert phase_label_key({'phase_converted': False}) == 'phase_raw'
+    assert phase_label_key({'phase_converted': True}) == 'phase_rad'
+    assert phase_label_key({'phase_converted': 'False'}) == 'phase_raw'
