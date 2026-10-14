@@ -100,8 +100,11 @@ Anomalous frame files (Vegetables 20) are skipped by default and listed in `meta
 If `experiment_details.txt` is present:
 
 ```
-depth_mm[i] = z_start_mm + (frame_id - first_frame_id) * z_step_mm
+depth_mm[i] = z_start_mm + (frame_id - reference) * z_step_mm
 ```
+
+Accepted keys include `start z position (mm)` and `imcrements (mm)` (typo for increments).  
+`reference` = `first_frame_id` from the file when present; otherwise the **minimum frame id on disk** (including anomalous files such as Vegetables 20 that `load_volume` skips). Do not use the min of the loaded batch alone — that under-shifts depth by one step.
 
 ## Export
 

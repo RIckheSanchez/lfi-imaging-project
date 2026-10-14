@@ -213,11 +213,21 @@ def find_experiment_details(start: Union[str, Path]) -> Optional[Path]:
     return None
 
 
+def _normalize_details_key(key: str) -> str:
+    """Casefold, drop parenthetical units like (mm), unify spaces/underscores."""
+    k = key.strip().casefold().replace("-", " ")
+    k = re.sub(r"\([^)]*\)", " ", k)  # "start z position (mm)" → "start z position"
+    k = re.sub(r"\s+", " ", k).strip()
+    return k
+
+
 def parse_experiment_details(path: Union[str, Path]) -> dict:
     """
     Parse experiment_details.txt.
 
     Detect start/step (mm) fields; keys case-insensitive; supports `key: value` / `key = value`.
+    Recognises lab wording such as ``start z position (mm)`` and the common typo
+    ``imcrements (mm)`` (= increments).
     Returns e.g. {"z_start_mm": 0.0, "z_step_mm": 0.05, "raw": {...}, "source_path": "..."}.
     """
     fp = Path(path)
@@ -233,7 +243,7 @@ def parse_experiment_details(path: Union[str, Path]) -> dict:
             k, v = line.split("=", 1)
         else:
             continue
-        key = k.strip().casefold().replace("-", " ")
+        key = _normalize_details_key(k)
         key_us = key.replace(" ", "_")
         val = v.strip()
         raw[key] = val
@@ -242,16 +252,18 @@ def parse_experiment_details(path: Union[str, Path]) -> dict:
     aliases = {
         "z_start_mm": (
             "z_start_mm", "z_start", "start", "start_mm", "start position",
+            "start z position", "starting z position", "start_z_position",
             "starting position", "start_position", "starting_position",
             "z0", "z_0", "initial position", "initial_position",
         ),
         "z_step_mm": (
             "z_step_mm", "z_step", "step", "step_mm", "step size", "step_size",
-            "dz", "delta_z", "increment", "z_increment",
+            "dz", "delta_z", "increment", "increments", "imcrements",  # typo seen on RDM
+            "z_increment", "z increments", "z imcrements", "increment size",
         ),
         "first_frame_id": (
             "first_frame_id", "first_frame", "start_frame", "frame_start",
-            "reference_frame",
+            "reference_frame", "first frame", "starting frame",
         ),
         "n_frames": (
             "n_frames", "num_frames", "number of frames", "frames", "n_steps",
@@ -285,11 +297,18 @@ def parse_experiment_details(path: Union[str, Path]) -> dict:
 def depth_mm_for_frames(
     frame_ids: Sequence[FrameId],
     details: Optional[dict],
+    *,
+    reference_frame_id: Optional[int] = None,
 ) -> Optional[list[float]]:
     """
     depth_mm[i] = z_start_mm + (frame_id - reference) * z_step_mm.
 
-    reference prefers details['first_frame_id'], else min frame id in this batch.
+    Reference priority:
+      1) details['first_frame_id'] from experiment_details.txt
+      2) reference_frame_id (e.g. min frame id present on disk, including skipped
+         anomalous frames such as Vegetables 20)
+      3) min(frame_ids) — last resort; wrong if anomalous frames were dropped
+         from this batch before calling
     """
     if not details:
         return None
@@ -299,6 +318,8 @@ def depth_mm_for_frames(
     ids = [int(f) for f in frame_ids]
     ref = details.get("first_frame_id")
     if ref is None:
+        ref = reference_frame_id
+    if ref is None:
         ref = min(ids) if ids else 0
     return [round(float(start + (fid - int(ref)) * step), 12) for fid in ids]
 
@@ -307,6 +328,8 @@ def _attach_depth_metadata(
     metadata: dict,
     frame_ids: Sequence[FrameId],
     search_from: Union[str, Path],
+    *,
+    reference_frame_id: Optional[int] = None,
 ) -> dict:
     """If experiment_details.txt is found, set z_start_mm / z_step_mm / depth_mm."""
     details_path = find_experiment_details(search_from)
@@ -318,7 +341,14 @@ def _attach_depth_metadata(
     metadata["experiment_details_path"] = details["source_path"]
     metadata["z_start_mm"] = details.get("z_start_mm")
     metadata["z_step_mm"] = details.get("z_step_mm")
-    metadata["depth_mm"] = depth_mm_for_frames(frame_ids, details)
+    metadata["depth_mm"] = depth_mm_for_frames(
+        frame_ids, details, reference_frame_id=reference_frame_id
+    )
+    # Record which reference was used when the file omits first_frame_id
+    if details.get("first_frame_id") is not None:
+        metadata["depth_reference_frame_id"] = int(details["first_frame_id"])
+    elif reference_frame_id is not None:
+        metadata["depth_reference_frame_id"] = int(reference_frame_id)
     if metadata["depth_mm"] is None:
         metadata["notes"] = (
             (metadata.get("notes") or "")
@@ -1214,6 +1244,9 @@ def load_volume(
 
     # keep numeric order (find_data_files already sorted; preserve after filter)
     file_by_frame.sort(key=lambda t: t[0])
+    # Min frame on disk (includes anomalous e.g. 20) — depth origin when
+    # experiment_details.txt omits first_frame_id and we later skip those files.
+    catalog_min_frame = min(n for n, _ in file_by_frame)
 
     # Resolve identity before the loop so anomalous single-frame files
     # (e.g. Vegetables frame-20.hdf5) can be skipped without calling load_single_scan.
@@ -1330,7 +1363,9 @@ def load_volume(
         md["data_channels"] = ["amplitude", "phase", "waveform"]
         md["waveform_shape"] = list(waveform.shape)
         md["waveform_dtype"] = str(waveform.dtype)
-    _attach_depth_metadata(md, z_indices, root)
+    _attach_depth_metadata(
+        md, z_indices, root, reference_frame_id=catalog_min_frame
+    )
 
     print(
         f"[load_volume] done → {amplitude.shape} | frames={z_indices[0]}→{z_indices[-1]} "
