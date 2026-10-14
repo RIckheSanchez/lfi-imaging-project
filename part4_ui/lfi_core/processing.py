@@ -4,14 +4,14 @@ import numpy as np
 def normalized_slice(data, z_index, channel='amplitude'):
     """Return normalized [0,1] slice for the given channel ('amplitude' or 'phase')."""
     slice_data = data.get_slice(z_index)
-    arr = slice_data[channel]
+    arr = np.asarray(slice_data[channel], dtype=np.float64)
     s_min, s_max = arr.min(), arr.max()
     normalized = (arr - s_min) / (s_max - s_min + 1e-10)
     return normalized, s_min, s_max
 
 def downsampled_volume(data, max_points=200_000):
     """Cache and downsample 3D amplitude volume for fast rendering."""
-    amp   = data.amplitude
+    amp   = np.asarray(data.amplitude, dtype=np.float64)
     total = amp.size
     step  = max(1, int((total / max_points) ** (1 / 3)))
     sampled = amp[::step, ::step, ::step]
@@ -25,6 +25,7 @@ def downsampled_volume(data, max_points=200_000):
 
 def adjust_slice(normalized, brightness=60, contrast=75):
     """Apply the legacy normalized brightness/contrast transform."""
+    normalized = np.asarray(normalized, dtype=np.float64)
     return np.clip((normalized - .5) * (contrast / 50) + .5 + (brightness - 50) / 100, 0, 1)
 
 

@@ -1,0 +1,42 @@
+Matplotlib is building the font cache; this may take a moment.
+part1_data/loader.py:517: UserWarning: [loader] target=Chip: phase encoding 'zstack_unconfirmed' unconfirmed, keep raw codes (dtype=float64), not converted to radians.
+  phase, enc, converted = _apply_phase_encoding(
+2026-10-14 15:59:11.716 LFI Viewer[49454:1551464] error messaging the mach port for IMKCFRunLoopWakeUpReliable
+[load_single_scan] Loading: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+[load_single_scan] Loaded → (70, 1400, 400) | format=hdf5_zstack | phase_encoding=zstack_unconfirmed converted=False
+{
+  "architecture": "arm64",
+  "frozen": true,
+  "executable": "/Users/vincent/Desktop/LFI Viewer/dist/LFI Viewer.app/Contents/MacOS/LFI Viewer",
+  "qt_platform": "cocoa",
+  "errors": [],
+  "qt_messages": [],
+  "2d": {
+    "channel": "phase",
+    "phase_label": "Phase (raw, uncalibrated)",
+    "phase_metadata": {
+      "phase_encoding_used": "zstack_unconfirmed",
+      "phase_converted": false
+    },
+    "shape": [
+      70,
+      1400,
+      400
+    ],
+    "raw_sum": -7091967.744140625,
+    "saved": true
+  },
+  "bundle-volume": {
+    "context_valid": true,
+    "framebuffer_saved": true,
+    "sampled_framebuffer_colors": 144,
+    "window_saved": true
+  },
+  "bundle-isosurface": {
+    "context_valid": true,
+    "framebuffer_saved": true,
+    "sampled_framebuffer_colors": 23,
+    "window_saved": true
+  },
+  "elapsed_seconds": 6.548959083003865
+}
