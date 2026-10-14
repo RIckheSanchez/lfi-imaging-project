@@ -37,3 +37,40 @@ an in-flight operation. Checkbox changes enable/disable the selected backend.
 See `gaussian_preprocessor_example.py` for an inactive example. It uses only
 NumPy (no SciPy dependency), does not import/register automatically, and is for
 illustration rather than a validated scientific processing pipeline.
+
+
+## Part 2 preprocessing
+
+The desktop entrypoint registers Part2Preprocessor before creating MainWindow.
+It calls public preprocess_part1 with an absolute path to the repository TOML.
+The JSON parameters are nested config overrides. The selected amplitude product
+is recorded in metadata.ui_preprocessing; the full Part 2 metadata is retained
+under part2_preprocessing. Radian labels require upstream phase_converted=True
+and Part 2 phase_units="radians". Missing data remain NaN; display calculations
+ignore them, image/volume missing pixels are transparent, CSV retains nan, and
+all-missing channels raise an error. No measured values are filled with zero.
+
+## Path loader registration (future NPZ integration)
+
+Use part4_ui.lfi_core.loaders.Loader and register_loader before creating windows.
+Each loader declares a unique name, path_types=("file",) or ("dir",), extensions,
+and implements load(path)->UI LFIRawData and make_data_key(path)->hashable tuple.
+get_loaders returns a snapshot. Open, Recent, drag/drop and Open Folder use the
+same load_path dispatch on a worker. HDF5 and Part 1 frame-folder loaders are
+registered by default; neither is replaced through a module monkeypatch.
+
+Mingxuan's future NPZ loader should have name="part3-handoff-npz", file type and
+extensions=(".npz",). It must validate schema/version, axis order, array and mask
+shapes, frame IDs, z/depth calibration and phase conversion provenance. Do not
+set phase_converted=True solely because a field is named raw_phase or the file
+has an NPZ suffix. Preserve metadata and the source path through an explicit
+UI LFIRawData mapping. Include source file mtime_ns/size, relevant sidecars,
+loader version and processing parameters in make_data_key. Then call
+register_loader(instance); never replace part4_ui.app.smart_load.
+
+NPZ is deliberately not registered in this release: a real handoff dataset and
+reliable phase-unit evidence are required first. Folder identities contain the
+resolved paths, mtime_ns and sizes of every data file and experiment_details.txt.
+The registry preserves insertion order, so a plugin must not overlap the default
+HDF5 or directory claims without a future explicit selection UI. Unsupported
+files raise readable errors instead of silently falling back.

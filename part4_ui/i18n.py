@@ -1,5 +1,6 @@
 """English and Chinese desktop UI text."""
 STRINGS = {
+    'open_folder': ('Open Folder…', '打开文件夹…'),
     'missing_value': ('Missing (NaN)', '缺失值（NaN）'),
     'amplitude_preprocessed': ('Amplitude (pre-processed)', '振幅（已预处理）'),
     'amplitude_preprocessed_dimensionless': ('Amplitude (pre-processed, dimensionless)', '振幅（已预处理，无量纲）'),

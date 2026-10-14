@@ -1,0 +1,78 @@
+........................................................................ [ 33%]
+........................................................................ [ 66%]
+.......................sss....ss......ssssssssssss...............ss..... [ 99%]
+s.                                                                       [100%]
+=============================== warnings summary ===============================
+tests/test_adapters.py: 48 warnings
+  /Users/vincent/Desktop/lfi-review2/venv-main/lib/python3.13/site-packages/skimage/measure/_marching_cubes_lewiner.py:237: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+    ar.shape = shape
+
+tests/test_adapters.py: 3 warnings
+tests/test_core.py: 3 warnings
+tests/test_gui.py: 6 warnings
+  /Users/vincent/Desktop/lfi-review2/venv-main/lib/python3.13/site-packages/skimage/measure/_marching_cubes_lewiner.py:213: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+    faces.shape = -1, 3
+
+tests/test_adapters.py::test_real_part2_toggle_worker_and_labels[chip_borad1.hdf5]
+tests/test_core.py::test_pre_migration_numeric_baseline[chip_borad1.hdf5]
+tests/test_gui.py::test_chip_load_responsive_and_screenshot
+part1_data/test_loader.py::test_chip_zstack
+  /Users/vincent/Desktop/LFI Viewer/part1_data/loader.py:517: UserWarning: [loader] target=Chip: phase encoding 'zstack_unconfirmed' unconfirmed, keep raw codes (dtype=float64), not converted to radians.
+    phase, enc, converted = _apply_phase_encoding(
+
+tests/test_adapters.py: 2 warnings
+tests/test_core.py: 2 warnings
+tests/test_gui.py: 15 warnings
+  /Users/vincent/Desktop/LFI Viewer/part1_data/loader.py:613: UserWarning: [loader] target=Mushroom: phase encoding 'unknown_unconfirmed' unconfirmed, keep raw codes (dtype=uint16), not converted to radians.
+    phase, enc, converted = _apply_phase_encoding(
+
+tests/test_adapters.py::test_real_part2_toggle_worker_and_labels[pure marble_29.hdf5]
+tests/test_core.py::test_pre_migration_numeric_baseline[pure marble_29.hdf5]
+  /Users/vincent/Desktop/LFI Viewer/part1_data/loader.py:517: UserWarning: [loader] target=Marble: phase encoding 'zstack_unconfirmed' unconfirmed, keep raw codes (dtype=float64), not converted to radians.
+    phase, enc, converted = _apply_phase_encoding(
+
+tests/test_adapters.py: 1 warning
+tests/test_core.py: 1 warning
+tests/test_gui.py: 10 warnings
+  /Users/vincent/Desktop/LFI Viewer/part1_data/loader.py:517: UserWarning: [loader] target=Unknown: phase encoding 'unknown_unconfirmed' unconfirmed, keep raw codes (dtype=float64), not converted to radians.
+    phase, enc, converted = _apply_phase_encoding(
+
+tests/test_adapters.py::test_folder_loader_public_api_and_identity
+tests/test_adapters.py::test_open_folder_dialog_recent_and_dispatch
+tests/test_adapters.py::test_open_folder_dialog_recent_and_dispatch
+  /Users/vincent/Desktop/LFI Viewer/part1_data/loader.py:517: UserWarning: [loader] target=PCB: phase encoding 'pcb_unconfirmed' unconfirmed, keep raw codes (dtype=float64), not converted to radians.
+    phase, enc, converted = _apply_phase_encoding(
+
+tests/test_core.py::test_upload_cleanup_and_identity
+  /Users/vincent/Desktop/LFI Viewer/part1_data/loader.py:613: UserWarning: [loader] target=Unknown: phase encoding 'unknown_unconfirmed' unconfirmed, keep raw codes (dtype=uint16), not converted to radians.
+    phase, enc, converted = _apply_phase_encoding(
+
+part1_data/tests/test_sound_and_metadata.py::test_sound_mat_loads_unconfirmed_with_mat_vars
+  /Users/vincent/Desktop/LFI Viewer/part1_data/loader.py:968: UserWarning: [loader] target=Sound: phase encoding 'sound_unconfirmed' unconfirmed, keep raw codes (dtype=int16), not converted to radians.
+    phase, enc, converted = _apply_phase_encoding(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] part2_preprocess/tests/test_api.py:123: Skin pilot HDF5 not present
+SKIPPED [1] part2_preprocess/tests/test_api.py:134: Leaf .mat not present
+SKIPPED [1] part2_preprocess/tests/test_api.py:162: 2026 vegetable HDF5 not present
+SKIPPED [1] part2_preprocess/tests/test_api.py:236: 2026 vegetable HDF5 not present
+SKIPPED [1] part2_preprocess/tests/test_api.py:255: 2026 vegetable HDF5 not present
+SKIPPED [1] part2_preprocess/tests/test_api.py:383: Skin pilot HDF5 not present
+SKIPPED [1] part2_preprocess/tests/test_api.py:410: Skin pilot HDF5 not present
+SKIPPED [1] part2_preprocess/tests/test_api.py:431: Leaf .mat not present
+SKIPPED [1] part2_preprocess/tests/test_api.py:449: 2026 vegetable HDF5 not present
+SKIPPED [1] part2_preprocess/tests/test_api.py:471: 2026 vegetable volume frames not present
+SKIPPED [1] part2_preprocess/tests/test_api.py:498: 2026 vegetable volume frames not present
+SKIPPED [1] part2_preprocess/tests/test_shared_loader.py:22: vendored shared loader not present
+SKIPPED [1] part2_preprocess/tests/test_shared_loader.py:43: vendored shared loader not present
+SKIPPED [1] part2_preprocess/tests/test_shared_loader.py:50: Skin pilot HDF5 not present
+SKIPPED [1] part2_preprocess/tests/test_shared_loader.py:72: 2026 vegetable frame not present
+SKIPPED [1] part2_preprocess/tests/test_shared_loader.py:87: vendored shared loader not present
+SKIPPED [1] part2_preprocess/tests/test_shared_loader.py:99: 2026 vegetable frames not present
+SKIPPED [1] part2_preprocess/tests/test_spatial_correction.py:114: Leaf data not present
+SKIPPED [1] part2_preprocess/tests/test_spatial_correction.py:130: Leaf data not present
+SKIPPED [1] part2_preprocess/tests/test_spatial_correction.py:252: Leaf data not present
+198 passed, 20 skipped, 102 warnings in 14.17s

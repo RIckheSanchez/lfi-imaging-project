@@ -9,7 +9,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 from .i18n import text
 from .lfi_core.phase_semantics import phase_label_key, phase_encoding_status
-from .lfi_core.data_io import smart_load, local_data_key
+from .lfi_core.loaders import load_path, loader_for, get_loaders
 from .lfi_core.processing import normalized_slice, adjust_slice, prepare_3d, finite_values, finite_range
 from .lfi_core.export import scale_bar, export_csv, pixel_image, publication_png
 from .lfi_core.backend import (IdentityPreprocessor, IdentityReconstructor,
@@ -251,6 +251,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.file_menu = self.menuBar().addMenu(self.tr_text('file'))
         self.open_action = self.file_menu.addAction(self.tr_text('open'), self.open_dialog)
         self.open_action.setShortcut(QtGui.QKeySequence.StandardKey.Open)
+        self.folder_action = self.file_menu.addAction(self.tr_text('open_folder'), self.open_folder_dialog)
         self.recent_menu = self.file_menu.addMenu(self.tr_text('recent'))
         self.export_action = self.file_menu.addAction(self.tr_text('export'), self.export_dialog)
         self.export_action.setEnabled(self.data is not None)
@@ -334,6 +335,18 @@ class MainWindow(QtWidgets.QMainWindow):
         if path:
             self.open_file(path)
 
+    def open_folder_dialog(self):
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, self.tr_text('open_folder'))
+        if path:
+            self.open_file(path)
+
+    def accepts_path(self, path):
+        try:
+            loader_for(path)
+            return True
+        except (OSError, ValueError):
+            return False
+
     def open_file(self, path):
         self.load_token += 1
         self.slice_token += 1
@@ -342,8 +355,7 @@ class MainWindow(QtWidgets.QMainWindow):
         backend = self.preprocessor
         params = deepcopy(self.preprocess_params)
         def load():
-            key = local_data_key(path)
-            raw = smart_load(key[0])
+            raw, key = load_path(path)
             processed = backend.preprocess(raw, params) if apply else raw
             return raw, processed, key
         self._submit('load', self.load_token, load)
@@ -614,13 +626,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.scale_item.text.setText(label)
 
     def dragEnterEvent(self, event):
-        if any(url.isLocalFile() and Path(url.toLocalFile()).suffix.lower() in ('.h5', '.hdf5')
+        if any(url.isLocalFile() and self.accepts_path(url.toLocalFile())
                for url in event.mimeData().urls()):
             event.acceptProposedAction()
 
     def dropEvent(self, event):
         for url in event.mimeData().urls():
-            if url.isLocalFile() and Path(url.toLocalFile()).suffix.lower() in ('.h5', '.hdf5'):
+            if url.isLocalFile() and self.accepts_path(url.toLocalFile()):
                 self.open_file(url.toLocalFile())
                 event.acceptProposedAction()
                 break

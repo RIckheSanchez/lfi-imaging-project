@@ -139,3 +139,63 @@ def test_nan_gui_histogram_colorbar_and_pixel(qtbot,adapter_window,tmp_path):
     window.channel.setCurrentIndex(1)
     qtbot.waitUntil(lambda:window.jobs==0,timeout=60000)
     assert any('no finite values' in error for error in window.errors)
+
+
+@pytest.fixture
+def frame_folder(tmp_path):
+    folder=tmp_path/'frames';folder.mkdir()
+    for frame in (21,22,30):
+        with h5py.File(folder/f'frame-{frame}.hdf5','w') as file:
+            file[f'amplitude/{frame}']=np.full((4,5),frame,dtype=float)
+            file[f'phase/{frame}']=np.full((4,5),-frame,dtype=float)
+    return folder
+
+
+def test_folder_loader_public_api_and_identity(frame_folder):
+    from part4_ui.lfi_core.loaders import load_path, get_loaders
+    from part4_ui.lfi_core.data_io import smart_load
+    assert {loader.name for loader in get_loaders()} >= {'hdf5','frame-folder'}
+    scan,key=load_path(frame_folder)
+    assert scan.amplitude.shape==(3,4,5)
+    assert scan.z_indices==[21,22,30]
+    assert key[0]==str(frame_folder.resolve())
+    assert all(len(entry)==3 and isinstance(entry[1],int) for entry in key[2])
+    file=frame_folder/'frame-21.hdf5'
+    direct=smart_load(str(file));dispatched,_=load_path(file)
+    assert np.array_equal(direct.amplitude,dispatched.amplitude)
+    old_key=key
+    import os
+    stat=file.stat();os.utime(file,ns=(stat.st_atime_ns,stat.st_mtime_ns+1000000))
+    assert load_path(frame_folder)[1]!=old_key
+    (frame_folder/'experiment_details.txt').write_text('z_start_mm: 1\nz_step_mm: 0.1\n')
+    assert len(load_path(frame_folder)[1][2])==4
+
+
+def test_open_folder_dialog_recent_and_dispatch(qtbot,adapter_window,frame_folder,monkeypatch):
+    window=adapter_window
+    monkeypatch.setattr(QtWidgets.QFileDialog,'getExistingDirectory',lambda *args:str(frame_folder))
+    window.folder_action.trigger();ready(qtbot,window)
+    assert window.data.z_indices==[21,22,30]
+    assert window.settings.value('recent_files',[],type=list)[0]==str(frame_folder)
+    assert window.accepts_path(str(frame_folder))
+    window.open_file(str(ROOT/'Realdata/mushroom.hdf5'));ready(qtbot,window)
+    assert window.data.width==1300
+    next(action for action in window.recent_menu.actions() if action.text()==str(frame_folder)).trigger()
+    ready(qtbot,window)
+    assert window.data.z_indices==[21,22,30]
+    window.set_language('CN')
+    assert window.folder_action.text()=='打开文件夹…'
+
+
+def test_registered_extra_loader_dispatch(tmp_path,monkeypatch):
+    import part4_ui.lfi_core.loaders as module
+    monkeypatch.setattr(module,'_loaders',dict(module._loaders))
+    class Extra:
+        name='extra';path_types=('file',);extensions=('.extra',)
+        def load(self,path):return LFIRawData(np.ones((1,2,3)),np.zeros((1,2,3)),[0],'Synthetic',str(path),{})
+        def make_data_key(self,path):return ('version-1',Path(path).stat().st_size)
+    module.register_loader(Extra())
+    path=tmp_path/'sample.extra';path.write_text('fixture')
+    data,key=module.load_path(path)
+    assert data.amplitude.shape==(1,2,3) and key[1]=='extra'
+    with pytest.raises(ValueError,match='already registered'):module.register_loader(Extra())

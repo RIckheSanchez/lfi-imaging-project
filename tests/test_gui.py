@@ -38,18 +38,19 @@ def load_mushroom(qtbot, window):
 
 def test_chip_load_responsive_and_screenshot(qtbot, window, monkeypatch):
     import part4_ui.app as module
-    original = module.smart_load
+    from part4_ui.lfi_core.loaders import HDF5Loader
+    original = HDF5Loader.load
     load_times = []
     worker_threads = []
     ticks = []
     main_thread = threading.get_ident()
-    def timed_load(path):
+    def timed_load(loader, path):
         worker_threads.append(threading.get_ident())
         start = time.perf_counter()
-        data = original(path)
+        data = original(loader, path)
         load_times.append((start, time.perf_counter()))
         return data
-    monkeypatch.setattr(module, 'smart_load', timed_load)
+    monkeypatch.setattr(HDF5Loader, 'load', timed_load)
     timer = QtCore.QTimer(window)
     timer.setInterval(10)
     timer.timeout.connect(lambda: ticks.append(time.perf_counter()))
