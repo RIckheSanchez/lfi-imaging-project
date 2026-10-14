@@ -6,12 +6,18 @@
   "errors": [],
   "qt_messages": [],
   "2d": {
+    "channel": "phase",
+    "phase_label": "Phase (raw, uncalibrated)",
+    "phase_metadata": {
+      "phase_encoding_used": "zstack_unconfirmed",
+      "phase_converted": false
+    },
     "shape": [
       70,
       1400,
       400
     ],
-    "raw_sum": 702180334.0,
+    "raw_sum": -7091967.744140625,
     "saved": true
   },
   "bundle-volume": {
@@ -26,5 +32,5 @@
     "sampled_framebuffer_colors": 23,
     "window_saved": true
   },
-  "elapsed_seconds": 6.781274624998332
+  "elapsed_seconds": 6.548959083003865
 }

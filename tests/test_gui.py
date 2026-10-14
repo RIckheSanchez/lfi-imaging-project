@@ -460,4 +460,8 @@ def test_phase_labels_and_publication_metadata(qtbot, window, tmp_path, monkeypa
     wait_ready(qtbot, window)
     assert recorded == [label]
     window.set_language('CN')
-    assert window.phase_plot.getAxis('left').labelText == ('相位（rad）' if converted else '相位（原始值，未校准）')
+    cn_label = '相位（rad）' if converted else '相位（原始值，未校准）'
+    assert window.phase_plot.getAxis('left').labelText == cn_label
+    assert window.histogram.getAxis('bottom').labelText == cn_label
+    assert window.colorbar.axis.labelText == cn_label
+    assert cn_label in window.pixel_label.text()
