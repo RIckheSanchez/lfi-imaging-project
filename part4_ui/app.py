@@ -1,5 +1,6 @@
 """Launch with python -m part4_ui.app from the repository root."""
 import json
+import os
 from copy import deepcopy
 import sys
 import traceback
@@ -76,7 +77,8 @@ class MainWindow(QtWidgets.QMainWindow):
         reconstruction = get_reconstructor_registration()
         self.preprocessor = preprocessor or (preprocessing.implementation if preprocessing else IdentityPreprocessor())
         self.reconstructor = reconstructor or (reconstruction.implementation if reconstruction else IdentityReconstructor())
-        self.preprocess_params = deepcopy(preprocessing.params) if preprocessing else {}
+        self.dev_params = os.environ.get('LFI_DEV_PARAMS') == '1'
+        self.preprocess_params = deepcopy(preprocessing.params) if preprocessing and self.dev_params else {}
         self.reconstruction_params = deepcopy(reconstruction.params) if reconstruction else {}
         self.language = self.settings.value('language', 'EN')
         self.data = self.raw_data = None
@@ -173,6 +175,8 @@ class MainWindow(QtWidgets.QMainWindow):
         pre_layout.addWidget(self.apply_preprocessing)
         pre_layout.addWidget(self.parameter_label)
         pre_layout.addWidget(self.parameter)
+        self.parameter_label.setVisible(self.dev_params)
+        self.parameter.setVisible(self.dev_params)
         self.pre_group.setVisible(not isinstance(self.preprocessor, IdentityPreprocessor))
         dock_layout.addWidget(self.pre_group)
         dock_layout.addStretch()
@@ -362,7 +366,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.invalidate_volume()
         apply = self.apply_preprocessing.isChecked()
         backend = self.preprocessor
-        params = deepcopy(self.preprocess_params)
+        params = deepcopy(self.preprocess_params) if self.dev_params else {}
         def load():
             raw, key = load_path(path)
             processed = backend.preprocess(raw, params) if apply else raw
@@ -370,6 +374,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._submit('load', self.load_token, load)
 
     def update_preprocess_params(self):
+        if not self.dev_params:
+            self.preprocess_params = {}
+            return
         try:
             params = json.loads(self.parameter.text())
             if not isinstance(params, dict):
@@ -388,7 +395,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.invalidate_volume()
         raw, key = self.raw_data, self.data_key
         apply, backend = self.apply_preprocessing.isChecked(), self.preprocessor
-        params = deepcopy(self.preprocess_params)
+        params = deepcopy(self.preprocess_params) if self.dev_params else {}
         self._submit('reprocess', self.load_token,
                      lambda: backend.preprocess(raw, params) if apply else raw)
 

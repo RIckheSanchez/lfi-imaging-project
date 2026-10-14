@@ -294,7 +294,8 @@ def test_colorbar_bounds_fit_and_loaded_status(qtbot, window):
     assert window.colorbar.levels() == tuple(map(float, (window.raw_slice.min(), window.raw_slice.max())))
 
 
-def test_backend_registration_controls_and_worker(qtbot, tmp_path):
+def test_backend_registration_controls_and_worker(qtbot, tmp_path, monkeypatch):
+    monkeypatch.setenv('LFI_DEV_PARAMS', '1')
     from part4_ui.lfi_core.backend import register_preprocessor, register_reconstructor
     calls = []
     class Backend:

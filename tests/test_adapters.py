@@ -232,3 +232,36 @@ def test_reconstruction_requires_backend_and_matching_depth(qtbot,tmp_path,monke
         assert window.volume_panel.reconstruction_hint.text()=='重建需要层深度标定（depth_mm）。'
         window.close()
     finally:register_reconstructor(None)
+
+
+@pytest.mark.parametrize('env_value', [None, '0', '1'])
+def test_developer_parameters_visibility_and_worker_defaults(qtbot,tmp_path,monkeypatch,env_value):
+    from part4_ui.lfi_core.backend import register_preprocessor
+    if env_value is None:monkeypatch.delenv('LFI_DEV_PARAMS',raising=False)
+    else:monkeypatch.setenv('LFI_DEV_PARAMS',env_value)
+    calls=[]
+    class Fake:
+        def preprocess(self,data,params):
+            calls.append((threading.get_ident(),params))
+            return data
+    register_preprocessor(Fake(),{'registered_default':2})
+    try:
+        window=MainWindow(QtCore.QSettings(str(tmp_path/'dev.ini'),QtCore.QSettings.Format.IniFormat))
+        window.errors=[]
+        monkeypatch.setattr(QtWidgets.QMessageBox,'warning',lambda parent,title,message:window.errors.append(message))
+        qtbot.addWidget(window);window.show()
+        enabled=env_value=='1'
+        assert window.parameter_label.isHidden() is not enabled
+        assert window.parameter.isHidden() is not enabled
+        assert window.preprocess_params==({'registered_default':2} if enabled else {})
+        window.parameter.setText('{"edited":3}')
+        window.update_preprocess_params()
+        window.apply_preprocessing.setChecked(True)
+        window.open_file(str(ROOT/'Realdata/mushroom.hdf5'));ready(qtbot,window)
+        assert calls[0][0]!=threading.get_ident()
+        assert calls[0][1]==({'edited':3} if enabled else {})
+        window.apply_preprocessing.setChecked(False);ready(qtbot,window)
+        window.apply_preprocessing.setChecked(True);ready(qtbot,window)
+        assert calls[-1][1]==({'edited':3} if enabled else {})
+        window.close()
+    finally:register_preprocessor(None)

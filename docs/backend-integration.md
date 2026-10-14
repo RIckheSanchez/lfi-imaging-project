@@ -27,8 +27,10 @@ register_reconstructor(MyReconstructor(), params={"iterations": 5})
 main()
 ```
 
-Registration copies the default parameter dictionary. The pre-processing panel
-shows an editable JSON object. Committing a valid JSON edit updates the
+Registration copies the default parameter dictionary. Set LFI_DEV_PARAMS=1 before
+launch to show the editable JSON parameters; without it, the controls are hidden
+and preprocessing always receives an empty override dictionary {}. In developer
+mode, the pre-processing panel shows an editable JSON object. Committing a valid JSON edit updates the
 parameters; if processing is enabled the current scan is reprocessed.
 Reconstruction parameters are passed from its registration dictionary.
 Each worker receives an independent deep copy so later UI edits cannot change

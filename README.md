@@ -72,7 +72,7 @@ Both amplitude and phase must be present with compatible dimensions.
 - Z slider and numeric slice index, with the actual HDF5 z value displayed.
 - Aspect-locked 2D image with bounded pan/zoom and **Fit to window** / Cmd+0.
 - Colorbar with the selected data range and the effective display color transform.
-- Optional Part 2 preprocessing, enabled through its checkbox and JSON configuration overrides. Amplitude labels identify preprocessing and dimensionless zscore output; phase units follow conversion metadata.
+- Optional Part 2 preprocessing, enabled through its checkbox. JSON configuration overrides are available only with LFI_DEV_PARAMS=1; the default uses {}. Amplitude labels identify preprocessing and dimensionless zscore output; phase units follow conversion metadata.
 - Missing samples are ignored in display/histograms, transparent in PNG/TIFF and volumes, and retained as nan in CSV. All-missing channels produce an error.
 - Raw-value mouse hover, selected-pixel crosshairs, pixel information and histogram.
 - Amplitude and phase waveforms at the selected pixel.
