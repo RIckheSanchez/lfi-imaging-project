@@ -1,5 +1,7 @@
 """English and Chinese desktop UI text."""
 STRINGS = {
+    'processed_value': ('Processed value', '预处理后的值'),
+    'no_finite_values': ('Channel has no finite values.', '该通道没有有效数值。'),
     'reconstruction_depth_needed': ('Reconstruction needs slice depth calibration (depth_mm).', '重建需要层深度标定（depth_mm）。'),
     'open_folder': ('Open Folder…', '打开文件夹…'),
     'missing_value': ('Missing (NaN)', '缺失值（NaN）'),

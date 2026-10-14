@@ -99,6 +99,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def tr_text(self, key):
         return text(key, self.language)
 
+    def value_label(self):
+        return self.tr_text('processed_value' if self.data is not None and self.data.metadata.get('ui_preprocessing') else 'raw')
+
     def pixel_value_text(self, value):
         return f'{value:.6g}' if np.isfinite(value) else self.tr_text('missing_value')
 
@@ -290,7 +293,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_plot.setLabel('bottom', self.tr_text('x'))
         self.image_plot.setLabel('left', self.tr_text('y'))
         self.histogram.setTitle(self.tr_text('histogram'))
-        self.histogram.setLabel('bottom', self.phase_label() if self.channel.currentIndex() else self.amplitude_label())
+        self.update_histogram_label()
         self.histogram.setLabel('left', self.tr_text('count'))
         self.amplitude_plot.setLabel('bottom', self.tr_text('z_index'))
         self.amplitude_plot.setLabel('left', self.amplitude_label())
@@ -302,6 +305,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.update_colorbar()
         if self.jobs:
             self.busy_label.setText(self.tr_text('busy'))
+
+    def update_histogram_label(self):
+        self.histogram.setLabel('bottom', self.phase_label() if self.channel.currentIndex() else self.amplitude_label(), **{'font-size': '9pt'})
+        # AxisItem updates text without repositioning when its geometry is fixed.
+        # Re-run the public resize handler to center a changed, longer label.
+        self.histogram.getAxis('bottom').resizeEvent()
 
     def update_histogram_theme(self):
         palette = self.palette()
@@ -447,6 +456,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.update_info()
                 self.request_slice()
             elif kind == 'slice' and token == self.slice_token:
+                self.colorbar.show()
                 self.raw_slice, self.adjusted, counts, edges = value
                 cmap = pg.colormap.get(self.colormap.currentText().lower(), source='matplotlib')
                 self.image.setLookupTable(cmap.getLookupTable(0., 1., 256))
@@ -454,7 +464,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 if self.fit_next_slice:
                     self.fit_view()
                     self.fit_next_slice = False
-                self.histogram.setLabel('bottom', self.phase_label() if self.channel.currentIndex() else self.amplitude_label())
+                self.update_histogram_label()
                 self.histogram_curve.setData((edges[:-1] + edges[1:]) / 2, counts)
                 self.update_colorbar()
                 self.update_scale()
@@ -476,6 +486,12 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         if kind == 'volume' and token != self.volume_token:
             return
+        if kind == 'slice':
+            self.raw_slice = self.adjusted = None
+            self.image.clear()
+            self.histogram_curve.clear()
+            self.colorbar.hide()
+            self.pixel_label.setText(self.tr_text('no_finite_values'))
         key = {'reprocess': 'render_error', 'load': 'load_error', 'slice': 'render_error', 'export': 'export_error', 'volume': '3d_error'}[kind]
         self.show_error(f'{self.tr_text(key)}:\n{error}')
 
@@ -572,12 +588,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.scan_label.setText('\n'.join(f'{self.tr_text(key)}: {value}' for key, value in rows))
         self.phase_plot.setLabel('left', self.phase_label())
         self.amplitude_plot.setLabel('left', self.amplitude_label())
-        self.channel.setItemText(0, self.amplitude_label())
+        self.channel.setItemText(0, self.tr_text('amplitude'))
+        self.channel.setToolTip(self.amplitude_label())
         self.z_label.setText(f"{self.tr_text('z')}: {data.z_indices[self.z_slider.value()]}")
         if self.raw_slice is not None:
             x, y = self.selected_pixel
             label = self.phase_label() if self.channel.currentIndex() else self.amplitude_label()
-            self.pixel_label.setText(f"X: {x}   Y: {y}\n{label}\n{self.tr_text('raw')}: {self.pixel_value_text(self.raw_slice[y, x])}")
+            self.pixel_label.setText(f"X: {x}   Y: {y}\n{label}\n{self.value_label()}: {self.pixel_value_text(self.raw_slice[y, x])}")
 
     def _pixel_at(self, position):
         if self.raw_slice is None or not self.image.sceneBoundingRect().contains(position):
@@ -592,7 +609,7 @@ class MainWindow(QtWidgets.QMainWindow):
         pixel = self._pixel_at(position)
         if pixel is not None:
             x, y = pixel
-            self.statusBar().showMessage(f"x={x}  y={y}  {self.tr_text('raw')}={self.pixel_value_text(self.raw_slice[y, x])}")
+            self.statusBar().showMessage(f"x={x}  y={y}  {self.value_label()}={self.pixel_value_text(self.raw_slice[y, x])}")
 
     def click_pixel(self, event):
         if event.button() != QtCore.Qt.MouseButton.LeftButton:

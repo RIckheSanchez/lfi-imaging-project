@@ -114,6 +114,10 @@ def test_real_part2_toggle_worker_and_labels(qtbot,adapter_window,monkeypatch,na
     expected='Amplitude (pre-processed, dimensionless)' if name.startswith('chip') else 'Amplitude (pre-processed)'
     assert window.colorbar.axis.labelText==window.amplitude_label()==expected
     assert window.histogram.getAxis('bottom').labelText==expected
+    assert 'Processed value' in window.pixel_label.text()
+    axis=window.histogram.getAxis('bottom')
+    label_right=axis.label.pos().x()+axis.label.boundingRect().width()
+    assert label_right <= axis.size().width()+1
     window.grab().save(str(output/(slug+'-on.png')))
     start=time.perf_counter();window.apply_preprocessing.setChecked(False);ready(qtbot,window)
     disable_elapsed=time.perf_counter()-start
@@ -139,6 +143,8 @@ def test_nan_gui_histogram_colorbar_and_pixel(qtbot,adapter_window,tmp_path):
     window.channel.setCurrentIndex(1)
     qtbot.waitUntil(lambda:window.jobs==0,timeout=60000)
     assert any('no finite values' in error for error in window.errors)
+    assert window.raw_slice is None and window.image.image is None
+    assert window.colorbar.isVisible() is False
 
 
 @pytest.fixture

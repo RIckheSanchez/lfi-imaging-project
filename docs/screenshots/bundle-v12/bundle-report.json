@@ -1,0 +1,53 @@
+{
+  "architecture": "arm64",
+  "frozen": true,
+  "executable": "/Users/vincent/Desktop/LFI Viewer/dist/LFI Viewer.app/Contents/MacOS/LFI Viewer",
+  "qt_platform": "cocoa",
+  "errors": [],
+  "qt_messages": [],
+  "preprocessing-off": {
+    "shape": [
+      70,
+      1400,
+      400
+    ],
+    "amplitude_label": "Amplitude",
+    "phase_converted": false,
+    "elapsed_seconds": 1.5521625000037602,
+    "saved": true
+  },
+  "preprocessing_control_visible": true,
+  "preprocessing-on": {
+    "shape": [
+      70,
+      1400,
+      400
+    ],
+    "amplitude_label": "Amplitude (pre-processed, dimensionless)",
+    "colorbar_label": "Amplitude (pre-processed, dimensionless)",
+    "phase_converted": false,
+    "product": {
+      "amplitude_product": "output.amplitude",
+      "normalisation": "zscore",
+      "amplitude_units": "dimensionless"
+    },
+    "elapsed_seconds": 2.3436348749964964,
+    "saved": true
+  },
+  "bundle-volume": {
+    "context_valid": true,
+    "framebuffer_saved": true,
+    "sampled_framebuffer_colors": 172,
+    "window_saved": true
+  },
+  "reconstruction_control_hidden": true,
+  "reconstruction_hint_visible": true,
+  "reconstruction_hint": "Reconstruction needs slice depth calibration (depth_mm).",
+  "bundle-isosurface": {
+    "context_valid": true,
+    "framebuffer_saved": true,
+    "sampled_framebuffer_colors": 29,
+    "window_saved": true
+  },
+  "elapsed_seconds": 9.003665583004477
+}

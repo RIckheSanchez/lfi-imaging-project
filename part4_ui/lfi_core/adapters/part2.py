@@ -19,7 +19,7 @@ class Part2Preprocessor:
         products = output.metadata.get('spatial_products', {})
         product = 'amplitude_corrected' if 'amplitude_corrected' in products else 'output.amplitude'
         amplitude = products['amplitude_corrected'] if product == 'amplitude_corrected' else output.amplitude
-        normalization = output.metadata.get('config_resolved', {}).get('normalisation', {}).get('method', 'none')
+        normalization = str(output.metadata.get('config_resolved', {}).get('normalisation', {}).get('method', 'none')).lower()
         metadata = dict(data.metadata)
         metadata['part2_preprocessing'] = output.metadata
         metadata['ui_preprocessing'] = {'amplitude_product': product,

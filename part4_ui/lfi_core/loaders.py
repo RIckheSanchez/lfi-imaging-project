@@ -94,6 +94,7 @@ def load_path(path):
     resolved = str(Path(path).expanduser().resolve())
     loader = loader_for(resolved)
     key = (resolved, loader.name, loader.make_data_key(resolved))
+    hash(key)  # Fail immediately if a plugin returns an unhashable identity.
     return loader.load(resolved), key
 
 

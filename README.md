@@ -65,12 +65,15 @@ Both amplitude and phase must be present with compatible dimensions.
 
 ## Features
 
-- Native open dialog, file drag/drop and five recent files saved with QSettings.
+- Native file and frame-folder dialogs, file/folder drag/drop, and five recent paths saved with QSettings.
+- Registered path loaders: Part 1 HDF5 import and public load_volume for frame folders; every opening action uses the same dispatch.
 - English and Chinese interface switching.
 - Amplitude/phase selection, brightness, contrast, and seven colormaps.
 - Z slider and numeric slice index, with the actual HDF5 z value displayed.
 - Aspect-locked 2D image with bounded pan/zoom and **Fit to window** / Cmd+0.
-- Colorbar with raw data range and the effective display color transform.
+- Colorbar with the selected data range and the effective display color transform.
+- Optional Part 2 preprocessing, enabled through its checkbox and JSON configuration overrides. Amplitude labels identify preprocessing and dimensionless zscore output; phase units follow conversion metadata.
+- Missing samples are ignored in display/histograms, transparent in PNG/TIFF and volumes, and retained as nan in CSV. All-missing channels produce an error.
 - Raw-value mouse hover, selected-pixel crosshairs, pixel information and histogram.
 - Amplitude and phase waveforms at the selected pixel.
 - Calibrated 2D scale bar when a positive pixel size is entered.
@@ -79,12 +82,11 @@ Both amplitude and phase must be present with compatible dimensions.
   Outer-to-inner mesh opacity is 0.12, 0.30 and 0.60. Volume clips its sampled
   values to the 1st–99.5th percentile range before normalization and uses a
   quadratic opacity transfer function. Isosurface controls are hidden in Volume mode.
-- Raw selected-channel CSV, colored pixel PNG/JPEG/TIFF and publication PNG
+- Selected-channel CSV (original measurements when preprocessing is off; processed values when on), colored pixel PNG/JPEG/TIFF and publication PNG
   with axes/colorbar. PNG/TIFF and publication PNG carry 300 DPI.
 - Thread-pool loading, slice/histogram preparation, backend processing, 3D
   computation and export, with busy state and readable error dialogs.
-- Registered preprocessing/reconstruction interfaces; controls stay hidden
-  until a real implementation is registered.
+- Part 2 is registered by the desktop entrypoint, with preprocessing initially off. Reconstruction controls require both a registered backend and one depth_mm value per slice; otherwise a calibration explanation is shown.
 
 ## Tests
 
@@ -96,10 +98,9 @@ QT_QPA_PLATFORM=offscreen PYTHONDONTWRITEBYTECODE=1 python -m pytest -q
 ```
 
 Tests use the local sample files `Realdata/mushroom.hdf5` and
-`Realdata/chip_borad1.hdf5`. `Realdata/` is ignored by Git; obtain these scan
+`Realdata/chip_borad1.hdf5` and `Realdata/pure marble_29.hdf5`. `Realdata/` is ignored by Git; obtain these scan
 fixtures separately when cloning the project. GUI tests use pytest-qt and
-exercise worker-thread execution, interaction, exports, registration and
-preprocessing state preservation. The chip test saves an offscreen screenshot.
+exercise worker-thread execution, interaction, exports, loader/backend registration, NaN handling and preprocessing state preservation. Root pytest also discovers Part 1, Part 2 and Part 3 tests. Missing real-data fixtures and the absent Part 2 vendored loader cause documented skips. The chip test saves an offscreen screenshot.
 
 To test the retained Streamlit prototype as well:
 
@@ -125,9 +126,9 @@ LFI_VALIDATE_FILE="$(pwd)/Realdata/chip_borad1.hdf5" \
 - Pixel size must be entered manually. The supplied scan files contain no
   calibration metadata; no 10 μm step or 100 kHz rate is inferred.
 - 3D has no physical Z spacing. XYZ coordinates are sensor/sample indices.
-- Team preprocessing and reconstruction modules are not integrated by default.
-  The inactive Gaussian example illustrates registration and is not a validated
-  scientific processing pipeline.
+- Part 2 is available but optional; its default settings for the supplied three scans do not generate spatial_products, and their phase remains uncalibrated. Derived relative phase and processing quality are not physical calibration.
+- No real Part 3 reconstructor is registered in this release. The three supplied scans lack depth_mm; no Vegetables depth parameters are applied automatically.
+- NPZ/handoff loading is not enabled until real data and phase-unit provenance are provided. Pixel/mask orientation and physical 3D calibration need team confirmation.
 - The loader retains complete amplitude/phase arrays in memory. Large scans
   require sufficient RAM; downsampling limits 3D display work, not load memory.
 - 3D is amplitude-based. Flat/degenerate or single-layer data may not define
@@ -146,8 +147,7 @@ core. The lightweight `streamlit-final` tag identifies its pre-migration
 baseline. See `docs/backend-integration.md` for teammate integration and
 `docs/gaussian_preprocessor_example.py` for an inactive example. Existing
 `part1_data`, `part2_preprocess`, `part3_reconstruction` and `shared` modules
-remain available for team development; they are not automatically wired into
-the desktop backend pipeline.
+remain available for team development. Part 1 import and the UI-side Part 2 adapter are wired into the desktop; Part 3 registration remains explicit.
 
 ## Part 3 imaging and reconstruction module
 
