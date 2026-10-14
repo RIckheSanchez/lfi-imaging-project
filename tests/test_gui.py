@@ -224,6 +224,8 @@ def test_volume_mesh_worker_and_invalidation(qtbot, window, tmp_path):
             threads.append(threading.get_ident())
             return data
     window.reconstructor = Backend()
+    window.data.metadata['depth_mm'] = list(range(window.data.n_slices))
+    window.update_info()
     panel = window.volume_panel
     panel.reconstruct.setChecked(True)
     qtbot.mouseClick(panel.render_button, QtCore.Qt.MouseButton.LeftButton)
@@ -310,13 +312,12 @@ def test_backend_registration_controls_and_worker(qtbot, tmp_path):
         widget.errors = []
         widget.show()
         assert widget.pre_group.isVisible()
-        assert not widget.volume_panel.reconstruct.isHidden()
+        assert widget.volume_panel.reconstruct.isHidden()
         widget.apply_preprocessing.setChecked(True)
         load_mushroom(qtbot, widget)
         assert calls[0][0] == 'preprocess'
         assert calls[0][1] != threading.get_ident()
         assert calls[0][2] == {'sigma': 1.5}
-        widget.volume_panel.reconstruct.setChecked(True)
         # Use a small multilayer scan to execute the registered reconstructor.
         path = tmp_path/'registered.hdf5'
         with h5py.File(path,'w') as handle:
@@ -325,6 +326,10 @@ def test_backend_registration_controls_and_worker(qtbot, tmp_path):
                 handle.create_dataset(f'phase/{index}', data=np.zeros((4,5)))
         widget.open_file(path)
         wait_ready(qtbot, widget)
+        widget.data.metadata['depth_mm'] = [1., 1.1, 1.2]
+        widget.update_info()
+        assert not widget.volume_panel.reconstruct.isHidden()
+        widget.volume_panel.reconstruct.setChecked(True)
         widget.request_volume()
         wait_ready(qtbot, widget)
         reconstruct_call = next(call for call in calls if call[0] == 'reconstruct')

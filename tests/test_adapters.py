@@ -199,3 +199,30 @@ def test_registered_extra_loader_dispatch(tmp_path,monkeypatch):
     data,key=module.load_path(path)
     assert data.amplitude.shape==(1,2,3) and key[1]=='extra'
     with pytest.raises(ValueError,match='already registered'):module.register_loader(Extra())
+
+
+@pytest.mark.parametrize('registered,depth,visible',[(False,[1,2,3],False),(True,None,False),(True,[1,2],False),(True,[1,2,3],True)])
+def test_reconstruction_requires_backend_and_matching_depth(qtbot,tmp_path,monkeypatch,registered,depth,visible):
+    from part4_ui.lfi_core.backend import register_reconstructor
+    class Fake:
+        def reconstruct(self,data,params):return data
+    register_reconstructor(Fake() if registered else None)
+    try:
+        window=MainWindow(QtCore.QSettings(str(tmp_path/'depth.ini'),QtCore.QSettings.Format.IniFormat))
+        qtbot.addWidget(window);window.show()
+        window.data=LFIRawData(np.ones((3,4,5)),np.zeros((3,4,5)),[0,1,2],'Synthetic','fixture',{})
+        if depth is not None:window.data.metadata['depth_mm']=depth
+        window.update_info()
+        assert window.volume_panel.reconstruct.isHidden() is not visible
+        assert window.volume_panel.reconstruction_hint.isHidden() is visible
+        assert window.volume_panel.reconstruction_hint.text()=='Reconstruction needs slice depth calibration (depth_mm).'
+        if visible:
+            window.volume_panel.reconstruct.setChecked(True)
+            window.data.metadata.pop('depth_mm')
+            window.update_info()
+            assert window.volume_panel.reconstruct.isHidden()
+            assert not window.volume_panel.reconstruct.isChecked()
+        window.set_language('CN')
+        assert window.volume_panel.reconstruction_hint.text()=='重建需要层深度标定（depth_mm）。'
+        window.close()
+    finally:register_reconstructor(None)

@@ -33,6 +33,7 @@ class VolumePanel(QtWidgets.QWidget):
         self.percentile.setRange(0, 99)
         self.percentile.setValue(90)
         self.reconstruct = QtWidgets.QCheckBox()
+        self.reconstruct.hide()
         self.render_button = QtWidgets.QPushButton()
         self.reset_button = QtWidgets.QPushButton()
         toolbar.addWidget(self.mode)
@@ -47,6 +48,9 @@ class VolumePanel(QtWidgets.QWidget):
         self.hint = QtWidgets.QLabel()
         self.hint.setWordWrap(True)
         layout.addWidget(self.hint)
+        self.reconstruction_hint = QtWidgets.QLabel()
+        self.reconstruction_hint.setWordWrap(True)
+        layout.addWidget(self.reconstruction_hint)
         self.viewport_layout = QtWidgets.QVBoxLayout()
         layout.addLayout(self.viewport_layout, 1)
         self.placeholder = QtWidgets.QLabel(alignment=QtCore.Qt.AlignmentFlag.AlignCenter)
@@ -73,9 +77,17 @@ class VolumePanel(QtWidgets.QWidget):
         self.mode.setItemText(0, text('volume_mode', language))
         self.mode.setItemText(1, text('isosurface_mode', language))
         self.hint.setText(text('3d_hint', language))
+        self.reconstruction_hint.setText(text('reconstruction_depth_needed', language))
         self.placeholder.setText(text('3d_offscreen' if QtWidgets.QApplication.platformName() == 'offscreen' else '3d_start', language))
         if self.result is not None:
             self._update_info()
+
+    def set_reconstruction_available(self, available):
+        self.reconstruct.setVisible(available)
+        self.reconstruction_hint.setVisible(not available)
+        if not available:
+            with QtCore.QSignalBlocker(self.reconstruct):
+                self.reconstruct.setChecked(False)
 
     def update_mode_controls(self, *args):
         isosurface = self.mode.currentIndex() == 1

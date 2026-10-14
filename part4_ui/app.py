@@ -221,7 +221,7 @@ class MainWindow(QtWidgets.QMainWindow):
         info_widget.setMaximumWidth(480)
         slice_layout.addWidget(info_widget, 1)
         self.volume_panel = VolumePanel()
-        self.volume_panel.reconstruct.setVisible(not isinstance(self.reconstructor, IdentityReconstructor))
+        self.volume_panel.set_reconstruction_available(False)
         self.volume_panel.render_requested.connect(self.request_volume)
         self.volume_panel.invalidated.connect(self.invalidate_volume)
         self.brightness.valueChanged.connect(self.invalidate_volume)
@@ -521,7 +521,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.volume_token += 1
         token = self.volume_token
         data, backend = self.data, self.reconstructor
-        apply = self.volume_panel.reconstruct.isChecked()
+        apply = self.volume_panel.reconstruct.isChecked() and self.reconstruction_available()
         params = deepcopy(self.reconstruction_params)
         mode = 'isosurface' if self.volume_panel.mode.currentIndex() else 'volume'
         percentile = self.volume_panel.percentile.value()
@@ -551,7 +551,17 @@ class MainWindow(QtWidgets.QMainWindow):
         data = self.data
         return f"{Path(data.file_path).name} · {data.width} × {data.height} · {data.n_slices} {self.tr_text('slices')}"
 
+    def reconstruction_available(self):
+        if self.data is None or isinstance(self.reconstructor, IdentityReconstructor):
+            return False
+        depth = self.data.metadata.get('depth_mm')
+        try:
+            return depth is not None and len(depth) == self.data.n_slices
+        except TypeError:
+            return False
+
     def update_info(self):
+        self.volume_panel.set_reconstruction_available(self.reconstruction_available())
         if self.data is None:
             return
         data = self.data

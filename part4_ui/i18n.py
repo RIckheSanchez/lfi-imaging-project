@@ -1,5 +1,6 @@
 """English and Chinese desktop UI text."""
 STRINGS = {
+    'reconstruction_depth_needed': ('Reconstruction needs slice depth calibration (depth_mm).', '重建需要层深度标定（depth_mm）。'),
     'open_folder': ('Open Folder…', '打开文件夹…'),
     'missing_value': ('Missing (NaN)', '缺失值（NaN）'),
     'amplitude_preprocessed': ('Amplitude (pre-processed)', '振幅（已预处理）'),
