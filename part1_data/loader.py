@@ -349,6 +349,12 @@ def _attach_depth_metadata(
         metadata["depth_reference_frame_id"] = int(details["first_frame_id"])
     elif reference_frame_id is not None:
         metadata["depth_reference_frame_id"] = int(reference_frame_id)
+        warnings.warn(
+            f"[loader] experiment_details.txt has no first_frame_id; "
+            f"depth origin assumed to be min frame on disk "
+            f"(depth_reference_frame_id={int(reference_frame_id)})",
+            stacklevel=3,
+        )
     if metadata["depth_mm"] is None:
         metadata["notes"] = (
             (metadata.get("notes") or "")
@@ -1235,6 +1241,11 @@ def load_volume(
             f"{data_dir} filenames have no parseable frame id (expect frame-21.hdf5)"
         )
 
+    # Depth origin must use the full folder catalog BEFORE frame_ids filtering
+    # (and before anomalous skip). Otherwise load_volume(..., frame_ids=[22,23])
+    # would wrongly treat 22 as z_start when first_frame_id is omitted.
+    catalog_min_frame = min(n for n, _ in file_by_frame)
+
     if frame_ids is not None:
         want = {int(x) for x in frame_ids}
         file_by_frame = [(n, p) for n, p in file_by_frame if n in want]
@@ -1244,9 +1255,6 @@ def load_volume(
 
     # keep numeric order (find_data_files already sorted; preserve after filter)
     file_by_frame.sort(key=lambda t: t[0])
-    # Min frame on disk (includes anomalous e.g. 20) — depth origin when
-    # experiment_details.txt omits first_frame_id and we later skip those files.
-    catalog_min_frame = min(n for n, _ in file_by_frame)
 
     # Resolve identity before the loop so anomalous single-frame files
     # (e.g. Vegetables frame-20.hdf5) can be skipped without calling load_single_scan.

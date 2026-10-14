@@ -70,3 +70,32 @@ def test_depth_mm_for_frames_explicit_reference():
     assert depth_mm_for_frames(
         [21, 22], details, reference_frame_id=20
     ) == [30.15, 30.25]
+
+
+def test_depth_correct_when_frame_ids_subset(tmp_path):
+    """
+    Folder has frames 20..23; load_volume(..., frame_ids=[22,23]) must still
+    use catalog min 20 as depth origin → [30.25, 30.35], not [30.05, 30.15].
+    """
+    veg = tmp_path / "2026_Vegetables"
+    veg.mkdir()
+    for fid in (20, 21, 22, 23):
+        _write_veg_frame(veg / f"frame-{fid}.hdf5", fid)
+    (veg / "experiment_details.txt").write_text(
+        "start z position (mm) = 30.05\n"
+        "imcrements (mm) = 0.1\n",
+        encoding="utf-8",
+    )
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        vol = load_volume(str(veg), frame_ids=[22, 23])
+
+    assert vol.z_indices == [22, 23]
+    assert vol.metadata["depth_reference_frame_id"] == 20
+    assert vol.metadata["depth_mm"] == [30.25, 30.35]
+    assert any(
+        "no first_frame_id" in str(x.message)
+        and "depth_reference_frame_id=20" in str(x.message)
+        for x in w
+    )

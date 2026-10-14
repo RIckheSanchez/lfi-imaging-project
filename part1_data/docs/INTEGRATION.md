@@ -124,7 +124,23 @@ python3 output_interface.py data/Marble --out exported --sidecar --hdf5-attrs
 - Skin / PCB / Chip / Marble formulas unconfirmed (await Karl).  
 - `write_metadata_sidecar` requires `path=` (does not write beside RDM sources by default).  
 - See `PROVENANCE.md` for local `frame-1` / `frame-3` identity.  
-- Team `shared/data_types.py` may differ from Part 1 `LFIRawData` — confirm contract with Haobo.
+- Team `shared/data_types.py` is **not** the live UI contract (missing `z_indices` / `metadata` / `get_slice`).  
+  Part 4 currently uses a copy under `part4_ui/lfi_core/` (same core fields as Part 1 `LFIRawData`, without `waveform`).  
+  Prefer `part1_data` / `output_interface` as the source of truth once the UI adapter lands on `main`.
+
+## Integration status (Part 4 UI — He Zhenyu, 2026-10)
+
+| Claim | Status |
+|---|---|
+| Byte-level match vs UI’s previous reader (`load_single_scan` defaults) on chip / mushroom / marble samples | **Verified** |
+| Part 1 pytest suite on UI side | **Passed** |
+| UI read path switched to Part 1 `load_single_scan` via adapter | **In progress** (not on `main` yet) |
+| `load_volume` used by UI | **Not used** |
+| Phase labels in UI | Was wrongly always “rad”; will follow Part 1 `phase_converted` / raw-code status |
+| SUS with desktop UI | Coordinate **one** participant session for Part 1 materials + Part 4 UI |
+
+**Poster / demo wording:** “Data consistent with UI reader; UI wiring in progress — not merged to `main`.”  
+Do **not** write “fully integrated with Part 4” until Vincent confirms the push.
 
 ## Tests
 
