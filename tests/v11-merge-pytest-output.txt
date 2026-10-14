@@ -1,0 +1,294 @@
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+..........[load_single_scan] 正在加载: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_source_switch_and_keys0/different.hdf5
+[load_single_scan] 加载完成 → (5, 400, 1300)
+.[load_single_scan] 正在加载: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_upload_cleanup_and_identi0/tmpet1mrlxb.hdf5
+[load_single_scan] 正在加载: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_upload_cleanup_and_identi0/tmp3hbpiomq.hdf5
+..........qt.qpa.fonts: Populating font family aliases took 110 ms. Replace uses of missing font family "Sans Serif" with one that exists to avoid this cost. 
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+[load_single_scan] 加载完成 → (70, 1400, 400)
+CHIP RESPONSIVE PASS: worker load=1.194402s; GUI timer ticks during load=118; worker thread differs from GUI thread
+SCREENSHOT: /Users/vincent/Desktop/LFI Viewer/docs/screenshots/chip_desktop.png
+CHIP 3D PASS: real chip volume buffer and 3 marching-cubes meshes created offscreen
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_recent_five_and_settings0/scan0.hdf5
+[load_single_scan] 加载完成 → (1, 4, 5)
+[load_single_scan] 正在加载: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_recent_five_and_settings0/scan1.hdf5
+[load_single_scan] 加载完成 → (1, 4, 5)
+[load_single_scan] 正在加载: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_recent_five_and_settings0/scan2.hdf5
+[load_single_scan] 加载完成 → (1, 4, 5)
+[load_single_scan] 正在加载: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_recent_five_and_settings0/scan3.hdf5
+[load_single_scan] 加载完成 → (1, 4, 5)
+[load_single_scan] 正在加载: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_recent_five_and_settings0/scan4.hdf5
+[load_single_scan] 加载完成 → (1, 4, 5)
+[load_single_scan] 正在加载: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_recent_five_and_settings0/scan5.hdf5
+[load_single_scan] 加载完成 → (1, 4, 5)
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_volume_mesh_worker_and_in0/volume.hdf5
+[load_single_scan] 加载完成 → (12, 18, 20)
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+3D WORKER PASS: volume XYZ buffer, 3 real GLMeshItems, percentile, Identity worker, stale-result invalidation, bilingual UI
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_3d_failure_is_readable0/constant.hdf5
+[load_single_scan] 加载完成 → (3, 4, 5)
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+[load_single_scan] 正在加载: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_backend_registration_cont0/registered.hdf5
+[load_single_scan] 加载完成 → (3, 4, 5)
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_reprocess_preserves_z_pix0/preserve.hdf5
+[load_single_scan] 加载完成 → (5, 10, 10)
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+.This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] 正在加载: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+....
+==================================================
+test 1: Chip z-stack
+==================================================
+  skip: set LFI_CHIP_FILE to a local chip/z-stack hdf5
+.
+==================================================
+test 2: Skin frames(phase unconfirmed → keep raw codes)
+==================================================
+  skip: set LFI_SKIN_FILE to a local skin hdf5
+.
+==================================================
+test 3: PCB frames(identity lookup → pcb_unconfirmed; do not reuse Vegetables formula by value range)
+==================================================
+  skip: set LFI_PCB_FILE to a local PCB/frame hdf5
+.
+==================================================
+test 4: phase formulas (no HDF5)
+==================================================
+
+✅ test_phase_formulas_unit passed!
+.
+==================================================
+test 5: get_z_slices works for both layouts
+==================================================
+  skip: set LFI_CHIP_FILE and LFI_SKIN_FILE
+.
+==================================================
+test 6: _infer_target_type path identity (2026_Vegetables vs frame-XX)
+==================================================
+
+✅ test_infer_target_type_path_identity passed!
+.
+==================================================
+test 7: real Vegetables frame 21 (2026 layout, converted)
+==================================================
+  skip: missing /Users/vincent/Desktop/LFI Viewer/part1_data/data/2026_Vegetables/frame-21.hdf5
+.
+==================================================
+test 8: real Vegetables frame 20 (anomalous: excluded by default; loadable flagged)
+==================================================
+  skip: missing /Users/vincent/Desktop/LFI Viewer/part1_data/data/2026_Vegetables/frame-20.hdf5
+.
+==================================================
+test 9: real Marble (filename typo maeble; identity from folder)
+==================================================
+  skip: missing /Users/vincent/Desktop/LFI Viewer/part1_data/data/Marble/maeble10%_0.hdf5
+.
+==================================================
+test 10: real Leaf leaf1.mat (~15 s, ~3.6 GB RAM)
+==================================================
+  skip: missing /Users/vincent/Desktop/LFI Viewer/part1_data/data/Leaf/leaf1.mat
+.
+==================================================
+test 11: frame files sorted numerically (not lexically)
+==================================================
+
+✅ test_numeric_frame_sort passed!
+.
+==================================================
+test 12: load_volume + experiment_details → depth_mm
+==================================================
+  skip: missing frame-21/22/28
+.
+==================================================
+test 13: optional RX_LINE_OF_BEST_FIT waveform
+==================================================
+  skip: missing /Users/vincent/Desktop/LFI Viewer/part1_data/data/2026_Vegetables/frame-21.hdf5
+.
+==================================================
+test 14: Leaf partial frame load
+==================================================
+  skip: missing /Users/vincent/Desktop/LFI Viewer/part1_data/data/Leaf/leaf1.mat
+.
+==================================================
+test M1: Leaf .mat (v5) read + phase formula
+==================================================
+[load_single_scan] Loading: /var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/tmpiihhs7g9/Leaf/leaf_sample.mat
+[load_single_scan] Loaded → (3, 4, 5) | format=mat | phase_encoding=leaf_wrap_4096 converted=True
+
+✅ test_mat_v5_leaf passed!
+.
+==================================================
+test M2: Leaf .mat (v7.3/HDF5) read; axis order matches v5
+==================================================
+[load_single_scan] Loading: /var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/tmpcdydw3rg/Leaf/leaf_v73.mat
+[load_single_scan] Loaded → (3, 4, 5) | format=mat | phase_encoding=leaf_wrap_4096 converted=True
+
+✅ test_mat_v73_leaf passed!
+.
+==================================================
+test M3: .mat errors clearly on bad names and lists variables
+==================================================
+[load_single_scan] Loading: /var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/tmp0jv4p3dg/Leaf/renamed.mat
+[load_single_scan] Loading: /var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/tmp0jv4p3dg/Leaf/renamed.mat
+[load_single_scan] Loaded → (1, 4, 5) | format=mat | phase_encoding=leaf_wrap_4096 converted=True
+
+✅ test_mat_wrong_variable_names passed!
+.
+==================================================
+test O1: scan_to_record is JSON-serializable; raw phase rejected
+==================================================
+  skip: set LFI_SKIN_FILE to a local skin hdf5
+.
+==================================================
+test O2: export_scan(arrays=True) → load_exported round-trip
+==================================================
+[load_single_scan] Loading: /var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/tmpz510dgs0/Leaf/leaf_sample.mat
+[load_single_scan] Loaded → (3, 4, 5) | format=mat | phase_encoding=leaf_wrap_4096 converted=True
+
+✅ test_export_roundtrip passed!
+.
+==================================================
+test O3: batch_export real Vegetables(frame 20 + 21)
+==================================================
+  skip: /Users/vincent/Desktop/LFI Viewer/part1_data/data/2026_Vegetables has no frame-20/21
+.
+==================================================
+test O4: iter_scans(target_type=...) filters by path before reading other datasets
+==================================================
+[load_single_scan] Loading: /var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/tmphpqpx1oa/Leaf/broken.mat
+
+✅ test_iter_scans_filters_before_loading passed!
+.[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_load_volume_skips_frame200/2026_Vegetables/frame-19.hdf5
+[load_single_scan] Loaded → (1, 4, 5) | format=hdf5_data_v2026 | phase_encoding=vegetables_int16 converted=True
+[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_load_volume_skips_frame200/2026_Vegetables/frame-21.hdf5
+[load_single_scan] Loaded → (1, 4, 5) | format=hdf5_data_v2026 | phase_encoding=vegetables_int16 converted=True
+[load_volume] done → (2, 4, 5) | frames=19→21 | depth_mm=no (missing experiment_details or parse failed)
+.[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_load_volume_include_anoma0/2026_Vegetables/frame-19.hdf5
+[load_single_scan] Loaded → (1, 4, 5) | format=hdf5_data_v2026 | phase_encoding=vegetables_int16 converted=True
+[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_load_volume_include_anoma0/2026_Vegetables/frame-20.hdf5
+[load_single_scan] Loaded → (1, 4, 5) | format=hdf5_data_v2026 | phase_encoding=vegetables_int16 converted=False
+[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_load_volume_include_anoma0/2026_Vegetables/frame-21.hdf5
+[load_single_scan] Loaded → (1, 4, 5) | format=hdf5_data_v2026 | phase_encoding=vegetables_int16 converted=True
+[load_volume] done → (3, 4, 5) | frames=19→21 | depth_mm=no (missing experiment_details or parse failed)
+.......[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_sound_requires_mat_vars0/Sound/sample.mat
+.[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_sound_mat_loads_unconfirm0/Sound/sample.mat
+[load_single_scan] Loaded → (3, 4, 5) | format=mat | phase_encoding=sound_unconfirmed converted=False
+.[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_sound_wrong_vars_lists_av0/Sound/bad.mat
+...[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_leaf_skips_depth_metadata0/Leaf/tiny.mat
+[load_single_scan] Loaded → (2, 3, 4) | format=mat | phase_encoding=leaf_wrap_4096 converted=True
+.[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_metadata_sidecar_requires0/Leaf/tiny.mat
+[load_single_scan] Loaded → (2, 3, 4) | format=mat | phase_encoding=leaf_wrap_4096 converted=True
+.[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_zstack_rejects_frame_ids_0/Chip/sample.hdf5
+[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_zstack_rejects_frame_ids_0/Chip/sample.hdf5
+[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_zstack_rejects_frame_ids_0/Chip/sample.hdf5
+[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/pytest-of-vincent/pytest-24/test_zstack_rejects_frame_ids_0/Chip/sample.hdf5
+[load_single_scan] Loaded → (2, 3, 4) | format=hdf5_zstack | phase_encoding=zstack_unconfirmed converted=False
+.
+=============================== warnings summary ===============================
+tests/test_core.py: 48 warnings
+  /private/tmp/lfi-clean-arm64/lib/python3.13/site-packages/skimage/measure/_marching_cubes_lewiner.py:237: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+    ar.shape = shape
+
+tests/test_core.py::test_three_uncapped_isosurfaces
+tests/test_core.py::test_three_uncapped_isosurfaces
+tests/test_core.py::test_three_uncapped_isosurfaces
+tests/test_gui.py::test_chip_load_responsive_and_screenshot
+tests/test_gui.py::test_chip_load_responsive_and_screenshot
+tests/test_gui.py::test_chip_load_responsive_and_screenshot
+tests/test_gui.py::test_volume_mesh_worker_and_invalidation
+tests/test_gui.py::test_volume_mesh_worker_and_invalidation
+tests/test_gui.py::test_volume_mesh_worker_and_invalidation
+  /private/tmp/lfi-clean-arm64/lib/python3.13/site-packages/skimage/measure/_marching_cubes_lewiner.py:213: DeprecationWarning: Setting the shape on a NumPy array has been deprecated in NumPy 2.5.
+  As an alternative, you can create a new view using np.reshape (with copy=False if needed).
+    faces.shape = -1, 3
+
+part1_data/tests/test_sound_and_metadata.py::test_sound_mat_loads_unconfirmed_with_mat_vars
+  /Users/vincent/Desktop/LFI Viewer/part1_data/loader.py:968: UserWarning: [loader] target=Sound: phase encoding 'sound_unconfirmed' unconfirmed, keep raw codes (dtype=int16), not converted to radians.
+    phase, enc, converted = _apply_phase_encoding(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+84 passed, 58 warnings in 13.77s
