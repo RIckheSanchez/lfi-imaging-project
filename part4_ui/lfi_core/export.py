@@ -6,6 +6,8 @@ from matplotlib.figure import Figure
 from PIL import Image
 
 def export_csv(raw_slice):
+    from .processing import finite_values
+    finite_values(raw_slice)
     buffer = io.StringIO()
     np.savetxt(buffer, raw_slice, delimiter=",", fmt="%.6g")
     return buffer.getvalue()
@@ -25,6 +27,8 @@ def get_export_colormap(name):
 
 def publication_png(adjusted, colormap, pixel_size=0, color_label='Intensity',
                     x_label='X (pixels)', y_label='Y (pixels)'):
+    from .processing import finite_values
+    finite_values(adjusted)
     figure = Figure(figsize=(6, 5))
     axis = figure.subplots()
     image = axis.imshow(adjusted, cmap=get_export_colormap(colormap), vmin=0, vmax=1)
@@ -44,8 +48,12 @@ def publication_png(adjusted, colormap, pixel_size=0, color_label='Intensity',
 
 def pixel_image(adjusted, colormap, image_format='PNG'):
     """Export full-resolution colored pixels; PNG/TIFF carry 300 DPI."""
+    from .processing import finite_values
+    finite_values(adjusted)
     rgba = get_export_colormap(colormap)(adjusted)
-    image = Image.fromarray((rgba[:, :, :3] * 255).astype(np.uint8))
+    image = Image.fromarray((rgba * 255).astype(np.uint8))
+    if image_format == 'JPEG':
+        image = image.convert('RGB')
     buffer = io.BytesIO()
     options = {'dpi': (300, 300)} if image_format in ('PNG', 'TIFF') else {}
     image.save(buffer, format=image_format, **options)

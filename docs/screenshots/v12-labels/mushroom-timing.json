@@ -1,0 +1,9 @@
+{
+  "file": "mushroom.hdf5",
+  "load_unprocessed_seconds": 0.05640566600050079,
+  "enable_preprocessing_seconds": 0.044945916000870056,
+  "disable_preprocessing_seconds": 0.012712666997686028,
+  "worker_preprocess_seconds": 0.03507424999406794,
+  "off_label": "Amplitude",
+  "on_label": "Amplitude (pre-processed)"
+}

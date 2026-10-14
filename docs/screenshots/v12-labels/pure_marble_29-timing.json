@@ -1,0 +1,9 @@
+{
+  "file": "pure marble_29.hdf5",
+  "load_unprocessed_seconds": 0.05286795800202526,
+  "enable_preprocessing_seconds": 0.05489975000091363,
+  "disable_preprocessing_seconds": 0.012837624999519903,
+  "worker_preprocess_seconds": 0.04005324999889126,
+  "off_label": "Amplitude",
+  "on_label": "Amplitude (pre-processed)"
+}

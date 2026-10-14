@@ -1,5 +1,8 @@
 """English and Chinese desktop UI text."""
 STRINGS = {
+    'missing_value': ('Missing (NaN)', '缺失值（NaN）'),
+    'amplitude_preprocessed': ('Amplitude (pre-processed)', '振幅（已预处理）'),
+    'amplitude_preprocessed_dimensionless': ('Amplitude (pre-processed, dimensionless)', '振幅（已预处理，无量纲）'),
     'phase_raw': ('Phase (raw, uncalibrated)', '相位（原始值，未校准）'),
     'phase_status': ('Phase encoding status', '相位编码状态'),
     'parameters': ('Parameters (JSON)', '参数（JSON）'),

@@ -10,10 +10,10 @@ import pyqtgraph as pg
 from .i18n import text
 from .lfi_core.phase_semantics import phase_label_key, phase_encoding_status
 from .lfi_core.data_io import smart_load, local_data_key
-from .lfi_core.processing import normalized_slice, adjust_slice, prepare_3d
+from .lfi_core.processing import normalized_slice, adjust_slice, prepare_3d, finite_values, finite_range
 from .lfi_core.export import scale_bar, export_csv, pixel_image, publication_png
 from .lfi_core.backend import (IdentityPreprocessor, IdentityReconstructor,
-                               get_preprocessor_registration, get_reconstructor_registration)
+                               get_preprocessor_registration, get_reconstructor_registration, register_preprocessor)
 from .volume_panel import VolumePanel
 
 COLORMAPS = ['Viridis', 'Plasma', 'Inferno', 'Magma', 'Turbo', 'Hot', 'Cool']
@@ -98,6 +98,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def tr_text(self, key):
         return text(key, self.language)
+
+    def pixel_value_text(self, value):
+        return f'{value:.6g}' if np.isfinite(value) else self.tr_text('missing_value')
+
+    def amplitude_label(self):
+        state = self.data.metadata.get('ui_preprocessing') if self.data is not None else None
+        if state:
+            return self.tr_text('amplitude_preprocessed_dimensionless' if state['amplitude_units'] == 'dimensionless' else 'amplitude_preprocessed')
+        return self.tr_text('amplitude')
 
     def phase_label(self):
         metadata = self.data.metadata if self.data is not None else {}
@@ -280,10 +289,10 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_plot.setLabel('bottom', self.tr_text('x'))
         self.image_plot.setLabel('left', self.tr_text('y'))
         self.histogram.setTitle(self.tr_text('histogram'))
-        self.histogram.setLabel('bottom', self.phase_label() if self.channel.currentIndex() else self.tr_text('intensity'))
+        self.histogram.setLabel('bottom', self.phase_label() if self.channel.currentIndex() else self.amplitude_label())
         self.histogram.setLabel('left', self.tr_text('count'))
         self.amplitude_plot.setLabel('bottom', self.tr_text('z_index'))
-        self.amplitude_plot.setLabel('left', self.tr_text('amplitude'))
+        self.amplitude_plot.setLabel('left', self.amplitude_label())
         self.phase_plot.setLabel('bottom', self.tr_text('z_index'))
         self.phase_plot.setLabel('left', self.phase_label())
         self._build_menus()
@@ -433,7 +442,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 if self.fit_next_slice:
                     self.fit_view()
                     self.fit_next_slice = False
-                self.histogram.setLabel('bottom', self.phase_label() if self.channel.currentIndex() else self.tr_text('intensity'))
+                self.histogram.setLabel('bottom', self.phase_label() if self.channel.currentIndex() else self.amplitude_label())
                 self.histogram_curve.setData((edges[:-1] + edges[1:]) / 2, counts)
                 self.update_colorbar()
                 self.update_scale()
@@ -486,7 +495,7 @@ class MainWindow(QtWidgets.QMainWindow):
         def process():
             normalized, _, _ = normalized_slice(data, z, channel)
             raw = data.get_slice(z)[channel]
-            counts, edges = np.histogram(np.asarray(raw, dtype=np.float64), bins=50)
+            counts, edges = np.histogram(finite_values(raw), bins=50)
             return raw, adjust_slice(normalized, brightness, contrast), counts, edges
         self._submit('slice', self.slice_token, process)
 
@@ -522,9 +531,9 @@ class MainWindow(QtWidgets.QMainWindow):
         positions = np.linspace(0, 1, 256)
         colors = cmap.map(adjust_slice(positions, self.brightness.value(), self.contrast.value()), mode='byte')
         self.colorbar.setColorMap(pg.ColorMap(positions, colors))
-        minimum, maximum = float(self.raw_slice.min()), float(self.raw_slice.max())
+        minimum, maximum = finite_range(self.raw_slice)
         self.colorbar.setLevels((minimum, maximum if maximum > minimum else minimum+1))
-        self.colorbar.axis.setLabel(self.phase_label() if self.channel.currentIndex() else self.tr_text('amplitude'))
+        self.colorbar.axis.setLabel(self.phase_label() if self.channel.currentIndex() else self.amplitude_label())
 
     def loaded_status(self):
         data = self.data
@@ -540,11 +549,13 @@ class MainWindow(QtWidgets.QMainWindow):
                 ('phase_status', phase_encoding_status(data.metadata))]
         self.scan_label.setText('\n'.join(f'{self.tr_text(key)}: {value}' for key, value in rows))
         self.phase_plot.setLabel('left', self.phase_label())
+        self.amplitude_plot.setLabel('left', self.amplitude_label())
+        self.channel.setItemText(0, self.amplitude_label())
         self.z_label.setText(f"{self.tr_text('z')}: {data.z_indices[self.z_slider.value()]}")
         if self.raw_slice is not None:
             x, y = self.selected_pixel
-            label = self.phase_label() if self.channel.currentIndex() else self.tr_text('amplitude')
-            self.pixel_label.setText(f"X: {x}   Y: {y}\n{label}\n{self.tr_text('raw')}: {self.raw_slice[y, x]:.6g}")
+            label = self.phase_label() if self.channel.currentIndex() else self.amplitude_label()
+            self.pixel_label.setText(f"X: {x}   Y: {y}\n{label}\n{self.tr_text('raw')}: {self.pixel_value_text(self.raw_slice[y, x])}")
 
     def _pixel_at(self, position):
         if self.raw_slice is None or not self.image.sceneBoundingRect().contains(position):
@@ -559,7 +570,7 @@ class MainWindow(QtWidgets.QMainWindow):
         pixel = self._pixel_at(position)
         if pixel is not None:
             x, y = pixel
-            self.statusBar().showMessage(f"x={x}  y={y}  {self.tr_text('raw')}={self.raw_slice[y, x]:.6g}")
+            self.statusBar().showMessage(f"x={x}  y={y}  {self.tr_text('raw')}={self.pixel_value_text(self.raw_slice[y, x])}")
 
     def click_pixel(self, event):
         if event.button() != QtCore.Qt.MouseButton.LeftButton:
@@ -646,7 +657,7 @@ class MainWindow(QtWidgets.QMainWindow):
         channel = 'phase' if self.channel.currentIndex() else 'amplitude'
         brightness, contrast = self.brightness.value(), self.contrast.value()
         colormap, pixel_size = self.colormap.currentText(), self.pixel_size.value()
-        color_label = self.phase_label() if channel == 'phase' else self.tr_text('intensity')
+        color_label = self.phase_label() if channel == 'phase' else self.amplitude_label()
         x_label, y_label = self.tr_text('x'), self.tr_text('y')
         def save():
             if image_format == 'CSV':
@@ -668,6 +679,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 def main():
+    from .lfi_core.adapters.part2 import Part2Preprocessor
+    register_preprocessor(Part2Preprocessor())
     pg.setConfigOptions(imageAxisOrder='row-major', antialias=True)
     application = QtWidgets.QApplication(sys.argv)
     application.setApplicationName('LFI Viewer')
