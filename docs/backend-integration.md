@@ -76,3 +76,7 @@ resolved paths, mtime_ns and sizes of every data file and experiment_details.txt
 The registry preserves insertion order, so a plugin must not overlap the default
 HDF5 or directory claims without a future explicit selection UI. Unsupported
 files raise readable errors instead of silently falling back.
+
+Reconstruction UI is hidden without a non-Identity registration. With a backend
+registered, matching depth_mm enables the checkbox; missing/invalid depth shows
+the calibration explanation after a scan is loaded.

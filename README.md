@@ -86,7 +86,7 @@ Both amplitude and phase must be present with compatible dimensions.
   with axes/colorbar. PNG/TIFF and publication PNG carry 300 DPI.
 - Thread-pool loading, slice/histogram preparation, backend processing, 3D
   computation and export, with busy state and readable error dialogs.
-- Part 2 is registered by the desktop entrypoint, with preprocessing initially off. Reconstruction controls require both a registered backend and one depth_mm value per slice; otherwise a calibration explanation is shown.
+- Part 2 is registered by the desktop entrypoint, with preprocessing initially off. Reconstruction controls require both a registered backend and one depth_mm value per slice; a calibration explanation is shown only when a real backend is registered and depth calibration is missing. Without a registered backend, both the control and explanation are hidden.
 
 ## Tests
 

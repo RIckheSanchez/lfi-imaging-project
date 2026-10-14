@@ -82,9 +82,9 @@ class VolumePanel(QtWidgets.QWidget):
         if self.result is not None:
             self._update_info()
 
-    def set_reconstruction_available(self, available):
+    def set_reconstruction_available(self, available, show_hint=False):
         self.reconstruct.setVisible(available)
-        self.reconstruction_hint.setVisible(not available)
+        self.reconstruction_hint.setVisible(show_hint and not available)
         if not available:
             with QtCore.QSignalBlocker(self.reconstruct):
                 self.reconstruct.setChecked(False)

@@ -80,6 +80,8 @@ def install():
                         'saved': self.grab().save(str(self.output/'bundle-preprocessing-off.png'))}
                     self.grab().save(str(self.output/'bundle-2d.png'))
                     self.report['preprocessing_control_visible'] = self.pre_group.isVisible()
+                    self.report['developer_parameters_hidden'] = self.parameter.isHidden() and self.parameter_label.isHidden()
+                    self.report['preprocess_params'] = self.preprocess_params
                     self.preprocess_started = time.monotonic()
                     self.apply_preprocessing.setChecked(True)
                     self.stage = 'preprocess'

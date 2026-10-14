@@ -584,7 +584,10 @@ class MainWindow(QtWidgets.QMainWindow):
             return False
 
     def update_info(self):
-        self.volume_panel.set_reconstruction_available(self.reconstruction_available())
+        registered = not isinstance(self.reconstructor, IdentityReconstructor)
+        available = self.reconstruction_available()
+        self.volume_panel.set_reconstruction_available(available,
+            show_hint=registered and self.data is not None and not available)
         if self.data is None:
             return
         data = self.data

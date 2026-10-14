@@ -207,20 +207,23 @@ def test_registered_extra_loader_dispatch(tmp_path,monkeypatch):
     with pytest.raises(ValueError,match='already registered'):module.register_loader(Extra())
 
 
-@pytest.mark.parametrize('registered,depth,visible',[(False,[1,2,3],False),(True,None,False),(True,[1,2],False),(True,[1,2,3],True)])
+@pytest.mark.parametrize('registered,depth,visible',[(False,None,False),(False,[1,2,3],False),('identity',None,False),(True,None,False),(True,[1,2],False),(True,[1,2,3],True)])
 def test_reconstruction_requires_backend_and_matching_depth(qtbot,tmp_path,monkeypatch,registered,depth,visible):
     from part4_ui.lfi_core.backend import register_reconstructor
     class Fake:
         def reconstruct(self,data,params):return data
-    register_reconstructor(Fake() if registered else None)
+    from part4_ui.lfi_core.backend import IdentityReconstructor
+    register_reconstructor(IdentityReconstructor() if registered == 'identity' else Fake() if registered else None)
     try:
         window=MainWindow(QtCore.QSettings(str(tmp_path/'depth.ini'),QtCore.QSettings.Format.IniFormat))
         qtbot.addWidget(window);window.show()
+        assert window.volume_panel.reconstruct.isHidden()
+        assert window.volume_panel.reconstruction_hint.isHidden()
         window.data=LFIRawData(np.ones((3,4,5)),np.zeros((3,4,5)),[0,1,2],'Synthetic','fixture',{})
         if depth is not None:window.data.metadata['depth_mm']=depth
         window.update_info()
         assert window.volume_panel.reconstruct.isHidden() is not visible
-        assert window.volume_panel.reconstruction_hint.isHidden() is visible
+        assert window.volume_panel.reconstruction_hint.isHidden() is (registered is not True or visible)
         assert window.volume_panel.reconstruction_hint.text()=='Reconstruction needs slice depth calibration (depth_mm).'
         if visible:
             window.volume_panel.reconstruct.setChecked(True)

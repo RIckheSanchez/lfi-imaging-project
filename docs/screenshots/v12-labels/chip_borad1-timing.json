@@ -1,9 +1,9 @@
 {
   "file": "chip_borad1.hdf5",
-  "load_unprocessed_seconds": 1.3859092079947004,
-  "enable_preprocessing_seconds": 1.3064108340040548,
-  "disable_preprocessing_seconds": 0.029005707998294383,
-  "worker_preprocess_seconds": 1.2915587079987745,
+  "load_unprocessed_seconds": 1.339211874998,
+  "enable_preprocessing_seconds": 1.317286834004335,
+  "disable_preprocessing_seconds": 0.030251541000325233,
+  "worker_preprocess_seconds": 1.3022176249942277,
   "off_label": "Amplitude",
   "on_label": "Amplitude (pre-processed, dimensionless)"
 }
