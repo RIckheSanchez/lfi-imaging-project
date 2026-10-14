@@ -1,0 +1,287 @@
+2026-10-14 15:58:26.889 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+2026-10-14 15:58:26.889 WARNING streamlit.runtime.caching.cache_data_api: No runtime found, using MemoryCacheStorageManager
+[load_single_scan] Loading: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+/Users/vincent/Desktop/LFI Viewer/part1_data/loader.py:613: UserWarning: [loader] target=Mushroom: phase encoding 'unknown_unconfirmed' unconfirmed, keep raw codes (dtype=uint16), not converted to radians.
+  phase, enc, converted = _apply_phase_encoding(
+[load_single_scan] Loaded → (1, 400, 1300) | format=hdf5_frames | phase_encoding=unknown_unconfirmed converted=False
+CSV PASS amplitude (400, 1300)
+CSV PASS phase (400, 1300)
+ISOSURFACE PASS (single plane mushroom; object validation only)
+PUBLICATION DPI PASS (299.9994, 299.9994)
+2026-10-14 15:58:27.440 WARNING streamlit.runtime.scriptrunner_utils.script_run_context: Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+[load_single_scan] Loading: /Users/vincent/Desktop/LFI Viewer/Realdata/mushroom.hdf5
+[load_single_scan] Loaded → (1, 400, 1300) | format=hdf5_frames | phase_encoding=unknown_unconfirmed converted=False
+2026-10-14 15:58:27.665 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:27.749 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:27.779 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:27.779 Session state does not function when running a script without `streamlit run`
+2026-10-14 15:58:27.779 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:27.809 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:27.892 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:27.922 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:27.922 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:27.949 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:27.999 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:28.009 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:28.010 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:28.036 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:28.084 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+LEGACY PHASE LABEL PASS raw and confirmed
+APPTEST PASS
+2026-10-14 15:58:28.096 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+[load_single_scan] Loading: /var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/lfi-upload-test-ha8j23w3/tmpnaoryjta.hdf5
+/Users/vincent/Desktop/LFI Viewer/part1_data/loader.py:613: UserWarning: [loader] target=Unknown: phase encoding 'unknown_unconfirmed' unconfirmed, keep raw codes (dtype=uint16), not converted to radians.
+  phase, enc, converted = _apply_phase_encoding(
+[load_single_scan] Loaded → (1, 400, 1300) | format=hdf5_frames | phase_encoding=unknown_unconfirmed converted=False
+2026-10-14 15:58:28.222 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:28.306 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:28.344 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:28.344 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:28.371 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:28.455 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:28.488 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:28.488 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:28.514 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:28.599 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+UPLOAD RERUN PASS: 2 brightness reruns, stable key, 1 temporary write
+2026-10-14 15:58:28.633 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:28.633 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:28.659 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:28.743 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:28.775 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:28.775 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:28.803 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:28.885 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:28.917 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:28.920 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+[load_single_scan] Loading: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+/Users/vincent/Desktop/LFI Viewer/part1_data/loader.py:517: UserWarning: [loader] target=Chip: phase encoding 'zstack_unconfirmed' unconfirmed, keep raw codes (dtype=float64), not converted to radians.
+  phase, enc, converted = _apply_phase_encoding(
+[load_single_scan] Loaded → (70, 1400, 400) | format=hdf5_zstack | phase_encoding=zstack_unconfirmed converted=False
+2026-10-14 15:58:30.184 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:30.276 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:30.316 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:30.317 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+UPLOAD TO PATH CACHE PASS 3D 1247936729.0 -> 394085247.0
+UPLOAD TO PATH CACHE PASS 2D (400, 1300) -> (1400, 400)
+UPLOAD CLEANUP PASS: no .hdf5 files remain in isolated system temp directory
+[load_single_scan] Loading: /var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/lfi-upload-test-ha8j23w3/tmpl6e9p601.hdf5
+UPLOAD FAILURE CLEANUP PASS
+2026-10-14 15:58:30.332 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+[load_single_scan] Loading: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+[load_single_scan] Loaded → (70, 1400, 400) | format=hdf5_zstack | phase_encoding=zstack_unconfirmed converted=False
+2026-10-14 15:58:31.716 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:31.810 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:31.849 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:31.850 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:31.855 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:31.855 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:31.855 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:31.855 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:31.882 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:31.974 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:32.014 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:32.015 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:32.029 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:32.029 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:32.029 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:32.029 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:32.057 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:32.149 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:32.189 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:32.190 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:32.194 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:32.194 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:32.194 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+2026-10-14 15:58:32.194 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.
+[load_single_scan] Loading: /private/var/folders/x5/c158j0q15yx_9hmv485c589w0000gn/T/tmp86pa3cxp/cache-regression.hdf5
+/Users/vincent/Desktop/LFI Viewer/part1_data/loader.py:517: UserWarning: [loader] target=Unknown: phase encoding 'unknown_unconfirmed' unconfirmed, keep raw codes (dtype=float64), not converted to radians.
+  phase, enc, converted = _apply_phase_encoding(
+[load_single_scan] Loaded → (5, 1400, 400) | format=hdf5_zstack | phase_encoding=unknown_unconfirmed converted=False
+2026-10-14 15:58:32.236 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:32.331 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:32.372 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+2026-10-14 15:58:32.373 Please replace `use_container_width` with `width`.
+
+`use_container_width` will be removed after 2025-12-31.
+
+For `use_container_width=True`, use `width='stretch'`. For `use_container_width=False`, use `width='content'`.
+CACHE REGRESSION PASS 3D 394085247.0 -> 537516420000.0
+CACHE REGRESSION PASS 2D same z=0, shape= (1400, 400)
+[load_single_scan] Loading: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+[load_single_scan] Loaded → (70, 1400, 400) | format=hdf5_zstack | phase_encoding=zstack_unconfirmed converted=False
+TIMING 1 1.255480208004883
+[load_single_scan] Loading: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+[load_single_scan] Loaded → (70, 1400, 400) | format=hdf5_zstack | phase_encoding=zstack_unconfirmed converted=False
+TIMING 2 1.2428040419981699
+[load_single_scan] Loading: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+[load_single_scan] Loaded → (70, 1400, 400) | format=hdf5_zstack | phase_encoding=zstack_unconfirmed converted=False
+TIMING 3 1.226534499997797
+[load_single_scan] Loading: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+[load_single_scan] Loaded → (70, 1400, 400) | format=hdf5_zstack | phase_encoding=zstack_unconfirmed converted=False
+TIMING 4 1.2323489999980666
+[load_single_scan] Loading: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+[load_single_scan] Loaded → (70, 1400, 400) | format=hdf5_zstack | phase_encoding=zstack_unconfirmed converted=False
+TIMING 5 1.2468046249996405
+RESULT {"seconds": [1.255480208004883, 1.2428040419981699, 1.226534499997797, 1.2323489999980666, 1.2468046249996405], "mean": 1.2407944749997113, "population_std": 0.010300523787660129, "sample_std": 0.011516335696530829, "python": "3.13.12 (main, Feb  3 2026, 17:53:27) [Clang 17.0.0 (clang-1700.6.3.2)]", "platform": "macOS-15.5-arm64-arm-64bit-Mach-O"}
+Hardware:
+
+    Hardware Overview:
+
+      Model Name: MacBook Pro
+      Model Identifier: Mac16,7
+      Model Number: MX2X3X/A
+      Chip: Apple M4 Pro
+      Total Number of Cores: 14 (10 performance and 4 efficiency)
+      Memory: 24 GB
+      System Firmware Version: 11881.121.1
+      OS Loader Version: 11881.121.1
+

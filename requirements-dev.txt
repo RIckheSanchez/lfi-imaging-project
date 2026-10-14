@@ -1,6 +1,5 @@
-pytest>=7
+pytest>=7.4
 pytest-qt>=4.5
 PyInstaller>=6.15
 # Part 3 imaging and reconstruction tests (NIfTI export)
 nibabel>=5.0
-scipy>=1.7

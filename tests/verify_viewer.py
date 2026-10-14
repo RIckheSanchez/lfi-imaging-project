@@ -41,6 +41,14 @@ assert not app.exception, app.exception
 assert any(n.label=='Pixel X' for n in app.number_input)
 next(n for n in app.number_input if n.label=='Pixel size (μm)').set_value(10.).run()
 assert not app.exception,app.exception
+for converted in (False, True):
+    app.session_state['data'].metadata.update(phase_encoding_used='test_encoding', phase_converted=converted)
+    next(radio for radio in app.radio if radio.label=='Channel').set_value('Phase').run()
+    assert not app.exception, app.exception
+    label = 'Phase (rad)' if converted else 'Phase (raw, uncalibrated)'
+    assert any(label in item.value for item in app.markdown)
+    assert namespace['phase_label_key'](app.session_state['data'].metadata) == ('phase_rad' if converted else 'phase_raw')
+print('LEGACY PHASE LABEL PASS raw and confirmed')
 print('APPTEST PASS')
 # Capture results from the actual cached helpers inside an AppTest runtime.
 capture_source = source.read_text() + """

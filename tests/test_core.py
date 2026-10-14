@@ -149,3 +149,65 @@ def test_volume_robust_clipping_and_nonlinear_opacity(synthetic_volume):
 def test_isosurface_invalid_percentile(synthetic_volume, percentile):
     with pytest.raises(ValueError,match='below 99.5'):
         isosurface_thresholds(synthetic_volume.amplitude, percentile)
+
+
+
+def test_phase_semantics_unknown_and_confirmed():
+    from part4_ui.lfi_core.phase_semantics import phase_label_key, phase_encoding_status
+    assert phase_label_key({}) == 'phase_raw'
+    assert phase_encoding_status({}) == 'unknown'
+    assert phase_label_key({'phase_converted': False}) == 'phase_raw'
+    assert phase_label_key({'phase_converted': True}) == 'phase_rad'
+    assert phase_label_key({'phase_converted': 'False'}) == 'phase_raw'
+
+
+@pytest.mark.parametrize('name', ['chip_borad1.hdf5', 'mushroom.hdf5', 'pure marble_29.hdf5'])
+def test_pre_migration_numeric_baseline(name):
+    import json
+    baseline = json.loads((ROOT/'tests/v11-loader-baseline.json').read_text())[name]
+    data = smart_load(str(ROOT/'Realdata'/name))
+    assert list(data.amplitude.shape) == baseline['shape']
+    assert data.z_indices == baseline['z_indices']
+    for channel in ('amplitude', 'phase'):
+        canonical = np.ascontiguousarray(getattr(data, channel), dtype='<f8')
+        assert hashlib.sha256(canonical.tobytes()).hexdigest() == baseline[channel+'_sha256']
+    assert data.metadata['phase_converted'] is False
+
+
+def test_uint16_display_and_raw_export(mushroom):
+    from part4_ui.lfi_core.data_types import LFIRawData
+    from part4_ui.lfi_core.processing import prepare_3d
+    assert mushroom.phase.dtype == np.uint16
+    raw = mushroom.phase[0]
+    normalized, low, high = normalized_slice(mushroom, 40, 'phase')
+    expected = (raw.astype(np.float64)-float(raw.min()))/(float(raw.max())-float(raw.min())+1e-10)
+    assert normalized.dtype == np.float64
+    assert np.array_equal(normalized, expected)
+    assert np.isfinite(adjust_slice(normalized)).all()
+    assert np.array_equal(np.loadtxt(io.StringIO(export_csv(raw)), delimiter=','), raw)
+    cube = np.arange(125, dtype=np.uint16).reshape(5,5,5)*500
+    data = LFIRawData(cube, cube, list(range(5)), 'Unknown', 'synthetic', {})
+    assert downsampled_volume(data)[3].dtype == np.float64
+    assert prepare_3d(data)['values_sum'] == float(cube.astype(np.float64).sum())
+
+
+def test_public_loader_adapter_and_error(monkeypatch):
+    import part4_ui.lfi_core.data_io as module
+    from types import SimpleNamespace
+    source = SimpleNamespace(amplitude=np.zeros((1,2,2)), phase=np.ones((1,2,2), dtype=np.uint16),
+                             z_indices=[7], target_type='Mushroom', file_path='scan.hdf5',
+                             metadata={'nested': {'anything': [1,2]}, 'phase_converted': False})
+    calls = []
+    def load(path, **kwargs):
+        calls.append((path, kwargs))
+        return source
+    monkeypatch.setattr(module, 'load_single_scan', load)
+    result = module.smart_load('scan.hdf5')
+    assert calls == [('scan.hdf5', {'include_waveform': False})]
+    assert result.metadata == source.metadata
+    assert result.phase is source.phase
+    def fail(*args, **kwargs):
+        raise ValueError('Part 1 original failure')
+    monkeypatch.setattr(module, 'load_single_scan', fail)
+    with pytest.raises(ValueError, match='Part 1 original failure'):
+        module.smart_load('invalid.hdf5')

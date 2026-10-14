@@ -2,9 +2,7 @@
 import os
 import tempfile
 import hashlib
-import h5py
-import numpy as np
-from .loader import load_single_scan
+from part1_data import load_single_scan
 from .data_types import LFIRawData
 
 def local_data_key(filepath):
@@ -18,40 +16,22 @@ def upload_data_key(name, data):
     return "upload", name, len(data), hashlib.sha1(data).hexdigest()
 
 
-def _load_frames_format(filepath: str):
-    """Fallback loader for HDF5 files using /frames/.../IMAGE_AMPLITUDE structure."""
-    with h5py.File(filepath, 'r') as f:
-        frames_group = f['frames']
-        frame_keys   = sorted(frames_group.keys(), key=lambda x: int(x))
-
-        amp_slices, phase_slices, z_indices = [], [], []
-        for k in frame_keys:
-            base = frames_group[k]['Image Data']['QCL0']['Left']
-            amp_slices.append(base['IMAGE_AMPLITUDE'][:].astype(np.float64))
-            phase_slices.append(base['IMAGE_PHASE'][:].astype(np.float64))
-            z_indices.append(int(k))
-
-        amplitude = np.stack(amp_slices,   axis=0)
-        phase     = np.stack(phase_slices, axis=0)
-        metadata  = {k: v for k, v in f.attrs.items()}
-
-    stem   = os.path.splitext(os.path.basename(filepath))[0]
-    known  = ['Chip', 'Leaf', 'Skin', 'Marble', 'Mushroom', 'Sound', 'Tomography']
-    target = next((tp for tp in known if tp.lower() in stem.lower()), 'Unknown')
-
+def adapt_raw_data(source):
+    """Explicitly adapt Part 1's public result, retaining all metadata."""
     return LFIRawData(
-        amplitude=amplitude, phase=phase, z_indices=z_indices,
-        target_type=target, file_path=filepath, metadata=metadata
+        amplitude=source.amplitude,
+        phase=source.phase,
+        z_indices=list(source.z_indices),
+        target_type=source.target_type,
+        file_path=source.file_path,
+        metadata=dict(source.metadata),
     )
 
+
 def smart_load(filepath: str):
-    """Try standard loader first; fall back to frames-format loader."""
-    try:
-        return load_single_scan(filepath)
-    except ValueError as e:
-        if 'frames' in str(e) or 'amplitude' in str(e):
-            return _load_frames_format(filepath)
-        raise
+    """Load through Part 1's public API; propagate its errors without fallback."""
+    return adapt_raw_data(load_single_scan(filepath, include_waveform=False))
+
 
 def load_uploaded_bytes(name, data):
     """Load upload bytes and return a stable key; always clean up the temporary file."""

@@ -73,7 +73,12 @@ def install():
                     self.finish()
                     return
                 if self.stage == 'load' and self.raw_slice is not None:
-                    self.report['2d'] = {'shape': list(self.data.amplitude.shape),
+                    if self.channel.currentIndex() != 1:
+                        self.channel.setCurrentIndex(1)
+                        return
+                    self.report['2d'] = {'channel': 'phase', 'phase_label': self.phase_label(),
+                                         'phase_metadata': {key: self.data.metadata.get(key) for key in ('phase_encoding_used', 'phase_converted')},
+                                         'shape': list(self.data.amplitude.shape),
                                          'raw_sum': float(self.raw_slice.sum()),
                                          'saved': self.grab().save(str(self.output/'bundle-2d.png'))}
                     self.tabs.setCurrentIndex(1)

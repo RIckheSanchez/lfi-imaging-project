@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from part4_ui.lfi_core.data_io import smart_load, load_uploaded_bytes, local_data_key
 from part4_ui.lfi_core.processing import normalized_slice, downsampled_volume, adjust_slice, isosurface_thresholds
 from part4_ui.lfi_core.export import export_csv, scale_bar, get_export_colormap, publication_png, pixel_image
+from part4_ui.lfi_core.phase_semantics import phase_label_key, phase_encoding_status
 import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
@@ -28,6 +29,8 @@ import hashlib
 # ── Translations ──────────────────────────────────────────────────
 
 STRINGS = {
+    'phase_raw': {'EN': 'Phase (raw, uncalibrated)', 'CN': '相位（原始值，未校准）'},
+    'phase_status': {'EN': '**Phase encoding status:**', 'CN': '**相位编码状态：**'},
     'render_mode': {"EN": '3D mode', "CN": '三维模式'},
     'volume_mode': {"EN": 'Volume', "CN": '体渲染'},
     'isosurface_mode': {"EN": 'Isosurface', "CN": '等值面'},
@@ -174,6 +177,11 @@ def t(key):
     """Return the UI string for the current language."""
     lang = st.session_state.get('lang', 'EN')
     return STRINGS[key][lang]
+
+
+def phase_label():
+    data = st.session_state.get('data')
+    return t(phase_label_key(data.metadata if data is not None else {}))
 
 
 def create_3d_trace(X, Y, Z, values, colorscale, mode='volume', percentile=90):
@@ -415,7 +423,7 @@ else:
         channel_key = st.session_state.channel.lower()
 
         with col_main:
-            ch_display = t('channel_phase') if channel_key == 'phase' else t('channel_amp')
+            ch_display = phase_label() if channel_key == 'phase' else t('channel_amp')
             st.markdown(f"### {t('slice_viewer_title')} — **{ch_display}**")
 
             n_slices  = st.session_state.data.n_slices
@@ -445,7 +453,7 @@ else:
             contrast_scale    = st.session_state.contrast / 50
             adjusted = adjust_slice(normalized, st.session_state.brightness, st.session_state.contrast)
 
-            color_label = t('phase_rad') if channel_key == 'phase' else t('intensity')
+            color_label = phase_label() if channel_key == 'phase' else t('intensity')
 
             fig = px.imshow(
                 adjusted,
@@ -477,6 +485,7 @@ else:
             st.markdown(t('scan_info'))
             st.markdown('<div class="metric-card">', unsafe_allow_html=True)
             st.write(f"{t('target')} {st.session_state.data.target_type}")
+            st.write(f"{t('phase_status')} {phase_encoding_status(st.session_state.data.metadata)}")
             st.write(f"{t('size')} {st.session_state.data.width}×{st.session_state.data.height}")
             st.write(f"{t('slices')} {st.session_state.data.n_slices}")
             st.write(f"{t('z_range')} {z_indices[0]} → {z_indices[-1]}")
@@ -597,7 +606,7 @@ else:
             fig_phase.update_layout(
                 title=f"{t('phase_profile_title')} ({sample_x}, {sample_y}){suffix}",
                 xaxis_title=t('z_index_axis'),
-                yaxis_title=t('phase_rad'),
+                yaxis_title=phase_label(),
                 height=300
             )
             st.plotly_chart(fig_phase, use_container_width=True)

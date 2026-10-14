@@ -65,7 +65,7 @@ print(data.target_type)      # 'Chip'
 
 ---
 
-## Part 2: Signal Pre-processing (Mingxuan Tang)
+## Part 2: Signal Pre-processing (Haobo Yu)
 
 ### Module: `part2_preprocess`
 
@@ -104,7 +104,7 @@ print(processed.noise_level)  # 0.05
 
 ---
 
-## Part 3: Image Generation & Reconstruction (Haobo Yu)
+## Part 3: Image Generation & Reconstruction (Mingxuan Tang)
 
 ### Module: `part3_reconstruction`
 

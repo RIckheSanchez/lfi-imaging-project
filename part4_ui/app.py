@@ -8,6 +8,7 @@ import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 from .i18n import text
+from .lfi_core.phase_semantics import phase_label_key, phase_encoding_status
 from .lfi_core.data_io import smart_load, local_data_key
 from .lfi_core.processing import normalized_slice, adjust_slice, prepare_3d
 from .lfi_core.export import scale_bar, export_csv, pixel_image, publication_png
@@ -97,6 +98,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def tr_text(self, key):
         return text(key, self.language)
+
+    def phase_label(self):
+        metadata = self.data.metadata if self.data is not None else {}
+        return self.tr_text(phase_label_key(metadata))
 
     def _build_ui(self):
         self.progress = QtWidgets.QProgressBar()
@@ -203,8 +208,8 @@ class MainWindow(QtWidgets.QMainWindow):
         info_layout.addWidget(self.scan_group)
         info_layout.addWidget(self.pixel_group)
         info_layout.addWidget(self.histogram, 1)
-        info_widget.setMinimumWidth(240)
-        info_widget.setMaximumWidth(360)
+        info_widget.setMinimumWidth(390)
+        info_widget.setMaximumWidth(480)
         slice_layout.addWidget(info_widget, 1)
         self.volume_panel = VolumePanel()
         self.volume_panel.reconstruct.setVisible(not isinstance(self.reconstructor, IdentityReconstructor))
@@ -275,12 +280,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_plot.setLabel('bottom', self.tr_text('x'))
         self.image_plot.setLabel('left', self.tr_text('y'))
         self.histogram.setTitle(self.tr_text('histogram'))
-        self.histogram.setLabel('bottom', self.tr_text('intensity'))
+        self.histogram.setLabel('bottom', self.phase_label() if self.channel.currentIndex() else self.tr_text('intensity'))
         self.histogram.setLabel('left', self.tr_text('count'))
         self.amplitude_plot.setLabel('bottom', self.tr_text('z_index'))
         self.amplitude_plot.setLabel('left', self.tr_text('amplitude'))
         self.phase_plot.setLabel('bottom', self.tr_text('z_index'))
-        self.phase_plot.setLabel('left', self.tr_text('phase_rad'))
+        self.phase_plot.setLabel('left', self.phase_label())
         self._build_menus()
         self.update_info()
         self.update_histogram_theme()
@@ -428,7 +433,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 if self.fit_next_slice:
                     self.fit_view()
                     self.fit_next_slice = False
-                self.histogram.setLabel('bottom', self.tr_text('phase_rad' if self.channel.currentIndex() else 'intensity'))
+                self.histogram.setLabel('bottom', self.phase_label() if self.channel.currentIndex() else self.tr_text('intensity'))
                 self.histogram_curve.setData((edges[:-1] + edges[1:]) / 2, counts)
                 self.update_colorbar()
                 self.update_scale()
@@ -481,7 +486,7 @@ class MainWindow(QtWidgets.QMainWindow):
         def process():
             normalized, _, _ = normalized_slice(data, z, channel)
             raw = data.get_slice(z)[channel]
-            counts, edges = np.histogram(raw, bins=50)
+            counts, edges = np.histogram(np.asarray(raw, dtype=np.float64), bins=50)
             return raw, adjust_slice(normalized, brightness, contrast), counts, edges
         self._submit('slice', self.slice_token, process)
 
@@ -519,7 +524,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.colorbar.setColorMap(pg.ColorMap(positions, colors))
         minimum, maximum = float(self.raw_slice.min()), float(self.raw_slice.max())
         self.colorbar.setLevels((minimum, maximum if maximum > minimum else minimum+1))
-        self.colorbar.axis.setLabel(self.tr_text('phase_rad' if self.channel.currentIndex() else 'amplitude'))
+        self.colorbar.axis.setLabel(self.phase_label() if self.channel.currentIndex() else self.tr_text('amplitude'))
 
     def loaded_status(self):
         data = self.data
@@ -531,12 +536,15 @@ class MainWindow(QtWidgets.QMainWindow):
         data = self.data
         rows = [('target', data.target_type), ('size', f'{data.width} × {data.height}'),
                 ('slices', data.n_slices), ('z_range', f'{data.z_indices[0]} → {data.z_indices[-1]}'),
-                ('filename', Path(data.file_path).name)]
+                ('filename', Path(data.file_path).name),
+                ('phase_status', phase_encoding_status(data.metadata))]
         self.scan_label.setText('\n'.join(f'{self.tr_text(key)}: {value}' for key, value in rows))
+        self.phase_plot.setLabel('left', self.phase_label())
         self.z_label.setText(f"{self.tr_text('z')}: {data.z_indices[self.z_slider.value()]}")
         if self.raw_slice is not None:
             x, y = self.selected_pixel
-            self.pixel_label.setText(f"X: {x}   Y: {y}\n{self.tr_text('raw')}: {self.raw_slice[y, x]:.6g}")
+            label = self.phase_label() if self.channel.currentIndex() else self.tr_text('amplitude')
+            self.pixel_label.setText(f"X: {x}   Y: {y}\n{label}\n{self.tr_text('raw')}: {self.raw_slice[y, x]:.6g}")
 
     def _pixel_at(self, position):
         if self.raw_slice is None or not self.image.sceneBoundingRect().contains(position):
@@ -638,7 +646,7 @@ class MainWindow(QtWidgets.QMainWindow):
         channel = 'phase' if self.channel.currentIndex() else 'amplitude'
         brightness, contrast = self.brightness.value(), self.contrast.value()
         colormap, pixel_size = self.colormap.currentText(), self.pixel_size.value()
-        color_label = self.tr_text('phase_rad' if channel == 'phase' else 'intensity')
+        color_label = self.phase_label() if channel == 'phase' else self.tr_text('intensity')
         x_label, y_label = self.tr_text('x'), self.tr_text('y')
         def save():
             if image_format == 'CSV':

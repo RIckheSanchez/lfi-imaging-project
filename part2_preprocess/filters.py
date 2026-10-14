@@ -1,6 +1,6 @@
 """
 Part 2: Signal Pre-processing
-Responsible: Mingxuan Tang
+Responsible: Haobo Yu
 
 This module handles filtering and noise reduction of LFI signals.
 """
@@ -21,7 +21,7 @@ def preprocess_signal(raw_data: LFIRawData) -> ProcessedSignal:
         
     TODO: Implement signal processing pipeline
     """
-    raise NotImplementedError("TODO: Mingxuan to implement")
+    raise NotImplementedError("TODO: Haobo to implement")
 
 
 def apply_filter(signal: np.ndarray, 
@@ -40,7 +40,7 @@ def apply_filter(signal: np.ndarray,
         
     TODO: Implement various filter types
     """
-    raise NotImplementedError("TODO: Mingxuan to implement")
+    raise NotImplementedError("TODO: Haobo to implement")
 
 
 def estimate_noise_level(signal: np.ndarray) -> float:
@@ -53,4 +53,4 @@ def estimate_noise_level(signal: np.ndarray) -> float:
     Returns:
         Estimated noise level
     """
-    raise NotImplementedError("TODO: Mingxuan to implement")
+    raise NotImplementedError("TODO: Haobo to implement")
