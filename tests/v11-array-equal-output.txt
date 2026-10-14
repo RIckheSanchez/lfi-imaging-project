@@ -1,0 +1,9 @@
+[load_single_scan] Loading: Realdata/chip_borad1.hdf5
+[load_single_scan] Loaded → (70, 1400, 400) | format=hdf5_zstack | phase_encoding=zstack_unconfirmed converted=False
+chip_borad1.hdf5 (70, 1400, 400) float64 amplitude/phase/z_indices: np.array_equal PASS
+[load_single_scan] Loading: Realdata/mushroom.hdf5
+[load_single_scan] Loaded → (1, 400, 1300) | format=hdf5_frames | phase_encoding=unknown_unconfirmed converted=False
+mushroom.hdf5 (1, 400, 1300) uint16 amplitude/phase/z_indices: np.array_equal PASS
+[load_single_scan] Loading: Realdata/pure marble_29.hdf5
+[load_single_scan] Loaded → (1, 1400, 400) | format=hdf5_zstack | phase_encoding=zstack_unconfirmed converted=False
+pure marble_29.hdf5 (1, 1400, 400) float64 amplitude/phase/z_indices: np.array_equal PASS

@@ -280,7 +280,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.image_plot.setLabel('bottom', self.tr_text('x'))
         self.image_plot.setLabel('left', self.tr_text('y'))
         self.histogram.setTitle(self.tr_text('histogram'))
-        self.histogram.setLabel('bottom', self.tr_text('intensity'))
+        self.histogram.setLabel('bottom', self.phase_label() if self.channel.currentIndex() else self.tr_text('intensity'))
         self.histogram.setLabel('left', self.tr_text('count'))
         self.amplitude_plot.setLabel('bottom', self.tr_text('z_index'))
         self.amplitude_plot.setLabel('left', self.tr_text('amplitude'))
@@ -486,7 +486,7 @@ class MainWindow(QtWidgets.QMainWindow):
         def process():
             normalized, _, _ = normalized_slice(data, z, channel)
             raw = data.get_slice(z)[channel]
-            counts, edges = np.histogram(raw, bins=50)
+            counts, edges = np.histogram(np.asarray(raw, dtype=np.float64), bins=50)
             return raw, adjust_slice(normalized, brightness, contrast), counts, edges
         self._submit('slice', self.slice_token, process)
 
