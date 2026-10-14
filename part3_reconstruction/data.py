@@ -28,6 +28,16 @@ class ImagingData:
         self.metadata.setdefault("phase_unit", "rad")
         self.metadata.setdefault("phase_state", "unknown")
 
+    @classmethod
+    def _wrap(cls, amplitude, phase, metadata):
+        """Internal: wrap float32 arrays created or validated by this package, without copying.
+
+        Public construction always copies, so callers' arrays are never shared.
+        """
+        obj = cls.__new__(cls)
+        obj.amplitude, obj.phase, obj.metadata = amplitude, phase, dict(metadata)
+        return obj
+
     def slice(self, index):
         if self.amplitude.ndim != 3:
             raise ValueError("slice requires a volume")
