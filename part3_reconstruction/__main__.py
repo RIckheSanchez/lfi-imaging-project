@@ -34,6 +34,9 @@ def main():
     handoff.add_argument("--output", default="outputs/handoff")
     handoff.add_argument("--raw", nargs="*", default=[],
                          help="Raw UQ HDF5 frames or folders, for the scan-mirror pixel-shape check")
+    handoff.add_argument("--nominal-pixel-mm", type=float,
+                         help="Approximate lateral pixel size (mm) for a NIfTI export, checked with SimpleITK")
+    handoff.add_argument("--napari", action="store_true", help="Save a napari 3D screenshot of the depth volume")
     demo = sub.add_parser("demo", help="Synthetic validation only; not experimental evidence")
     demo.add_argument("--output", default="outputs/synthetic")
     args = parser.parse_args()
@@ -54,7 +57,8 @@ def main():
         raw = []
         for item in map(Path, args.raw):
             raw.extend(sorted(item.glob("*.hdf5")) if item.is_dir() else [item])
-        report = run(args.root, args.output, raw_files=raw)
+        report = run(args.root, args.output, raw_files=raw,
+                     nominal_pixel_mm=args.nominal_pixel_mm, napari=args.napari)
         print("report:", Path(args.output) / "report.html")
         print(json.dumps({k: report[k] for k in ("files_read", "summary_by_sample", "render_seconds", "elapsed_seconds")}, indent=2))
         if report["files_with_missing_fields"]:

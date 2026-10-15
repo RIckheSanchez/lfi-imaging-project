@@ -5,7 +5,7 @@ This module defines the data structures passed between different parts.
 All team members should use these types for consistency.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Optional, Dict, List
 import numpy as np
 
@@ -106,17 +106,8 @@ class ReconstructedImage:
 
 # Utility functions for data conversion
 def raw_to_dict(data: LFIRawData) -> Dict:
-    """Convert LFIRawData to dictionary (for serialization)"""
-    return {
-        'signal': data.signal,
-        'x_coords': data.x_coords,
-        'y_coords': data.y_coords,
-        'z_depth': data.z_depth,
-        'target_type': data.target_type,
-        'scan_params': data.scan_params,
-        'timestamp': data.timestamp,
-        'file_path': data.file_path
-    }
+    """Convert LFIRawData to dictionary (for serialization); inverse of dict_to_raw"""
+    return {f.name: getattr(data, f.name) for f in fields(data)}
 
 
 def dict_to_raw(d: Dict) -> LFIRawData:

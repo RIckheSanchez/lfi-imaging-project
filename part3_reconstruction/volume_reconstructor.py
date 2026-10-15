@@ -26,7 +26,10 @@ class VolumeReconstructor:
         self.z = z[order]
         if np.any(np.diff(self.z) <= 0):
             raise ValueError("depth coordinates must be unique")
-        self.data = ImagingData(data.amplitude[order], data.phase[order], data.metadata)
+        if np.array_equal(order, np.arange(len(z))):      # already sorted: no copy
+            self.data = ImagingData._wrap(data.amplitude, data.phase, data.metadata)
+        else:
+            self.data = ImagingData._wrap(data.amplitude[order], data.phase[order], data.metadata)
         self.spatial_unit = spatial_unit
         self.data.metadata.update(spacing_xy=(self.dx, self.dy), origin_xy=(self.ox, self.oy),
                                   spatial_unit=spatial_unit, z_coordinates=self.z.tolist())
@@ -53,7 +56,7 @@ class VolumeReconstructor:
             shifts.append(delta.tolist())
             a[k] = spatial_shift(self.data.amplitude[k], delta, order=1, mode="constant", cval=np.nan, prefilter=False)
             p[k] = spatial_shift(self.data.phase[k], delta, order=1, mode="constant", cval=np.nan, prefilter=False)
-        result = VolumeReconstructor(ImagingData(a, p, self.data.metadata), spacing_xy=(self.dx, self.dy), z_coordinates=self.z, origin_xy=(self.ox, self.oy), spatial_unit=self.spatial_unit)
+        result = VolumeReconstructor(ImagingData._wrap(a, p, self.data.metadata), spacing_xy=(self.dx, self.dy), z_coordinates=self.z, origin_xy=(self.ox, self.oy), spatial_unit=self.spatial_unit)
         result.registration_shifts = shifts
         result.data.metadata["registration_shifts_yx"] = shifts
         result.data.metadata["registration_reference_index"] = reference
@@ -63,8 +66,12 @@ class VolumeReconstructor:
         """Trilinear interpolation on physical coordinates, including irregular z.
 
         Output centres remain inside the source extent; the last centre may be
-        less than one output voxel short of its upper edge. Work is plane-wise.
-        NaN source regions remain missing (including interpolation neighbours).
+        less than one output voxel short of its upper edge. Trilinear
+        interpolation is separable, so each output plane is the linear blend in
+        z of the two bracketing source slices, each interpolated bilinearly in
+        (y, x). Only the output and two interpolated slices are held in memory.
+        Brackets follow RegularGridInterpolator, so NaN source regions remain
+        missing, including interpolation neighbours, exactly as in 3D.
         """
         if self.data.metadata.get("phase_state") != "unwrapped" or self.data.metadata["phase_unit"] != "rad":
             raise ValueError("declare phase_state='unwrapped' before interpolating phase")
@@ -79,17 +86,27 @@ class VolumeReconstructor:
         if np.prod(counts, dtype=object) > max_voxels:
             raise ValueError("requested volume exceeds max_voxels; increase spacing or budget")
         coords = [v[0] + np.arange(n)*spacing for v, n in zip(source, counts)]
-        yy, xx = np.meshgrid(coords[1], coords[2], indexing="ij")
+        points = np.stack(np.meshgrid(coords[1], coords[2], indexing="ij"), axis=-1)
+        # Same bracket choice as RegularGridInterpolator: interval [i, i+1] with
+        # i = searchsorted(z, zo) - 1, clipped to the valid range.
+        upper = np.clip(np.searchsorted(self.z, coords[0], side="left"), 1, nz - 1)
+        lower = upper - 1
+        weight = (coords[0] - self.z[lower]) / (self.z[upper] - self.z[lower])
         outputs = []
         for values in (self.data.amplitude, self.data.phase):
-            interpolator = RegularGridInterpolator(source, values, method="linear", bounds_error=False, fill_value=np.nan)
+            planes = {}
             out = np.empty(counts, dtype=np.float32)
-            for k, z in enumerate(coords[0]):
-                points = np.stack((np.full_like(yy, z), yy, xx), axis=-1)
-                out[k] = interpolator(points)
+            for k in range(counts[0]):
+                for i in (lower[k], upper[k]):
+                    if i not in planes:
+                        planes[i] = RegularGridInterpolator(source[1:], values[i], method="linear",
+                                                            bounds_error=False, fill_value=np.nan)(points)
+                for i in [i for i in planes if i < lower[k]]:
+                    del planes[i]
+                out[k] = planes[lower[k]] * (1 - weight[k]) + planes[upper[k]] * weight[k]
             outputs.append(out)
         meta = dict(self.data.metadata, resampling="trilinear physical-coordinate interpolation", output_spacing=spacing)
-        return VolumeReconstructor(ImagingData(*outputs, meta), spacing_xy=(spacing, spacing), z_coordinates=coords[0], origin_xy=(self.ox, self.oy), spatial_unit=self.spatial_unit)
+        return VolumeReconstructor(ImagingData._wrap(*outputs, meta), spacing_xy=(spacing, spacing), z_coordinates=coords[0], origin_xy=(self.ox, self.oy), spatial_unit=self.spatial_unit)
 
     def get_orthoslice(self, axis, index, channel="amplitude"):
         axes = {"xy": 0, "xz": 1, "yz": 2}
@@ -102,34 +119,17 @@ class VolumeReconstructor:
 
     def export_nifti(self, path, channel="amplitude"):
         """Export xyz array with axis-aligned scanner coordinates; no anatomical claim."""
-        import nibabel as nib
         if channel not in {"amplitude", "phase"}:
             raise ValueError("channel must be amplitude or phase")
         if channel == "phase" and self.data.metadata["phase_unit"] != "rad":
             raise ValueError("phase export requires calibrated radians")
-        if self.spatial_unit not in {"mm", "micron", "meter"}:
-            raise ValueError("NIfTI needs an explicit supported physical unit")
         if len(self.z) < 2 or not np.allclose(np.diff(self.z), np.diff(self.z)[0], rtol=1e-5, atol=1e-8):
             raise ValueError("NIfTI requires uniform z spacing and at least two slices; resample first")
-        path = Path(path)
-        if not (str(path).endswith(".nii") or str(path).endswith(".nii.gz")):
-            raise ValueError("NIfTI path must end in .nii or .nii.gz")
-        affine = np.diag([self.dx, self.dy, float(self.z[1]-self.z[0]), 1.])
-        affine[:3, 3] = (self.ox, self.oy, self.z[0])
-        arr = getattr(self.data, channel).transpose(2, 1, 0)
-        image = nib.Nifti1Image(arr, affine)
-        image.header.set_xyzt_units(self.spatial_unit)
-        image.set_qform(affine, code=1)
-        image.set_sform(affine, code=1)
-        image.header["descrip"] = f"LFI {channel}; axis-aligned scanner grid; phase radians"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        nib.save(image, path)
-        path.with_name(path.name + ".json").write_text(json.dumps({
-            "channel": channel, "array_order": "xyz", "spatial_unit": self.spatial_unit,
-            "affine": affine.tolist(), "metadata": self.data.metadata,
-            "orientation": "axis-aligned scanner coordinates; not anatomical registration"
-        }, indent=2, default=lambda x: x.tolist() if isinstance(x, np.ndarray) else str(x)), encoding="utf-8")
-        return path
+        return write_nifti(path, getattr(self.data, channel),
+                           spacing_xyz=(self.dx, self.dy, float(self.z[1]-self.z[0])),
+                           origin_xyz=(self.ox, self.oy, float(self.z[0])), spatial_unit=self.spatial_unit,
+                           description=f"LFI {channel}; axis-aligned scanner grid; phase radians",
+                           sidecar={"channel": channel, "metadata": self.data.metadata})
 
     def view_napari(self):
         """Optional viewer; caller owns event loop (napari.run())."""
@@ -145,3 +145,27 @@ class VolumeReconstructor:
         for name in ("amplitude", "phase"):
             viewer.add_image(getattr(self.data, name), name=name, scale=scale, translate=translate, colormap="inferno" if name == "amplitude" else "viridis", visible=name == "amplitude")
         return viewer
+
+
+def write_nifti(path, array_zyx, *, spacing_xyz, origin_xyz, spatial_unit, description, sidecar):
+    """Write a (z, y, x) array as an xyz NIfTI with qform = sform and a JSON sidecar."""
+    import nibabel as nib
+    if spatial_unit not in {"mm", "micron", "meter"}:
+        raise ValueError("NIfTI needs an explicit supported physical unit")
+    path = Path(path)
+    if not (str(path).endswith(".nii") or str(path).endswith(".nii.gz")):
+        raise ValueError("NIfTI path must end in .nii or .nii.gz")
+    affine = np.diag([*map(float, spacing_xyz), 1.])
+    affine[:3, 3] = origin_xyz
+    image = nib.Nifti1Image(np.asarray(array_zyx).transpose(2, 1, 0), affine)
+    image.header.set_xyzt_units(spatial_unit)
+    image.set_qform(affine, code=1)
+    image.set_sform(affine, code=1)
+    image.header["descrip"] = description[:79]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    nib.save(image, path)
+    path.with_name(path.name + ".json").write_text(json.dumps({
+        **sidecar, "array_order": "xyz", "spatial_unit": spatial_unit, "affine": affine.tolist(),
+        "orientation": "axis-aligned scanner coordinates; not anatomical registration"
+    }, indent=2, default=lambda x: x.tolist() if isinstance(x, np.ndarray) else str(x)), encoding="utf-8")
+    return path

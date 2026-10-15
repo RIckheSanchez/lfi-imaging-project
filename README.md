@@ -155,18 +155,30 @@ the desktop backend pipeline.
 volumes: amplitude/phase display with explicit phase units, HSL fusion,
 physical-coordinate and depth-only resampling, NIfTI export, a reader for the
 Part 2 handoff, and a handoff check that writes a self-contained HTML report.
-It is not yet wired into the desktop backend. Details, API and validation:
-[docs/part3_rebuild.md](docs/part3_rebuild.md).
+Details, API and validation: [docs/part3_rebuild.md](docs/part3_rebuild.md);
+demo steps: [docs/demo_part3.md](docs/demo_part3.md).
+
+In the desktop viewer, `DepthReconstructor` (`part3_reconstruction/gui_backend.py`)
+implements the reconstructor protocol: it places each slice at its beam-focus
+depth and resamples the stack onto a uniform depth grid for the 3D view. Launch
+the viewer with it registered:
 
 ```sh
-python -m pip install scipy scikit-image nibabel h5py matplotlib pytest
-python -m pytest -q tests/test_imaging.py tests/test_volume.py tests/test_handoff.py \r
-    tests/test_sequence.py tests/test_audit.py tests/test_benchmark.py tests/test_integration.py
-python -m part3_reconstruction --help
+python -m part3_reconstruction.viewer <scan.hdf5 | folder of frame-*.hdf5 | Part 2 volume .npz>
+python -m part3_reconstruction.viewer data/vegetables --vegetables-2026
+```
+
+`part3_reconstruction.pipeline.run_part1_to_part3(path)` runs Part 1 loading and
+Part 2 pre-processing in memory and returns a Part 3 image.
+
+```sh
+python -m pip install -r requirements.txt -r requirements-dev.txt
+python -m pytest -q tests/test_imaging.py tests/test_volume.py tests/test_handoff.py tests/test_pipeline.py tests/test_gui_backend.py tests/test_gui_backend_qt.py tests/test_sequence.py tests/test_audit.py tests/test_benchmark.py tests/test_integration.py tests/test_shared_types.py
 python -m part3_reconstruction handoff <handoff folder> --output outputs/handoff --raw <raw HDF5 folder>
 ```
 
-Exact versions used for the reported results are in
+Optional: `napari` and `SimpleITK` enable `--napari` and the NIfTI check behind
+`--nominal-pixel-mm`. Exact versions used for the reported results are in
 `requirements-part3-tested.txt`.
 
 ## Team responsibilities

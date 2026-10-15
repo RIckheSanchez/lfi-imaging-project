@@ -32,6 +32,10 @@ FIGURES = {
     "sections": ("handoff_veg_depth_sections.png",
                  "Vegetables stack after depth-only resampling to a uniform z grid: XY plane at the "
                  "strongest slice and XZ/YZ sections. Lateral axes in pixels."),
+    "napari": ("handoff_napari_3d.png",
+               "napari 3D rendering (maximum intensity projection) of the depth-resampled Vegetables "
+               "amplitude, downsampled 4x laterally; z is the focus depth in mm and, with a nominal pixel "
+               "size, x and y are in nominal mm so the depth extent is to scale."),
     "profile": ("handoff_veg_depth_profile.png",
                 "Mean raw amplitude of each Vegetables slice against its focus position "
                 "(30.05 mm at frame 20, 0.1 mm deeper per frame)."),
@@ -213,6 +217,29 @@ Command: <code>{_e(' '.join(sys.argv) or 'python -m part3_reconstruction handoff
                  f"{depth['output_megabytes']:.0f} MB, {depth['resample_seconds']:.2f} s. {_e(depth['note'])}.</p>")
     for key in ("sections", "profile"):
         parts.append(_figure(out, key, n)); n += 1
+    nifti = depth.get("nifti")
+    if nifti:
+        sitk = nifti.get("simpleitk")
+        parts.append("<h3>NIfTI export with a nominal lateral spacing</h3>"
+                     f"<p><code>{_e(nifti['file'])}</code>: lateral spacing {nifti['nominal_pixel_mm']:g} mm per pixel "
+                     "width is a nominal estimate (the ~5 cm window over its width in pixels), not a calibration; "
+                     "z is the beam focus position.</p>")
+        if isinstance(sitk, dict):
+            ok = lambda flag: '<span class="ok">yes</span>' if flag else '<span class="warn">no</span>'
+            parts.append(f"<p>Read back with SimpleITK {_e(sitk['version'])} (the ITK library used by ITK-SNAP):</p>"
+                         + _table(["Check", "Expected", "Read back", "Match"], [
+                             ["Size x, y, z", _e(nifti["expected"]["size_xyz"]), _e(sitk["size_xyz"]), ok(sitk["size_matches"])],
+                             ["Spacing (mm)", _e([round(v, 5) for v in nifti["expected"]["spacing_xyz_mm"]]),
+                              _e([round(v, 5) for v in sitk["spacing_xyz_mm"]]), ok(sitk["spacing_matches"])],
+                             ["Origin (mm)", _e(nifti["expected"]["origin_xyz_mm"]), _e([round(v, 5) for v in sitk["origin_xyz_mm"]]),
+                              ok(sitk["origin_matches"])],
+                             ["Direction", "axis-aligned", _e([round(v, 3) for v in sitk["direction"]]), ok(sitk["direction_axis_aligned"])],
+                             ["Middle slice values", "equal to the volume", "", ok(sitk["middle_slice_equal"])]]))
+        else:
+            parts.append(f"<p class=\"warn\">{_e(sitk)}</p>")
+    napari = depth.get("napari")
+    if napari and napari.get("file"):
+        parts.append(_figure(out, "napari", n)); n += 1
     parts.append(_table(["Frame", "z (mm)", "Mean raw amplitude", "Signal fraction", "Stripe index (corrected)"],
                         [[p["frame_id"], f"{p['z_mm']:.2f}", f"{p['raw_mean']:.1f}", f"{p['signal_fraction']:.3f}",
                           f"{p['stripe_index_corrected']:.4f}"] for p in depth["profile"]], numeric=(0, 1, 2, 3, 4)))

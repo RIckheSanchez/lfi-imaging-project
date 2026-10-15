@@ -84,20 +84,24 @@ be interpreted as a common quantitative scale.
   areas become NaN, and shifts are recorded. This assumes common structure and
   must not automatically register unrelated depth-dependent features. Rotation,
   deformation, and masked registration are not implemented.
-- Resampling uses SciPy `RegularGridInterpolator` with trilinear interpolation
-  instead of `ndimage.zoom`, because explicit coordinates also support irregular
-  depth sampling. It requires calibrated, unwrapped phase. It preserves the first
+- Resampling is trilinear interpolation on physical coordinates instead of
+  `ndimage.zoom`, because explicit coordinates also support irregular depth
+  sampling. It requires calibrated, unwrapped phase. It preserves the first
   voxel centre and uses only output centres inside the measured bounds; at most
   one output spacing is omitted at the upper edge. NaNs propagate locally.
-- A voxel-count limit is checked before output allocation; interpolation runs
-  one plane at a time. Inputs and output arrays still reside in memory. This is
-  not a whole-130-GB streaming reconstruction implementation.
+- Since 14 October it runs plane by plane: each output plane blends the two
+  bracketing source slices, each interpolated bilinearly with SciPy
+  `RegularGridInterpolator` (trilinear interpolation is separable). Results are
+  bit-identical to the earlier whole-volume interpolator, with about one third
+  of the memory (see the update below). Inputs and output still reside in
+  memory; this is not a streaming reconstruction of 130 GB acquisitions.
 - NIfTI export transposes zyx to xyz and writes both qform and sform, origin,
   spacing and units. Coordinates describe an axis-aligned scanner grid, with no
   claim of patient/anatomical registration. Irregular z must first be resampled.
-- Optional `view_napari()` is provided via a lazy import. Install `napari[all]`
-  separately and call `napari.run()` in a standalone script. It has not been
-  interactively validated in this environment and is not required by core tests.
+- Optional `view_napari()` is provided via a lazy import (install `napari`).
+  `handoff --napari` renders the Vegetables volume in napari 0.9.2 and saves a
+  screenshot; on Windows the viewer window must be shown, a hidden canvas
+  renders black. napari is not required by the core tests.
 
 ## Team integration changes
 
@@ -108,7 +112,9 @@ VolumeReconstructor. `reconstruct_image()` now returns a comparison Figure;
 `reconstruct_3d()` returns a VolumeReconstructor. This is an explicit migration,
 not backwards-compatible behaviour for old ReconstructedImage consumers.
 The old shared dataclasses and teammates' placeholder modules remain untouched.
-The full Part 1 -> Part 2 -> Part 3 -> Part 4 pipeline is not yet integrated.
+Since 14 October, `pipeline.run_part1_to_part3()` chains Part 1 loading and
+Part 2 pre-processing in memory, and `gui_backend.DepthReconstructor` runs inside
+the Part 4 desktop viewer (see the update below and `docs/gui_integration.md`).
 
 ## Validation and real-data status
 
@@ -139,14 +145,19 @@ Important observations:
   are 2689 (left) and 2698 (right), with phase from -8192 to 8191. These observations
   flag acquisition differences; they do not establish sensor faults or units.
 - The experiment note says z starts at 30.05 mm, stops at 44.67 mm, increment
-  0.1 mm, and vegetables may dry during the open-air experiment. The endpoint
-  difference is not an integer multiple of the given step, so a per-frame
-  coordinate mapping must be confirmed rather than invented.
-- Radian scale/offset, lateral physical spacing, left/right orientation, valid
-  frame selection and the relationship between stage z and reconstructed depth
-  remain unconfirmed. No real-data NIfTI or physical-depth claim is produced yet.
-- Literature figure comparisons and ITK-SNAP visual verification remain pending;
-  NIfTI export has been verified by nibabel roundtrip tests.
+  0.1 mm, and vegetables may dry during the open-air experiment. The acquisition
+  team confirmed (13 October) that z is the beam focus position, frame 20 is the
+  first frame at 30.05 mm and each later frame is 0.1 mm deeper. Frames 20-155
+  are on the data store, ending at 43.55 mm.
+- The scan-mirror settings in `thz/info/mcp` (columnStep 26, rowStepSize 43)
+  reproduce the stored frame ratio 1.96512 exactly; a mirror step's length is not
+  recorded. The ~5 cm window spans about 756 pixels in the Skin scan, giving a
+  nominal 0.066 mm per pixel width, used only where a physical unit is required.
+- Radian scale confirmation, left/right orientation and the Skin scan's raster
+  remain unconfirmed. Depth stacks are a focal series, not internal tomography.
+- NIfTI export is verified by nibabel roundtrip tests and, for the Vegetables
+  volume, by reading it back with SimpleITK (the ITK library used by ITK-SNAP).
+  Literature figure comparisons remain qualitative.
 
 Research data stay local and Git-ignored. No files were uploaded to GitHub.
 
@@ -172,3 +183,34 @@ Resampling peaks at roughly 8× the float32 output volume, so very large scans
 will need chunked interpolation. NIfTI export time is dominated by gzip and by
 disk I/O (written to a Windows-mounted folder), so it varies between runs.
 Raw results: `outputs/benchmark/benchmark.json`.
+
+## Update 2026-10-14: viewer integration, Part 1-2-3 pipeline, performance
+
+- `gui_backend.DepthReconstructor` plugs into the desktop viewer's reconstructor
+  slot; `python -m part3_reconstruction.viewer` launches the viewer with it and
+  can open a folder of frames or the Part 2 volume NPZ. On the 21-slice
+  Vegetables volume the 3D view goes from 21 irregular slices to 120 slices at
+  0.1 mm focus depth (`outputs/viewer_screens/`, not in Git).
+- `pipeline.run_part1_to_part3()` and `slice_from_part2()` read Part 2's
+  in-memory `spatial_products`; tested end to end on the real `frame-21.hdf5`.
+- `handoff --nominal-pixel-mm 0.066` writes the depth volume as NIfTI and checks
+  size, spacing, origin, direction and voxel values with SimpleITK 2.5.6 (all
+  match). `--napari` saves a napari 3D screenshot.
+- Plane-wise resampling and fewer internal copies (`ImagingData._wrap`).
+- `shared.data_types.raw_to_dict` now uses the dataclass fields (it referenced
+  `signal` and `z_depth`, which do not exist).
+- Part 1 issues found (to be raised with the Part 1 owner): `parse_experiment_details`
+  does not match `start z position (mm)` / `imcrements (mm)`, and without a
+  first-frame entry the depth reference is the smallest frame id in the batch.
+- Tests: 80 Part 3 tests pass (Windows, Python 3.13.11, NumPy 2.5.3).
+
+### Resampling benchmark (same laptop and session, resample to 1 mm from 2 mm slices)
+
+| Input (z, y, x) | Output | Before: time / peak traced | After: time / peak traced |
+|---|---|---|---|
+| 20 x 256 x 256 | 39 x 256 x 256 | 0.85 s / 85 MB | 0.27 s / 28 MB |
+| 40 x 400 x 400 | 79 x 400 x 400 | 5.72 s / 416 MB | 1.62 s / 117 MB |
+| 21 x 400 x 1300 | 41 x 400 x 1300 | 10.20 s / 711 MB | 2.85 s / 229 MB |
+
+Outputs are bit-identical before and after. Peak traced memory is a tracemalloc
+lower bound on process memory; the input volume is excluded.

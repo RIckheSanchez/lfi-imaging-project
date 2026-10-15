@@ -1,5 +1,34 @@
 # Part 3 → Part 4 GUI integration (for Vincent)
 
+## Desktop viewer (PySide6, current)
+
+`part3_reconstruction.gui_backend.DepthReconstructor` implements the
+`Reconstructor` protocol in `part4_ui/lfi_core/backend.py`. It places each slice
+at its beam-focus depth and resamples the amplitude onto a uniform depth grid;
+phase is taken from the nearest measured slice (wrapped phase is never
+interpolated). The returned `LFIRawData` has `z_indices` in mm and
+`metadata["depth_mm"]`, plus `metadata["part3_reconstruction"]` describing the
+source slices. It imports no Qt and is tested in `tests/test_gui_backend.py`;
+`tests/test_gui_backend_qt.py` runs it inside `MainWindow`.
+
+```python
+from part4_ui.lfi_core.backend import register_reconstructor
+from part3_reconstruction.gui_backend import DepthReconstructor, VEGETABLES_2026
+register_reconstructor(DepthReconstructor(), {"output_spacing_mm": 0.1, **VEGETABLES_2026})
+```
+
+Depth comes from the parameters `z_start_mm`, `z_step_mm`, `first_frame_id`
+(given together) or else from `metadata["depth_mm"]`. Part 1 currently does not
+parse the 2026 Vegetables `experiment_details.txt` keys (`start z position (mm)`,
+`imcrements (mm)`), so pass `VEGETABLES_2026` for that dataset.
+
+`python -m part3_reconstruction.viewer <path>` starts the viewer with the
+reconstructor registered and lets it open a folder of `frame-*.hdf5` files
+(Part 1 `load_volume`) or the Part 2 stacked volume `.npz`, by extending the
+loader in that process only. The viewer code is unchanged.
+
+## Legacy Streamlit viewer
+
 `part3_reconstruction.integration` gives the Streamlit viewer plain NumPy
 arrays, PNG bytes and small info dicts. It does not import Streamlit, so it is
 unit-tested without a browser (`tests/test_integration.py`).

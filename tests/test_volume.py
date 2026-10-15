@@ -74,3 +74,18 @@ def test_resampled_slice_geometry_and_index():
     assert v.data.metadata["z_coordinates"] == v.z.tolist()
     with pytest.raises(ValueError): v.get_orthoslice("xy", -1)
     with pytest.raises(ValueError): v.get_orthoslice("xy", len(v.z))
+
+
+def test_planewise_resampling_matches_3d_trilinear_reference():
+    from scipy.interpolate import RegularGridInterpolator
+    rng = np.random.default_rng(7)
+    z = np.array([4.0, 0.0, 1.0, 2.5])                       # irregular and unsorted
+    a = rng.standard_normal((4, 9, 11)); a[rng.random(a.shape) < .05] = np.nan
+    data = ImagingData(a, rng.standard_normal((4, 9, 11)), {"phase_state": "unwrapped"})
+    v = VolumeReconstructor(data, spacing_xy=(.7, .4), z_coordinates=z, origin_xy=(1, -2)).resample_isotropic(.3)
+    order = np.argsort(z)
+    ref = RegularGridInterpolator((z[order], -2 + np.arange(9) * .4, 1 + np.arange(11) * .7), a[order],
+                                  bounds_error=False, fill_value=np.nan)
+    zz, yy, xx = np.meshgrid(v.z, -2 + np.arange(v.data.amplitude.shape[1]) * .3,
+                             1 + np.arange(v.data.amplitude.shape[2]) * .3, indexing="ij")
+    np.testing.assert_allclose(v.data.amplitude, ref(np.stack((zz, yy, xx), -1)), rtol=1e-6, atol=1e-6, equal_nan=True)
