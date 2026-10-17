@@ -218,6 +218,26 @@ class MainWindow(QtWidgets.QMainWindow):
         self.pixel_label = QtWidgets.QLabel()
         pixel_layout = QtWidgets.QVBoxLayout(self.pixel_group)
         pixel_layout.addWidget(self.pixel_label)
+        coords = QtWidgets.QFormLayout()
+        self.pixel_x = QtWidgets.QSpinBox()
+        self.pixel_y = QtWidgets.QSpinBox()
+        for label, spin in [('X', self.pixel_x), ('Y', self.pixel_y)]:
+            spin.setRange(0, 0)
+            coords.addRow(label, spin)
+        pixel_layout.addLayout(coords)
+        self.pixel_x.valueChanged.connect(lambda x: self.select_pixel(x, self.selected_pixel[1]))
+        self.pixel_y.valueChanged.connect(lambda y: self.select_pixel(self.selected_pixel[0], y))
+        self.show_waveform = QtWidgets.QPushButton()
+        self.show_waveform.clicked.connect(lambda: self.tabs.setCurrentIndex(2))
+        pixel_layout.addWidget(self.show_waveform)
+        self.pixel_shortcuts = []
+        for key, dx, dy in [('Left', -1, 0), ('Right', 1, 0), ('Up', 0, -1), ('Down', 0, 1)]:
+            shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), self.plot_host)
+            shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(lambda dx=dx, dy=dy: self.select_pixel(
+                self.selected_pixel[0] + dx, self.selected_pixel[1] + dy))
+            self.pixel_shortcuts.append(shortcut)
+        self.plot_host.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
         self.histogram = pg.PlotWidget()
         self.histogram.setMinimumHeight(200)
         self.histogram_curve = self.histogram.plot(pen=pg.mkPen('#5bb8eb', width=2), fillLevel=0, brush=(91,184,235,60))
@@ -236,6 +256,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.colormap.currentIndexChanged.connect(self.invalidate_volume)
         self.waveform_tab = QtWidgets.QWidget()
         wave_layout = QtWidgets.QVBoxLayout(self.waveform_tab)
+        self.waveform_pixel = QtWidgets.QLabel()
+        wave_layout.addWidget(self.waveform_pixel)
         self.amplitude_plot = pg.PlotWidget()
         self.phase_plot = pg.PlotWidget()
         wave_layout.addWidget(self.amplitude_plot)
@@ -243,6 +265,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs.addTab(self.slice_tab, '')
         self.tabs.addTab(self.volume_panel, '')
         self.tabs.addTab(self.waveform_tab, '')
+        for key, dx, dy in [('Left', -1, 0), ('Right', 1, 0), ('Up', 0, -1), ('Down', 0, 1)]:
+            shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), self.waveform_tab)
+            shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(lambda dx=dx, dy=dy: self.select_pixel(
+                self.selected_pixel[0] + dx, self.selected_pixel[1] + dy))
+            self.pixel_shortcuts.append(shortcut)
+        self.waveform_tab.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
         self.channel.currentIndexChanged.connect(self.request_slice)
         self.brightness.valueChanged.connect(self.request_slice)
         self.contrast.valueChanged.connect(self.request_slice)
@@ -291,6 +320,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.parameter_label.setText(self.tr_text('parameters'))
         self.scan_group.setTitle(self.tr_text('scan_info'))
         self.pixel_group.setTitle(self.tr_text('pixel_info'))
+        self.show_waveform.setText(self.tr_text('show_waveform'))
         for index, key in enumerate(('slice', 'volume', 'waveform')):
             self.tabs.setTabText(index, self.tr_text(key))
         self.volume_panel.set_language(language)
@@ -603,6 +633,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.z_label.setText(f"{self.tr_text('z')}: {data.z_indices[self.z_slider.value()]}")
         if self.raw_slice is not None:
             x, y = self.selected_pixel
+            self.waveform_pixel.setText(self.tr_text('waveform_pixel').format(x=x, y=y))
             label = self.phase_label() if self.channel.currentIndex() else self.amplitude_label()
             self.pixel_label.setText(f"X: {x}   Y: {y}\n{label}\n{self.value_label()}: {self.pixel_value_text(self.raw_slice[y, x])}")
 
@@ -627,14 +658,21 @@ class MainWindow(QtWidgets.QMainWindow):
         pixel = self._pixel_at(event.scenePos())
         if pixel is not None:
             event.accept()
+            self.plot_host.setFocus()
             self.select_pixel(*pixel)
 
-    def select_pixel(self, x, y, switch_tab=True):
+    def select_pixel(self, x, y, switch_tab=False):
         if self.raw_slice is None:
             return
         x = max(0, min(int(x), self.data.width - 1))
         y = max(0, min(int(y), self.data.height - 1))
         self.selected_pixel = (x, y)
+        with QtCore.QSignalBlocker(self.pixel_x), QtCore.QSignalBlocker(self.pixel_y):
+            self.pixel_x.setRange(0, self.data.width - 1)
+            self.pixel_y.setRange(0, self.data.height - 1)
+            self.pixel_x.setValue(x)
+            self.pixel_y.setValue(y)
+        self.waveform_pixel.setText(self.tr_text('waveform_pixel').format(x=x, y=y))
         self.cross_x.setPos(x + .5)
         self.cross_y.setPos(y + .5)
         self.cross_x.show()

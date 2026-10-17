@@ -102,6 +102,8 @@ def test_hover_click_waveform_and_language(qtbot, window):
     position = window.image_plot.mapFromScene(scene_point)
     qtbot.mouseClick(window.image_plot.viewport(), QtCore.Qt.MouseButton.LeftButton, pos=position)
     assert window.selected_pixel == (x, y)
+    assert window.tabs.currentIndex() == 0
+    qtbot.mouseClick(window.show_waveform, QtCore.Qt.MouseButton.LeftButton)
     assert window.tabs.currentIndex() == 2
     assert window.cross_x.value() == x + .5
     assert window.cross_y.value() == y + .5
@@ -472,3 +474,33 @@ def test_phase_labels_and_publication_metadata(qtbot, window, tmp_path, monkeypa
     assert window.histogram.getAxis('bottom').labelText == cn_label
     assert window.colorbar.axis.labelText == cn_label
     assert cn_label in window.pixel_label.text()
+
+
+def test_pixel_coordinates_and_keyboard(qtbot, window):
+    load_mushroom(qtbot, window)
+    window.pixel_x.setValue(3)
+    window.pixel_y.setValue(4)
+    assert window.selected_pixel == (3, 4)
+    assert window.cross_x.value() == 3.5
+    assert window.waveform_pixel.text() == 'Pixel X = 3, Y = 4'
+    assert np.array_equal(window.phase_plot.listDataItems()[0].yData, window.data.phase[:, 4, 3])
+    assert window.pixel_x.maximum() == window.data.width - 1
+    assert window.pixel_y.maximum() == window.data.height - 1
+    window.plot_host.setFocus()
+    qtbot.keyClick(window.plot_host, QtCore.Qt.Key.Key_Right)
+    assert window.selected_pixel == (4, 4)
+    qtbot.keyClick(window.plot_host, QtCore.Qt.Key.Key_Down)
+    assert window.selected_pixel == (4, 5)
+    qtbot.keyClick(window.plot_host, QtCore.Qt.Key.Key_Up)
+    assert window.selected_pixel == (4, 4)
+    window.tabs.setCurrentIndex(2)
+    window.waveform_tab.setFocus()
+    qtbot.keyClick(window.waveform_tab, QtCore.Qt.Key.Key_Left)
+    assert window.selected_pixel == (3, 4)
+    window.set_language('CN')
+    assert window.waveform_pixel.text() == '像素 X = 3, Y = 4'
+    window.tabs.setCurrentIndex(0)
+    window.plot_host.setFocus()
+    window.select_pixel(0, 0)
+    qtbot.keyClick(window.plot_host, QtCore.Qt.Key.Key_Left)
+    assert window.selected_pixel == (0, 0)

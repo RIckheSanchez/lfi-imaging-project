@@ -1,5 +1,7 @@
 """English and Chinese desktop UI text."""
 STRINGS = {
+    'waveform_pixel': ('Pixel X = {x}, Y = {y}', '像素 X = {x}, Y = {y}'),
+    'show_waveform': ('Show waveform', '查看波形'),
     'processed_value': ('Processed value', '预处理后的值'),
     'no_finite_values': ('Channel has no finite values.', '该通道没有有效数值。'),
     'reconstruction_depth_needed': ('Reconstruction needs slice depth calibration (depth_mm).', '重建需要层深度标定（depth_mm）。'),
