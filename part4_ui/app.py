@@ -149,8 +149,16 @@ class MainWindow(QtWidgets.QMainWindow):
         z_layout = QtWidgets.QVBoxLayout(z_widget)
         z_layout.setContentsMargins(0, 0, 0, 0)
         z_layout.addWidget(self.z_slider)
+        self.slice_index_label = QtWidgets.QLabel()
+        z_layout.addWidget(self.slice_index_label)
         z_layout.addWidget(self.z_spin)
+        self.z_value_label = QtWidgets.QLabel()
+        self.z_values = QtWidgets.QComboBox()
+        z_layout.addWidget(self.z_value_label)
+        z_layout.addWidget(self.z_values)
+        self.z_values.currentIndexChanged.connect(self.z_slider.setValue)
         self.z_label = QtWidgets.QLabel()
+        self.z_label.setWordWrap(True)
         z_layout.addWidget(self.z_label)
         self.pixel_size = QtWidgets.QDoubleSpinBox()
         self.pixel_size.setDecimals(6)
@@ -315,6 +323,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.channel.setItemText(0, self.tr_text('amplitude'))
         self.channel.setItemText(1, self.tr_text('phase'))
         self.scale_hint.setText(self.tr_text('scale_hint'))
+        self.slice_index_label.setText(self.tr_text('slice_index'))
+        self.z_value_label.setText(self.tr_text('z_value'))
         self.pre_group.setTitle(self.tr_text('preprocessing'))
         self.apply_preprocessing.setText(self.tr_text('apply'))
         self.parameter_label.setText(self.tr_text('parameters'))
@@ -466,6 +476,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.update_recent()
                 self.export_action.setEnabled(True)
                 self.volume_panel.set_data_available(self.data.n_slices > 1)
+                self.sync_z_values()
                 self.update_info()
                 self.statusBar().showMessage(self.loaded_status())
                 self.request_slice()
@@ -490,6 +501,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                         maxXRange=self.data.width*1.04, maxYRange=self.data.height*1.04)
                     self.fit_next_slice = True
                 self.volume_panel.set_data_available(self.data.n_slices > 1)
+                self.sync_z_values()
                 self.update_info()
                 self.request_slice()
             elif kind == 'slice' and token == self.slice_token:
@@ -545,9 +557,18 @@ class MainWindow(QtWidgets.QMainWindow):
             if self.data is not None:
                 self.statusBar().showMessage(self.loaded_status())
 
+    def sync_z_values(self):
+        with QtCore.QSignalBlocker(self.z_values):
+            self.z_values.clear()
+            self.z_values.addItems([str(z) for z in self.data.z_indices])
+            self.z_values.setCurrentIndex(self.z_slider.value())
+
     def _z_changed(self, index):
         with QtCore.QSignalBlocker(self.z_spin):
             self.z_spin.setValue(index)
+        with QtCore.QSignalBlocker(self.z_values):
+            self.z_values.setCurrentIndex(index)
+        self.update_info()
         self.request_slice()
 
     def request_slice(self, *args):
@@ -630,7 +651,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.amplitude_plot.setLabel('left', self.amplitude_label())
         self.channel.setItemText(0, self.tr_text('amplitude'))
         self.channel.setToolTip(self.amplitude_label())
-        self.z_label.setText(f"{self.tr_text('z')}: {data.z_indices[self.z_slider.value()]}")
+        self.z_label.setText(self.tr_text('slice_position').format(number=self.z_slider.value()+1, total=data.n_slices, z=data.z_indices[self.z_slider.value()]))
         if self.raw_slice is not None:
             x, y = self.selected_pixel
             self.waveform_pixel.setText(self.tr_text('waveform_pixel').format(x=x, y=y))

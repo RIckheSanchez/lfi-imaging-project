@@ -1,6 +1,9 @@
 """English and Chinese desktop UI text."""
 STRINGS = {
     'waveform_pixel': ('Pixel X = {x}, Y = {y}', '像素 X = {x}, Y = {y}'),
+    'slice_index': ('Slice index', '切片索引'),
+    'z_value': ('Z value', 'Z 值'),
+    'slice_position': ('Slice {number} of {total} · Z = {z}', '第 {number} / {total} 张切片 · Z = {z}'),
     'show_waveform': ('Show waveform', '查看波形'),
     'processed_value': ('Processed value', '预处理后的值'),
     'no_finite_values': ('Channel has no finite values.', '该通道没有有效数值。'),
@@ -39,7 +42,7 @@ STRINGS = {
     'channel': ('Channel', '通道'), 'amplitude': ('Amplitude', '振幅'),
     'phase': ('Phase', '相位'), 'brightness': ('Brightness', '亮度'),
     'contrast': ('Contrast', '对比度'), 'colormap': ('Colormap', '色彩映射'),
-    'z': ('Z Depth', 'Z 深度'), 'pixel_size': ('Pixel size (μm)', '像素尺寸（μm）'),
+    'z': ('Slices', '切片'), 'pixel_size': ('Pixel size (μm)', '像素尺寸（μm）'),
     'scale_hint': ('Set a positive pixel size to show a scale bar.', '请输入大于 0 的像素尺寸以显示比例尺。'),
     'preprocessing': ('Pre-processing', '预处理'),
     'apply': ('Apply pre-processing', '应用预处理'),
@@ -53,7 +56,7 @@ STRINGS = {
     'filename': ('File', '文件'), 'raw': ('Raw value', '原始值'),
     'x': ('X (pixels)', 'X（像素）'), 'y': ('Y (pixels)', 'Y（像素）'),
     'intensity': ('Intensity', '强度'), 'count': ('Count', '计数'),
-    'z_index': ('Z index', 'Z 层编号'), 'phase_rad': ('Phase (rad)', '相位（rad）'),
+    'z_index': ('Z value', 'Z 值'), 'phase_rad': ('Phase (rad)', '相位（rad）'),
     'ready': ('Open or drop an HDF5 scan to begin.', '打开或拖入 HDF5 文件开始。'),
     'busy': ('Working…', '正在处理…'), 'error': ('Unable to complete operation', '操作失败'),
     'load_error': ('Could not load the file', '无法加载文件'),

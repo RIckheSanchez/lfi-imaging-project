@@ -504,3 +504,28 @@ def test_pixel_coordinates_and_keyboard(qtbot, window):
     window.select_pixel(0, 0)
     qtbot.keyClick(window.plot_host, QtCore.Qt.Key.Key_Left)
     assert window.selected_pixel == (0, 0)
+
+
+def test_slice_index_z_value_linkage(qtbot, window, tmp_path):
+    path = tmp_path/'slices.hdf5'
+    with h5py.File(path, 'w') as f:
+        for z in [530, 540, 560, 600]:
+            f[f'amplitude/{z}'] = np.arange(30).reshape(5, 6) + z
+            f[f'phase/{z}'] = np.ones((5, 6))
+    window.open_file(str(path))
+    wait_ready(qtbot, window)
+    assert window.z_values.count() == window.data.n_slices
+    for control in (window.z_spin, window.z_slider, window.z_values):
+        if control is window.z_values:
+            control.setCurrentIndex(3)
+        else:
+            control.setValue(2 if control is window.z_slider else 1)
+        wait_ready(qtbot, window)
+        index = window.z_slider.value()
+        assert window.z_spin.value() == window.z_values.currentIndex() == index
+        assert window.z_values.currentText() == str(window.data.z_indices[index])
+        assert window.z_label.text() == f'Slice {index+1} of {window.data.n_slices} · Z = {window.data.z_indices[index]}'
+    window.set_language('CN')
+    assert window.slice_index_label.text() == '切片索引'
+    assert window.z_value_label.text() == 'Z 值'
+    assert window.z_label.wordWrap()
