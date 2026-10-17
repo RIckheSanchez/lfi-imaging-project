@@ -268,3 +268,21 @@ def test_developer_parameters_visibility_and_worker_defaults(qtbot,tmp_path,monk
         assert calls[-1][1]==({'edited':3} if enabled else {})
         window.close()
     finally:register_preprocessor(None)
+
+
+@pytest.mark.parametrize('phase_status,processed', [('disabled', False), ('withheld_unconfirmed_encoding', False), ('unwrapped', True), ('already_continuous', True)])
+def test_channel_provenance_for_noop_and_unwrapped(monkeypatch, phase_status, processed):
+    import part2_preprocess.pipeline as pipeline
+    raw = LFIRawData(np.ones((2, 3, 4)), np.zeros((2, 3, 4)), [0, 10], 'Unknown', 'scan')
+    metadata = {'config_resolved': {'normalisation': {'method': 'none'},
+                                  'noise_reduction': {'method': 'none'}},
+                'phase_unwrapping_status': {'status': phase_status},
+                'phase_encoding_status': 'confirmed' if processed else 'unconfirmed',
+                'phase_units': 'radians' if processed else 'raw_codes'}
+    monkeypatch.setattr(pipeline, 'preprocess_part1', lambda *args, **kwargs:
+                        SimpleNamespace(amplitude=raw.amplitude, phase=raw.phase, metadata=metadata))
+    result = Part2Preprocessor().preprocess(raw, {})
+    channels = result.metadata['ui_preprocessing']['channels']
+    assert channels['amplitude']['processed'] is False
+    assert channels['phase']['processed'] is processed
+    assert channels['phase']['encoding_confirmed'] is processed

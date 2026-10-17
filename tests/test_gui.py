@@ -529,3 +529,28 @@ def test_slice_index_z_value_linkage(qtbot, window, tmp_path):
     assert window.slice_index_label.text() == '切片索引'
     assert window.z_value_label.text() == 'Z 值'
     assert window.z_label.wordWrap()
+
+
+def test_channel_specific_preprocessing_status(qtbot, window):
+    from part4_ui.lfi_core.adapters.part2 import Part2Preprocessor
+    window.preprocessor = Part2Preprocessor()
+    load_mushroom(qtbot, window)
+    window.apply_preprocessing.setChecked(True)
+    wait_ready(qtbot, window)
+    status = window.preprocessing_status.text()
+    assert 'Amplitude: pre-processed · baseline · input units' in status
+    assert 'Phase: unchanged · encoding unconfirmed, not unwrapped' in status
+    assert window.value_label() == 'Processed value'
+    window.channel.setCurrentIndex(1)
+    wait_ready(qtbot, window)
+    assert window.value_label() == 'Raw value'
+    state = window.data.metadata['ui_preprocessing']
+    state['normalisation'] = 'zscore'
+    state['amplitude_units'] = 'dimensionless'
+    state['channels']['phase'].update(processed=True, encoding_confirmed=True, unwrapping_status='unwrapped')
+    window.update_info()
+    assert 'zscore · dimensionless' in window.preprocessing_status.text()
+    assert 'Phase: pre-processed · encoding confirmed, unwrapped' in window.preprocessing_status.text()
+    assert window.value_label() == 'Processed value'
+    window.set_language('CN')
+    assert '编码已确认' in window.preprocessing_status.text()

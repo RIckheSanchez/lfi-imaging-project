@@ -25,6 +25,19 @@ class Part2Preprocessor:
         metadata['ui_preprocessing'] = {'amplitude_product': product,
                                         'normalisation': normalization,
                                         'amplitude_units': 'dimensionless' if normalization == 'zscore' else 'input units'}
+        cfg = output.metadata.get('config_resolved', {})
+        unwrap = output.metadata.get('phase_unwrapping_status', {})
+        unwrapped_statuses = {'unwrapped', 'reference_unwrapped', 'exploratory_unwrap', 'already_continuous'}
+        phase_processed = unwrap.get('status') in unwrapped_statuses or any(
+            d.get('status') in unwrapped_statuses for d in unwrap.get('quality_diagnostics', []))
+        metadata['ui_preprocessing']['channels'] = {
+            'amplitude': {'processed': normalization != 'none'
+                          or cfg.get('noise_reduction', {}).get('method', 'none') != 'none'
+                          or product == 'amplitude_corrected'},
+            'phase': {'processed': phase_processed,
+                      'encoding_confirmed': output.metadata.get('phase_encoding_status') != 'unconfirmed'
+                                            and output.metadata.get('phase_units') == 'radians',
+                      'unwrapping_status': unwrap.get('status', 'unknown')}}
         metadata['phase_converted'] = (output.metadata.get('phase_units') == 'radians'
                                        and data.metadata.get('phase_converted') is True)
         return LFIRawData(amplitude=amplitude, phase=output.phase,

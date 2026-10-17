@@ -1,6 +1,13 @@
 """English and Chinese desktop UI text."""
 STRINGS = {
     'waveform_pixel': ('Pixel X = {x}, Y = {y}', '像素 X = {x}, Y = {y}'),
+    'preprocessed': ('pre-processed', '已预处理'),
+    'unchanged': ('unchanged', '未改变'),
+    'encoding_confirmed': ('encoding confirmed', '编码已确认'),
+    'encoding_unconfirmed': ('encoding unconfirmed', '编码未确认'),
+    'not_unwrapped': ('not unwrapped', '未解包裹'),
+    'dimensionless': ('dimensionless', '无量纲'),
+    'input units': ('input units', '输入单位'),
     'slice_index': ('Slice index', '切片索引'),
     'z_value': ('Z value', 'Z 值'),
     'slice_position': ('Slice {number} of {total} · Z = {z}', '第 {number} / {total} 张切片 · Z = {z}'),

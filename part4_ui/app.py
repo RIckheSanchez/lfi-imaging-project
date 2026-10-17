@@ -102,7 +102,10 @@ class MainWindow(QtWidgets.QMainWindow):
         return text(key, self.language)
 
     def value_label(self):
-        return self.tr_text('processed_value' if self.data is not None and self.data.metadata.get('ui_preprocessing') else 'raw')
+        channel = 'phase' if self.channel.currentIndex() else 'amplitude'
+        state = self.data.metadata.get('ui_preprocessing', {}) if self.data is not None else {}
+        processed = state.get('channels', {}).get(channel, {}).get('processed', bool(state) and channel == 'amplitude')
+        return self.tr_text('processed_value' if processed else 'raw')
 
     def pixel_value_text(self, value):
         return f'{value:.6g}' if np.isfinite(value) else self.tr_text('missing_value')
@@ -181,6 +184,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.parameter.editingFinished.connect(self.update_preprocess_params)
         self.parameter_label = QtWidgets.QLabel()
         pre_layout.addWidget(self.apply_preprocessing)
+        self.preprocessing_status = QtWidgets.QLabel()
+        self.preprocessing_status.setWordWrap(True)
+        pre_layout.addWidget(self.preprocessing_status)
         pre_layout.addWidget(self.parameter_label)
         pre_layout.addWidget(self.parameter)
         self.parameter_label.setVisible(self.dev_params)
@@ -642,6 +648,21 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.data is None:
             return
         data = self.data
+        state = data.metadata.get('ui_preprocessing', {})
+        self.preprocessing_status.setVisible(bool(state))
+        if state:
+            channels = state.get('channels', {})
+            amp = self.tr_text('preprocessed' if channels.get('amplitude', {}).get('processed', True) else 'unchanged')
+            phase = channels.get('phase', {})
+            phase_state = self.tr_text('preprocessed' if phase.get('processed') else 'unchanged')
+            encoding = self.tr_text('encoding_confirmed' if phase.get('encoding_confirmed') else 'encoding_unconfirmed')
+            unwrap = phase.get('unwrapping_status', 'unknown')
+            unwrap_text = unwrap if phase.get('processed') else self.tr_text('not_unwrapped')
+            units = state.get('amplitude_units', 'unknown')
+            units = self.tr_text(units) if units in ('dimensionless', 'input units') else units
+            self.preprocessing_status.setText(
+                f"{self.tr_text('amplitude')}: {amp} · {state.get('normalisation', 'unknown')} · {units}\n"
+                f"{self.tr_text('phase')}: {phase_state} · {encoding}, {unwrap_text}")
         rows = [('target', data.target_type), ('size', f'{data.width} × {data.height}'),
                 ('slices', data.n_slices), ('z_range', f'{data.z_indices[0]} → {data.z_indices[-1]}'),
                 ('filename', Path(data.file_path).name),
