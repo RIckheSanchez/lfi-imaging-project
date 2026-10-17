@@ -578,3 +578,35 @@ def test_volume_automatically_recomputes(qtbot, window, tmp_path):
     assert window.volume_panel.channel_notice.text() == '3D view uses the amplitude channel'
     window.set_language('CN')
     assert window.volume_panel.channel_notice.text() == '三维视图使用振幅通道'
+
+
+def test_direct_csv_export_remembers_directory(qtbot, window, tmp_path, monkeypatch):
+    import part4_ui.app as module
+    load_mushroom(qtbot, window)
+    window.channel.setCurrentIndex(1)
+    wait_ready(qtbot, window)
+    calls = []
+    output = tmp_path/'phase.csv'
+    def save(parent, title, filename, filters):
+        calls.append((title, filename, filters))
+        return str(output), filters
+    monkeypatch.setattr(QtWidgets.QFileDialog, 'getSaveFileName', save)
+    window.csv_action.trigger()
+    wait_ready(qtbot, window)
+    assert output.exists()
+    assert window.export_summary() in calls[0][0]
+    desktop = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.DesktopLocation)
+    assert Path(calls[0][1]).parent == Path(desktop)
+    assert window.settings.value('export_directory') == str(tmp_path)
+    assert str(output) in window.statusBar().currentMessage()
+    assert window.finder_button.isVisible()
+    opened = []
+    monkeypatch.setattr(module.subprocess, 'Popen', lambda args: opened.append(args))
+    window.finder_button.click()
+    assert opened == [['open', '-R', str(output)]]
+    window.export_csv_dialog()
+    wait_ready(qtbot, window)
+    assert Path(calls[1][1]).parent == tmp_path
+    assert window.csv_action.shortcut().toString() == 'Meta+Shift+E'
+    window.set_language('CN')
+    assert window.csv_action.text() == '导出 CSV…'

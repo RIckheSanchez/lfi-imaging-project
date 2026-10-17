@@ -4,6 +4,7 @@ import os
 from copy import deepcopy
 import sys
 import traceback
+import subprocess
 from pathlib import Path
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -128,6 +129,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.statusBar().addPermanentWidget(self.progress)
         self.busy_label = QtWidgets.QLabel()
         self.statusBar().addPermanentWidget(self.busy_label)
+        self.exported_path = None
+        self.finder_button = QtWidgets.QPushButton()
+        self.finder_button.hide()
+        self.finder_button.clicked.connect(self.show_in_finder)
+        self.statusBar().addPermanentWidget(self.finder_button)
         self.dock = QtWidgets.QDockWidget(self)
         self.dock.setObjectName('display_controls')
         dock_widget = QtWidgets.QWidget()
@@ -310,6 +316,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.recent_menu = self.file_menu.addMenu(self.tr_text('recent'))
         self.export_action = self.file_menu.addAction(self.tr_text('export'), self.export_dialog)
         self.export_action.setEnabled(self.data is not None)
+        self.csv_action = self.file_menu.addAction(self.tr_text('export_csv'), self.export_csv_dialog)
+        self.csv_action.setShortcut(QtGui.QKeySequence('Meta+Shift+E'))
+        self.csv_action.setEnabled(self.data is not None)
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.tr_text('quit'), self.close).setShortcut(QtGui.QKeySequence.StandardKey.Quit)
         view_menu = self.menuBar().addMenu(self.tr_text('view'))
@@ -340,6 +349,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_preprocessing.setText(self.tr_text('apply'))
         self.parameter_label.setText(self.tr_text('parameters'))
         self.scan_group.setTitle(self.tr_text('scan_info'))
+        self.finder_button.setText(self.tr_text('show_finder'))
         self.pixel_group.setTitle(self.tr_text('pixel_info'))
         self.show_waveform.setText(self.tr_text('show_waveform'))
         for index, key in enumerate(('slice', 'volume', 'waveform')):
@@ -486,6 +496,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.settings.setValue('recent_files', [self.data_key[0]] + [p for p in recent if p != self.data_key[0]][:4])
                 self.update_recent()
                 self.export_action.setEnabled(True)
+                self.csv_action.setEnabled(True)
                 self.volume_panel.set_data_available(self.data.n_slices > 1)
                 self.sync_z_values()
                 self.update_info()
@@ -534,7 +545,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.volume_panel.busy.clear()
                 self.volume_panel.show_result(value)
             elif kind == 'export':
-                self.statusBar().showMessage(f"{self.tr_text('export_done')}: {value}", 10000)
+                self.exported_path = str(value)
+                self.finder_button.show()
+                self.statusBar().showMessage(f"{self.tr_text('export_done')}: {value}")
         except Exception as error:
             self.show_error(str(error))
 
@@ -569,7 +582,8 @@ class MainWindow(QtWidgets.QMainWindow):
             self.busy_label.clear()
             self.workers.clear()
             if self.data is not None:
-                self.statusBar().showMessage(self.loaded_status())
+                self.statusBar().showMessage(
+                    f"{self.tr_text('export_done')}: {self.exported_path}" if self.exported_path else self.loaded_status())
 
     def sync_z_values(self):
         with QtCore.QSignalBlocker(self.z_values):
@@ -788,13 +802,30 @@ class MainWindow(QtWidgets.QMainWindow):
         if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
             return
         image_format = ['CSV', 'PNG', 'JPEG', 'TIFF', 'publication'][formats.currentIndex()]
+        self.save_export_dialog(image_format)
+
+    def export_csv_dialog(self):
+        if self.data is not None:
+            self.save_export_dialog('CSV')
+
+    def export_summary(self):
+        channel = self.tr_text('phase' if self.channel.currentIndex() else 'amplitude')
+        return f'{channel} · Z = {self.data.z_indices[self.z_slider.value()]} · {self.data.width} × {self.data.height}'
+
+    def save_export_dialog(self, image_format):
         channel = 'phase' if self.channel.currentIndex() else 'amplitude'
         z = self.data.z_indices[self.z_slider.value()]
         extension = 'png' if image_format == 'publication' else image_format.lower()
         filename = f'lfi_{channel}_z{z}.{extension}'
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, self.tr_text('export'), filename, f'{image_format} (*.{extension})')
+        directory = self.settings.value('export_directory', QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.DesktopLocation))
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, f"{self.tr_text('export')} · {self.export_summary()}", str(Path(directory)/filename), f'{image_format} (*.{extension})')
         if path:
+            self.settings.setValue('export_directory', str(Path(path).parent))
             self.export_to(path, image_format)
+
+    def show_in_finder(self):
+        if self.exported_path:
+            subprocess.Popen(['open', '-R', self.exported_path])
 
     def export_to(self, path, image_format):
         data = self.data
