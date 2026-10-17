@@ -69,19 +69,21 @@ Both amplitude and phase must be present with compatible dimensions.
 - Registered path loaders: Part 1 HDF5 import and public load_volume for frame folders; every opening action uses the same dispatch.
 - English and Chinese interface switching.
 - Amplitude/phase selection, brightness, contrast, and seven colormaps.
-- Z slider and numeric slice index, with the actual HDF5 z value displayed.
+- Linked Z slider, zero-based slice index and actual Z value selector; slice position is displayed one-based without physical Z units.
 - Aspect-locked 2D image with bounded pan/zoom and **Fit to window** / Cmd+0.
 - Colorbar with the selected data range and the effective display color transform.
-- Optional Part 2 preprocessing, enabled through its checkbox. JSON configuration overrides are available only with LFI_DEV_PARAMS=1; the default uses {}. Amplitude labels identify preprocessing and dimensionless zscore output; phase units follow conversion metadata.
+- Optional Part 2 preprocessing, enabled through its checkbox. JSON configuration overrides are available only with LFI_DEV_PARAMS=1; the default uses {}. Per-channel status reports normalization, units and phase provenance from metadata. Amplitude labels identify preprocessing and dimensionless zscore output; phase units follow conversion metadata.
 - Missing samples are ignored in display/histograms, transparent in PNG/TIFF and volumes, and retained as nan in CSV. All-missing channels produce an error.
-- Raw-value mouse hover, selected-pixel crosshairs, pixel information and histogram.
+- Channel-aware value labels, selected-pixel crosshairs, bounded X/Y inputs, arrow-key movement in image/waveform views, explicit Show waveform button and histogram.
 - Amplitude and phase waveforms at the selected pixel.
 - Calibrated 2D scale bar when a positive pixel size is entered.
+- Background refresh on Volume/Isosurface and percentile changes, with an explicit amplitude-channel notice.
 - Downsampled amplitude Volume and three uncapped Isosurface meshes; adjustable
   lower percentile (default 90), fixed 99.5th-percentile upper threshold and camera reset.
   Outer-to-inner mesh opacity is 0.12, 0.30 and 0.60. Volume clips its sampled
   values to the 1st–99.5th percentile range before normalization and uses a
   quadratic opacity transfer function. Isosurface controls are hidden in Volume mode.
+- Direct File → Export CSV… (Cmd+Shift+E), export content preview, remembered export directory (Desktop initially), and Show in Finder after saving.
 - Selected-channel CSV (original measurements when preprocessing is off; processed values when on), colored pixel PNG/JPEG/TIFF and publication PNG
   with axes/colorbar. PNG/TIFF and publication PNG carry 300 DPI.
 - Thread-pool loading, slice/histogram preparation, backend processing, 3D
@@ -132,7 +134,7 @@ LFI_VALIDATE_FILE="$(pwd)/Realdata/chip_borad1.hdf5" \
 - The loader retains complete amplitude/phase arrays in memory. Large scans
   require sufficient RAM; downsampling limits 3D display work, not load memory.
 - 3D is amplitude-based. Flat/degenerate or single-layer data may not define
-  valid isosurfaces. Display changes require Render / Refresh 3D again.
+  valid isosurfaces. Mode and percentile changes refresh automatically; brightness, contrast and colormap changes require Render / Refresh 3D again.
 - The local bundle is arm64 only and has not been tested on other macOS machines.
 
 ## Architecture
