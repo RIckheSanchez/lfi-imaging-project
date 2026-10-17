@@ -554,3 +554,27 @@ def test_channel_specific_preprocessing_status(qtbot, window):
     assert window.value_label() == 'Processed value'
     window.set_language('CN')
     assert '编码已确认' in window.preprocessing_status.text()
+
+
+def test_volume_automatically_recomputes(qtbot, window, tmp_path):
+    path = tmp_path/'volume.hdf5'
+    rng = np.random.default_rng(5)
+    with h5py.File(path, 'w') as f:
+        for z in range(5):
+            f[f'amplitude/{z}'] = rng.random((15, 18))
+            f[f'phase/{z}'] = rng.random((15, 18))
+    window.open_file(str(path))
+    wait_ready(qtbot, window)
+    window.tabs.setCurrentIndex(1)
+    qtbot.waitUntil(lambda: window.volume_panel.result is not None, timeout=10000)
+    window.volume_panel.mode.setCurrentIndex(1)
+    assert window.volume_panel.busy.text()
+    qtbot.waitUntil(lambda: window.volume_panel.result is not None, timeout=10000)
+    assert window.volume_panel.result['mode'] == 'isosurface'
+    window.volume_panel.percentile.setValue(80)
+    assert window.volume_panel.busy.text()
+    qtbot.waitUntil(lambda: window.volume_panel.result is not None, timeout=10000)
+    assert not window.volume_panel.busy.text()
+    assert window.volume_panel.channel_notice.text() == '3D view uses the amplitude channel'
+    window.set_language('CN')
+    assert window.volume_panel.channel_notice.text() == '三维视图使用振幅通道'

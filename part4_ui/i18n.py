@@ -1,6 +1,7 @@
 """English and Chinese desktop UI text."""
 STRINGS = {
     'waveform_pixel': ('Pixel X = {x}, Y = {y}', '像素 X = {x}, Y = {y}'),
+    '3d_channel': ('3D view uses the amplitude channel', '三维视图使用振幅通道'),
     'preprocessed': ('pre-processed', '已预处理'),
     'unchanged': ('unchanged', '未改变'),
     'encoding_confirmed': ('encoding confirmed', '编码已确认'),

@@ -264,7 +264,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.volume_panel = VolumePanel()
         self.volume_panel.set_reconstruction_available(False)
         self.volume_panel.render_requested.connect(self.request_volume)
-        self.volume_panel.invalidated.connect(self.invalidate_volume)
+        self.volume_timer = QtCore.QTimer(self)
+        self.volume_timer.setSingleShot(True)
+        self.volume_timer.setInterval(180)
+        self.volume_timer.timeout.connect(self.request_volume)
+        self.volume_panel.invalidated.connect(self.schedule_volume)
         self.brightness.valueChanged.connect(self.invalidate_volume)
         self.contrast.valueChanged.connect(self.invalidate_volume)
         self.colormap.currentIndexChanged.connect(self.invalidate_volume)
@@ -286,6 +290,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.selected_pixel[0] + dx, self.selected_pixel[1] + dy))
             self.pixel_shortcuts.append(shortcut)
         self.waveform_tab.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
+        self.tabs.currentChanged.connect(lambda index: self.schedule_volume() if index == 1 and self.volume_panel.result is None else None)
         self.channel.currentIndexChanged.connect(self.request_slice)
         self.brightness.valueChanged.connect(self.request_slice)
         self.contrast.valueChanged.connect(self.request_slice)
@@ -526,6 +531,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.select_pixel(*self.selected_pixel, switch_tab=False)
                 self.update_info()
             elif kind == 'volume' and token == self.volume_token:
+                self.volume_panel.busy.clear()
                 self.volume_panel.show_result(value)
             elif kind == 'export':
                 self.statusBar().showMessage(f"{self.tr_text('export_done')}: {value}", 10000)
@@ -541,6 +547,8 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         if kind == 'volume' and token != self.volume_token:
             return
+        if kind == 'volume':
+            self.volume_panel.busy.clear()
         if kind == 'slice':
             self.raw_slice = self.adjusted = None
             self.image.clear()
@@ -595,9 +603,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.volume_token += 1
         self.volume_panel.clear_result()
 
+    def schedule_volume(self):
+        self.invalidate_volume()
+        if self.data is not None and self.data.n_slices > 1:
+            self.volume_panel.busy.setText(self.tr_text('busy'))
+            self.volume_timer.start()
+
     def request_volume(self):
         if self.data is None or self.data.n_slices < 2:
             return
+        self.volume_timer.stop()
+        self.volume_panel.busy.setText(self.tr_text('busy'))
         self.volume_token += 1
         token = self.volume_token
         data, backend = self.data, self.reconstructor

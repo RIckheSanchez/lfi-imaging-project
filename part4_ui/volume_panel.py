@@ -19,6 +19,10 @@ class VolumePanel(QtWidgets.QWidget):
         self.center = QtGui.QVector3D()
         self.distance = 1000
         layout = QtWidgets.QVBoxLayout(self)
+        self.channel_notice = QtWidgets.QLabel()
+        layout.addWidget(self.channel_notice)
+        self.busy = QtWidgets.QLabel()
+        layout.addWidget(self.busy)
         toolbar = QtWidgets.QHBoxLayout()
         self.mode = QtWidgets.QComboBox()
         self.mode.addItems(['Volume', 'Isosurface'])
@@ -70,6 +74,7 @@ class VolumePanel(QtWidgets.QWidget):
 
     def set_language(self, language):
         self.language = language
+        self.channel_notice.setText(text('3d_channel', language))
         for widget, key in [(self.percentile_label, 'iso_percentile'),
                             (self.reconstruct, 'apply_reconstruction'),
                             (self.render_button, 'render_3d'), (self.reset_button, 'reset_camera')]:
