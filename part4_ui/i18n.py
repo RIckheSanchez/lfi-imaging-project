@@ -71,7 +71,7 @@ STRINGS = {
     'waveform': ('Waveform', '波形'), 'scan_info': ('Scan Info', '扫描信息'),
     'pixel_info': ('Pixel Info', '像素信息'), 'histogram': ('Histogram', '直方图'),
     'target': ('Target', '目标类型'), 'size': ('Size', '尺寸'),
-    'slices': ('Slices', '层数'), 'z_range': ('Z Range', 'Z 范围'),
+    'slices': ('Slices', '层'), 'z_range': ('Z Range', 'Z 范围'),
     'filename': ('File', '文件'), 'raw': ('Raw value', '原始值'),
     'x': ('X (pixels)', 'X（像素）'), 'y': ('Y (pixels)', 'Y（像素）'),
     'intensity': ('Intensity', '强度'), 'count': ('Count', '计数'),
