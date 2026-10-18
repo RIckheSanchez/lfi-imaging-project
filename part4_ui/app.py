@@ -667,7 +667,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loaded_status(self):
         data = self.data
-        return f"{Path(data.file_path).name} · {data.width} × {data.height} · {data.n_slices} {self.tr_text('slices')}"
+        return f"{Path(data.file_path).name} · {data.width} × {data.height} · {data.n_slices} {self.tr_text('slice_count_suffix')}"
 
     def depth_reconstruction_params(self):
         params = deepcopy(self.reconstruction_params)
