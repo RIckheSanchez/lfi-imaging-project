@@ -1,5 +1,14 @@
 """English and Chinese desktop UI text."""
 STRINGS = {
+    '3d_part3_hint': ('Drag to rotate, wheel to zoom. Z indexes the uniform depth grid; X/Y index measured pixels. Physical XYZ proportions are not represented.', '拖动旋转，滚轮缩放。Z 为均匀深度网格索引，X/Y 为实测像素索引；不代表物理 XYZ 比例。'),
+    'depth_calibration': ('Depth calibration', '深度标定'),
+    'depth_calibration_note': ('Enter values from the scan settings and confirm the frame ID corresponding to the start depth. No calibration is assumed.', '请填写扫描设置中的数值，并确认起始深度对应的帧 ID；系统不假定任何标定。'),
+    'z_start_mm': ('Start depth (mm) · z_start_mm', '起始深度（mm）· z_start_mm'),
+    'z_step_mm': ('Depth step (mm/frame) · z_step_mm', '深度步长（mm/帧）· z_step_mm'),
+    'first_frame_id': ('Frame at start depth · first_frame_id', '起始深度对应帧 · first_frame_id'),
+    'invalid_depth_calibration': ('Enter all three fields: positive finite depths and step, and an integer frame ID present in this scan. All mapped depths must be positive.', '请完整填写三个字段：深度和步长为有限正数，帧 ID 为本次扫描中存在的整数，映射后所有深度须为正。'),
+    'use_part3': ('Use Part 3 depth reconstruction', '使用 Part 3 深度重建'),
+    '3d_part3_status': ('3D: Part 3 depth reconstruction · amplitude interpolated · phase from nearest measured slice · axes in sample indices (Z indexes the uniform depth grid; X/Y index measured pixels, not physical aspect)', '三维：Part 3 深度重建 · 振幅插值 · 相位取最近实测切片 · 坐标轴为样本索引（Z 为均匀深度网格索引；X/Y 为实测像素索引，不代表物理比例）'),
     'waveform_pixel': ('Pixel X = {x}, Y = {y}', '像素 X = {x}, Y = {y}'),
     'export_csv': ('Export CSV…', '导出 CSV…'),
     'show_finder': ('Show in Finder', '在 Finder 中显示'),

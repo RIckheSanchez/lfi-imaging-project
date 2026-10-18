@@ -17,6 +17,7 @@ from .lfi_core.export import scale_bar, export_csv, pixel_image, publication_png
 from .lfi_core.backend import (IdentityPreprocessor, IdentityReconstructor,
                                get_preprocessor_registration, get_reconstructor_registration, register_preprocessor)
 from .volume_panel import VolumePanel
+from .lfi_core.adapters.part3 import Part3Reconstructor, calibrated_depths
 
 COLORMAPS = ['Viridis', 'Plasma', 'Inferno', 'Magma', 'Turbo', 'Hot', 'Cool']
 
@@ -270,6 +271,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.volume_panel = VolumePanel()
         self.volume_panel.set_reconstruction_available(False)
         self.volume_panel.render_requested.connect(self.request_volume)
+        self.volume_panel.calibration_changed.connect(self.calibration_changed)
         self.volume_timer = QtCore.QTimer(self)
         self.volume_timer.setSingleShot(True)
         self.volume_timer.setInterval(180)
@@ -422,6 +424,9 @@ class MainWindow(QtWidgets.QMainWindow):
             return False
 
     def open_file(self, path):
+        self.volume_panel.reset_calibration()
+        self.volume_timer.stop()
+        self.volume_panel.set_reconstruction_available(False)
         self.load_token += 1
         self.slice_token += 1
         self.invalidate_volume()
@@ -632,14 +637,17 @@ class MainWindow(QtWidgets.QMainWindow):
         token = self.volume_token
         data, backend = self.data, self.reconstructor
         apply = self.volume_panel.reconstruct.isChecked() and self.reconstruction_available()
-        params = deepcopy(self.reconstruction_params)
+        params = self.depth_reconstruction_params() if apply else {}
         mode = 'isosurface' if self.volume_panel.mode.currentIndex() else 'volume'
         percentile = self.volume_panel.percentile.value()
         colormap = self.colormap.currentText()
         brightness, contrast = self.brightness.value(), self.contrast.value()
         def compute():
             reconstructed = backend.reconstruct(data, params) if apply else data
-            return prepare_3d(reconstructed, mode, percentile, colormap, brightness, contrast)
+            result = prepare_3d(reconstructed, mode, percentile, colormap, brightness, contrast)
+            if apply and 'ui_part3' in reconstructed.metadata:
+                result['ui_part3'] = deepcopy(reconstructed.metadata['ui_part3'])
+            return result
         self._submit('volume', token, compute)
 
     def fit_view(self):
@@ -661,9 +669,27 @@ class MainWindow(QtWidgets.QMainWindow):
         data = self.data
         return f"{Path(data.file_path).name} · {data.width} × {data.height} · {data.n_slices} {self.tr_text('slices')}"
 
+    def depth_reconstruction_params(self):
+        params = deepcopy(self.reconstruction_params)
+        if isinstance(self.reconstructor, Part3Reconstructor):
+            params.update(self.volume_panel.calibration_parameters())
+        return params
+
+    def calibration_changed(self):
+        was_enabled = self.volume_panel.reconstruct.isChecked()
+        self.update_info()
+        if was_enabled:
+            self.schedule_volume()
+
     def reconstruction_available(self):
         if self.data is None or isinstance(self.reconstructor, IdentityReconstructor):
             return False
+        if isinstance(self.reconstructor, Part3Reconstructor):
+            try:
+                calibrated_depths(self.data, self.depth_reconstruction_params())
+                return True
+            except (TypeError, ValueError, OverflowError):
+                return False
         depth = self.data.metadata.get('depth_mm')
         try:
             return depth is not None and len(depth) == self.data.n_slices
@@ -673,8 +699,13 @@ class MainWindow(QtWidgets.QMainWindow):
     def update_info(self):
         registered = not isinstance(self.reconstructor, IdentityReconstructor)
         available = self.reconstruction_available()
+        part3 = isinstance(self.reconstructor, Part3Reconstructor)
+        self.volume_panel.set_calibration_available(part3 and self.data is not None)
         self.volume_panel.set_reconstruction_available(available,
-            show_hint=registered and self.data is not None and not available)
+            show_hint=registered and not part3 and self.data is not None and not available)
+        has_manual = any(field.text().strip() for field in self.volume_panel.calibration_fields.values())
+        self.volume_panel.calibration_error.setText(
+            self.tr_text('invalid_depth_calibration') if part3 and has_manual and not available else '')
         if self.data is None:
             return
         data = self.data
