@@ -1,0 +1,34 @@
+Merge target: origin/main 4b702a9ef005f67ea1b513c1eefecffebc0de48a
+UI branch parent: f4f02320a1f862987f7416f89cac89590162d0b8
+
+Old API: origin/main:part4_ui/app.py imports smart_load from lfi_core.data_io.
+origin/main:part4_ui/lfi_core/data_io.py:31-33 defines smart_load(filepath: str),
+returns adapted UI LFIRawData and propagates Part 1 exceptions without retry.
+Part 3 viewer.py:59-61 explicitly replaces app.smart_load before MainWindow is
+constructed. Its folder and Part 2 NPZ helper returns LFIRawData with depth metadata;
+other paths delegate to the captured original. Existing Qt test uses the same
+replacement and requires the initial registered option to be visible before load.
+
+Restored app.smart_load(path) returns load_path(path)[0] through the current registry.
+Missing, unsupported and backend errors propagate; no fallback guesses formats.
+Windows capture an explicit replacement only if installed before construction.
+Normal app loading/identities and calibration gate are unchanged. Legacy initial
+option visibility is not permission to reconstruct without loaded calibrated data.
+No teammate directory or existing teammate test was manually edited.
+
+Full suite command:
+QT_QPA_PLATFORM=offscreen PYTHONDONTWRITEBYTECODE=1 /tmp/lfi-v13-venv/bin/python -m pytest -q
+Result: 272 passed, 21 skipped, 121 warnings in 18.55s
+The existing test_depth_reconstructor_in_viewer passes unchanged. Nine new UI-owned
+compatibility cases cover file/folder/plugin loading, explicit unsupported formats,
+missing/corrupt files, unchanged backend exceptions and window-scoped replacement.
+
+Real CLI command:
+QT_QPA_PLATFORM=offscreen PYTHONDONTWRITEBYTECODE=1 MPLCONFIGDIR=/tmp/lfi-main-merge-check/mpl PYTHONPATH=/tmp/lfi-main-merge-check/viewer-audit /tmp/lfi-v13-venv/bin/python -u -m part3_reconstruction.viewer '/Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5'
+Result: exit 0; VIEWER_AUDIT_PASS; data shape (70,1400,400), loaded slice (1400,400).
+A temporary sitecustomize.py outside the repository only installs a Qt timer to
+observe the actual window and quit after jobs finish and raw_slice is available.
+It does not replace loaders, data, backend, MainWindow or the Part 3 module.
+This is offscreen startup/data-load verification, not native OpenGL validation.
+Chip remains unavailable for depth reconstruction because it has no calibration.
+No Vegetables preset was used in the real run.

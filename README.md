@@ -161,18 +161,66 @@ remain available for team development. Part 1 import and the UI-side Part 2 adap
 volumes: amplitude/phase display with explicit phase units, HSL fusion,
 physical-coordinate and depth-only resampling, NIfTI export, a reader for the
 Part 2 handoff, and a handoff check that writes a self-contained HTML report.
-Its depth backend is connected through `part4_ui/lfi_core/adapters/part3.py`; calibration is required. Other Part 3 imaging/export features remain separate from the desktop UI. Details, API and validation:
-[docs/part3_rebuild.md](docs/part3_rebuild.md).
+Its depth backend is connected to the normal app through
+`part4_ui/lfi_core/adapters/part3.py`; verified user-supplied depth calibration
+is required. Other Part 3 functions, including imaging and NIfTI export, remain
+separate from the desktop UI. Details, API and validation:
+[docs/part3_rebuild.md](docs/part3_rebuild.md); demo steps:
+[docs/demo_part3.md](docs/demo_part3.md).
+
+Desktop integration now goes through the normal app:
 
 ```sh
-python -m pip install scipy scikit-image nibabel h5py matplotlib pytest
-python -m pytest -q tests/test_imaging.py tests/test_volume.py tests/test_handoff.py \r
-    tests/test_sequence.py tests/test_audit.py tests/test_benchmark.py tests/test_integration.py
-python -m part3_reconstruction --help
+python -m part4_ui.app
+```
+
+In the 3D tab, expand **Depth calibration** and enter confirmed scan settings
+(or use verified per-slice `depth_mm` metadata). The adapter linearly resamples
+amplitude onto a uniform depth grid and takes phase from the nearest measured
+slice; rendered axes remain sample indices, not physical XYZ proportions.
+No Vegetables calibration preset is applied, and the frame ID corresponding to
+the supplied start depth remains unconfirmed.
+
+The older Part 3 launcher is also supported through the UI-owned
+`part4_ui.app.smart_load(path)` compatibility entry point. It delegates ordinary
+paths to the registered loaders; the launcher explicitly supplies its Part 2
+volume NPZ/folder handling. NPZ is not silently enabled in the normal app.
+
+```sh
+python -m part3_reconstruction.viewer path/to/scan.hdf5
+python -m part3_reconstruction.viewer path/to/frame-folder
+python -m part3_reconstruction.viewer path/to/part2-volume.npz
+```
+
+The upstream `--vegetables-2026` preset remains unverified:
+**frame-to-depth mapping not yet confirmed**. It is not a default of the normal
+app and must not be treated as confirmed calibration. The following legacy
+invocation is retained only with that qualification:
+
+```sh
+# frame-to-depth mapping not yet confirmed; verify acquisition settings first
+python -m part3_reconstruction.viewer data/vegetables --vegetables-2026
+```
+
+The legacy launcher retains its registered-backend option before loading;
+actual reconstruction still requires loaded data and valid depth metadata.
+For explicit user-entered calibration, use the normal app's Depth calibration
+section. Startup with the real chip scan has been verified offscreen; this does
+not establish a physical depth mapping for chip.
+
+`part3_reconstruction.pipeline.run_part1_to_part3(path)` runs Part 1 loading and
+Part 2 pre-processing in memory and returns a Part 3 image. It requires the
+Part 2 `spatial_products` expected by that pipeline; phase units and calibration
+must retain their provenance.
+
+```sh
+python -m pip install -r requirements.txt -r requirements-dev.txt
+python -m pytest -q tests/test_imaging.py tests/test_volume.py tests/test_handoff.py tests/test_pipeline.py tests/test_gui_backend.py tests/test_gui_backend_qt.py tests/test_sequence.py tests/test_audit.py tests/test_benchmark.py tests/test_integration.py tests/test_shared_types.py
 python -m part3_reconstruction handoff <handoff folder> --output outputs/handoff --raw <raw HDF5 folder>
 ```
 
-Exact versions used for the reported results are in
+Optional: `napari` and `SimpleITK` enable `--napari` and the NIfTI check behind
+`--nominal-pixel-mm`. Exact versions used for the reported results are in
 `requirements-part3-tested.txt`.
 
 ## Team responsibilities

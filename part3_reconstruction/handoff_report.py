@@ -98,7 +98,86 @@ def figure_phase_cases(root, out):
     return timings
 
 
-def depth_study(root, out, spacing=0.1):
+def nifti_study(volume, grid, pixel_aspect_yx, nominal_pixel_mm, out):
+    """Export the depth-resampled amplitude as NIfTI with a nominal lateral spacing and check it.
+
+    The lateral spacing is an estimate (window diameter / its width in pixels), not a
+    calibration; the header description and the JSON sidecar say so. The file is read
+    back with SimpleITK, the ITK library that ITK-SNAP uses, when it is installed.
+    """
+    from .volume_reconstructor import write_nifti
+    dx = float(nominal_pixel_mm)
+    dy = dx * float(pixel_aspect_yx)
+    dz = float(grid[1] - grid[0])
+    path = write_nifti(out / "veg_amplitude_depth_nominal_mm.nii.gz", volume, spacing_xyz=(dx, dy, dz),
+                       origin_xyz=(0.0, 0.0, float(grid[0])), spatial_unit="mm",
+                       description="LFI amplitude_corrected; nominal lateral mm (not calibrated); z=focus",
+                       sidecar={"channel": "amplitude_corrected", "z": "beam focus position (mm)",
+                                "lateral_spacing": "nominal estimate from the ~5 cm window, not calibrated",
+                                "nominal_pixel_mm_x": dx, "pixel_aspect_yx": float(pixel_aspect_yx)})
+    expected = {"size_xyz": [volume.shape[2], volume.shape[1], volume.shape[0]],
+                "spacing_xyz_mm": [dx, dy, dz], "origin_xyz_mm": [0.0, 0.0, float(grid[0])]}
+    result = {"file": path.name, "expected": expected, "nominal_pixel_mm": dx,
+              "note": "lateral spacing is a nominal estimate; z is the beam focus position"}
+    try:
+        import SimpleITK as sitk
+    except ImportError:
+        result["simpleitk"] = "not installed; check skipped"
+        return result
+    image = sitk.ReadImage(str(path))
+    got = {"size_xyz": list(image.GetSize()), "spacing_xyz_mm": list(image.GetSpacing()),
+           "origin_xyz_mm": list(image.GetOrigin()), "direction": list(image.GetDirection())}
+    array = sitk.GetArrayViewFromImage(image)          # (z, y, x)
+    k = volume.shape[0] // 2
+    result["simpleitk"] = {
+        **got, "version": sitk.Version_VersionString(),
+        "size_matches": got["size_xyz"] == expected["size_xyz"],
+        "spacing_matches": bool(np.allclose(got["spacing_xyz_mm"], expected["spacing_xyz_mm"], rtol=1e-5)),
+        "origin_matches": bool(np.allclose(got["origin_xyz_mm"], expected["origin_xyz_mm"], atol=1e-5)),
+        # NIfTI's RAS axes appear in ITK's LPS convention as diag(-1, -1, 1).
+        "direction_axis_aligned": bool(np.allclose(np.abs(got["direction"]), np.eye(3).ravel())),
+        "middle_slice_equal": bool(np.allclose(array[k], volume[k], equal_nan=True))}
+    return result
+
+
+def napari_screenshot(volume, grid, pixel_aspect_yx, out, nominal_pixel_mm=None):
+    """3D rendering of the depth-resampled amplitude in napari, saved as PNG (optional).
+
+    The window must be shown: on Windows a hidden napari canvas renders black. With
+    a nominal pixel size all three axes are in mm, so the depth extent is to scale.
+    """
+    try:
+        import napari
+        from qtpy.QtWidgets import QApplication
+    except ImportError:
+        return {"napari": "not installed; skipped"}
+    step = 4
+    small = volume[:, ::step, ::step]
+    dz = float(grid[1] - grid[0])
+    if nominal_pixel_mm is None:
+        scale, units = (dz, step * float(pixel_aspect_yx), float(step)), "z in mm; y, x in pixel widths"
+    else:
+        dx = float(nominal_pixel_mm)
+        scale, units = (dz, step * dx * float(pixel_aspect_yx), step * dx), "z, y, x in mm (lateral nominal)"
+    viewer = napari.Viewer(ndisplay=3, show=True)
+    try:
+        lo, hi = np.nanpercentile(small, [1, 99.5])
+        viewer.add_image(small, name="amplitude_corrected", colormap="gray", contrast_limits=(lo, hi),
+                         scale=scale, rendering="mip")
+        viewer.reset_view()
+        viewer.camera.angles = (-30, 40, 60)
+        viewer.camera.zoom *= 1.1
+        for _ in range(10):
+            QApplication.processEvents()
+        path = out / "handoff_napari_3d.png"
+        viewer.screenshot(str(path), canvas_only=True, flash=False)
+        return {"napari": napari.__version__, "file": path.name, "rendering": "maximum intensity projection",
+                "downsampled_yx": step, "units": units}
+    finally:
+        viewer.close()
+
+
+def depth_study(root, out, spacing=0.1, nominal_pixel_mm=None, napari=False):
     data, z, ids, mask = load_volume(root / "vegetables_volume_21frames.npz")
     start = time.perf_counter()
     volume, grid = resample_depth(data.amplitude, z, spacing)
@@ -141,11 +220,16 @@ def depth_study(root, out, spacing=0.1):
            title="Vegetables stack: signal strength against focus position")
     ax.grid(alpha=.3)
     fig.savefig(out / "handoff_veg_depth_profile.png", dpi=150)
-    return {"input_shape_zyx": list(data.amplitude.shape), "z_mm_input": z.tolist(), "frame_ids": ids.tolist(),
-            "output_spacing_mm": spacing, "output_shape_zyx": list(volume.shape),
-            "output_z_range_mm": [float(grid[0]), float(grid[-1])], "resample_seconds": elapsed,
-            "output_megabytes": volume.nbytes / 2**20, "strongest_frame": int(ids[k_best]),
-            "profile": profile, "note": "amplitude-only; wrapped raw_phase is not interpolated"}
+    result = {"input_shape_zyx": list(data.amplitude.shape), "z_mm_input": z.tolist(), "frame_ids": ids.tolist(),
+              "output_spacing_mm": spacing, "output_shape_zyx": list(volume.shape),
+              "output_z_range_mm": [float(grid[0]), float(grid[-1])], "resample_seconds": elapsed,
+              "output_megabytes": volume.nbytes / 2**20, "strongest_frame": int(ids[k_best]),
+              "profile": profile, "note": "amplitude-only; wrapped raw_phase is not interpolated"}
+    if nominal_pixel_mm is not None:
+        result["nifti"] = nifti_study(volume, grid, data.metadata["pixel_aspect_yx"], nominal_pixel_mm, out)
+    if napari:
+        result["napari"] = napari_screenshot(volume, grid, data.metadata["pixel_aspect_yx"], out, nominal_pixel_mm)
+    return result
 
 
 def geometry_study(root, out, raw_files=()):
@@ -170,7 +254,7 @@ def geometry_study(root, out, raw_files=()):
             "note": "mirror steps fix pixel shape only; their length at the sample is not recorded"}
 
 
-def run(root, out_dir, raw_files=()):
+def run(root, out_dir, raw_files=(), nominal_pixel_mm=None, napari=False):
     root, out = Path(root), Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     started = time.perf_counter()
@@ -196,7 +280,7 @@ def run(root, out_dir, raw_files=()):
         }
     figure_amplitude_channels(root, out)
     render = figure_phase_cases(root, out)
-    depth = depth_study(root, out)
+    depth = depth_study(root, out, nominal_pixel_mm=nominal_pixel_mm, napari=napari)
     geometry = geometry_study(root, out, raw_files)
     report = {"handoff": str(root), "files_read": len(records), "files_with_missing_fields": [r for r in records if r["missing"]],
               "summary_by_sample": by_kind, "render_seconds": render, "depth_resampling": depth,

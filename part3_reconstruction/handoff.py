@@ -31,12 +31,60 @@ def pixel_aspect(shape_yx, frame_aspect):
     return nx / (ny * float(frame_aspect))
 
 
+def kind_from_target(target_type):
+    """Map a target name such as 'Vegetables' or 'Leaf' to a FRAME_ASPECT key, or None."""
+    name = str(target_type).lower()
+    return next((kind for kind in FRAME_ASPECT if name.startswith(kind)), None)
+
+
+def frame_from_products(products, index, *, kind, amplitude_channel="amplitude_corrected",
+                        phase_unit="rad", frame_aspect=None, source="", frame_id=None):
+    """Build 2D ImagingData from Part 2 channels (an NPZ file or in-memory spatial_products).
+
+    Leaf arrays are stored long axis first and are transposed to (y, x). Phase
+    is ``phase_corrected`` when released for this slice, else ``raw_phase``.
+    """
+    if amplitude_channel not in AMPLITUDE_CHANNELS:
+        raise ValueError(f"amplitude_channel must be one of {AMPLITUDE_CHANNELS}")
+    if phase_unit not in {"rad", "raw_counts"}:
+        raise ValueError("phase_unit must be rad or raw_counts")
+    amplitude = np.asarray(products[amplitude_channel][index])
+    available = bool(np.asarray(products["phase_correction_available"])[index])
+    phase = np.asarray(products["phase_corrected" if available else "raw_phase"][index])
+    mask = np.asarray(products["signal_mask"][index])
+    if kind == "leaf":
+        amplitude, phase, mask = amplitude.T, phase.T, mask.T
+    if available:
+        state, note = "unwrapped", "relative unwrapped phase, NaN outside signal_mask"
+    elif phase_unit == "rad":
+        state, note = "wrapped", "wrapped raw phase in [-pi, pi); unwrapping withheld upstream"
+    else:
+        state, note = "unknown", "raw phase codes; encoding not confirmed upstream"
+    meta = {
+        "source": str(source), "sample": kind, "frame_id": frame_id,
+        "amplitude_channel": amplitude_channel,
+        "phase_unit": phase_unit, "phase_state": state,
+        "phase_channel": "phase_corrected" if available else "raw_phase", "phase_note": note,
+        "signal_fraction": float(mask.mean()),
+        "spatial_note": "pixel units; lateral pixel size not recorded",
+    }
+    if frame_aspect is not None:
+        meta.update(frame_aspect_ratio=float(frame_aspect),
+                    pixel_aspect_yx=pixel_aspect(amplitude.shape, frame_aspect))
+    return ImagingData(amplitude, phase, meta)
+
+
 def load_frame(path, *, amplitude_channel="amplitude_corrected"):
     """Load one handoff frame as 2D ImagingData in (y, x) order."""
     if amplitude_channel not in AMPLITUDE_CHANNELS:
         raise ValueError(f"amplitude_channel must be one of {AMPLITUDE_CHANNELS}")
     path = Path(path)
     kind = _kind(path)
+    sidecar = path.with_name(path.stem + "_metadata.json")
+    frame_aspect = FRAME_ASPECT[kind]
+    if sidecar.exists():
+        frame_aspect = json.loads(sidecar.read_text(encoding="utf-8"))["metadata"].get(
+            "display_aspect_ratio", frame_aspect)
     with np.load(path, allow_pickle=False) as f:
         missing = {amplitude_channel, "raw_phase", "phase_correction_available",
                    "signal_mask", "z_indices"} - set(f.files)
@@ -44,32 +92,11 @@ def load_frame(path, *, amplitude_channel="amplitude_corrected"):
             raise ValueError(f"{path.name} lacks fields: {sorted(missing)}")
         if f[amplitude_channel].shape[0] != 1:
             raise ValueError("expected one frame per file")
-        amplitude = f[amplitude_channel][0]
-        available = bool(f["phase_correction_available"][0])
-        phase = f["phase_corrected"][0] if available else f["raw_phase"][0]
-        mask = f["signal_mask"][0]
+        products = {k: f[k] for k in (amplitude_channel, "raw_phase", "phase_correction_available",
+                                      "signal_mask", "phase_corrected") if k in f.files}
         frame_id = int(f["z_indices"][0])
-    if kind == "leaf":
-        amplitude, phase, mask = amplitude.T, phase.T, mask.T
-    sidecar = path.with_name(path.stem + "_metadata.json")
-    frame_aspect = FRAME_ASPECT[kind]
-    if sidecar.exists():
-        frame_aspect = json.loads(sidecar.read_text(encoding="utf-8"))["metadata"].get(
-            "display_aspect_ratio", frame_aspect)
-    meta = {
-        "source": str(path), "sample": kind, "frame_id": frame_id,
-        "amplitude_channel": amplitude_channel,
-        "phase_unit": "rad",
-        "phase_state": "unwrapped" if available else "wrapped",
-        "phase_channel": "phase_corrected" if available else "raw_phase",
-        "phase_note": ("relative unwrapped phase, NaN outside signal_mask" if available
-                       else "wrapped raw phase in [-pi, pi); unwrapping withheld upstream"),
-        "signal_fraction": float(mask.mean()),
-        "frame_aspect_ratio": float(frame_aspect),
-        "pixel_aspect_yx": pixel_aspect(amplitude.shape, frame_aspect),
-        "spatial_note": "pixel units; lateral pixel size not recorded in the handoff",
-    }
-    return ImagingData(amplitude, phase, meta)
+    return frame_from_products(products, 0, kind=kind, amplitude_channel=amplitude_channel,
+                               frame_aspect=frame_aspect, source=path, frame_id=frame_id)
 
 
 def load_volume(path, *, amplitude_channel="amplitude_corrected"):

@@ -12,6 +12,8 @@ import pyqtgraph as pg
 from .i18n import text
 from .lfi_core.phase_semantics import phase_label_key, phase_encoding_status
 from .lfi_core.loaders import load_path, loader_for, get_loaders
+from .lfi_core.data_types import LFIRawData
+from .lfi_core.data_io import local_data_key
 from .lfi_core.processing import normalized_slice, adjust_slice, prepare_3d, finite_values, finite_range
 from .lfi_core.export import scale_bar, export_csv, pixel_image, publication_png
 from .lfi_core.backend import (IdentityPreprocessor, IdentityReconstructor,
@@ -20,6 +22,21 @@ from .volume_panel import VolumePanel
 from .lfi_core.adapters.part3 import Part3Reconstructor, calibrated_depths
 
 COLORMAPS = ['Viridis', 'Plasma', 'Inferno', 'Magma', 'Turbo', 'Hot', 'Cool']
+
+
+def smart_load(path: str) -> LFIRawData:
+    """Part 3 viewer compatibility entry point; return data, not a cache-key pair.
+
+    Delegate to registered loaders for supported HDF5 files/frame folders and
+    explicit plugin formats. Loading and unsupported-path errors propagate;
+    no legacy format is guessed or silently retried through another backend.
+    The Part 3 launcher may explicitly replace this module-level callable before
+    constructing MainWindow to add its own NPZ/folder handling.
+    """
+    return load_path(path)[0]
+
+
+_DEFAULT_SMART_LOAD = smart_load
 
 
 class ImagePlotHost(QtWidgets.QWidget):
@@ -75,6 +92,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, settings=None, preprocessor=None, reconstructor=None):
         super().__init__()
         self.settings = settings or QtCore.QSettings('LFI', 'Viewer')
+        # Capture only an explicitly installed legacy Part 3 loader. Normal app
+        # loading, plugin identities and calibration gating remain unchanged.
+        self._legacy_smart_loader = smart_load if smart_load is not _DEFAULT_SMART_LOAD else None
         preprocessing = get_preprocessor_registration()
         reconstruction = get_reconstructor_registration()
         self.preprocessor = preprocessor or (preprocessing.implementation if preprocessing else IdentityPreprocessor())
@@ -423,6 +443,23 @@ class MainWindow(QtWidgets.QMainWindow):
         except (OSError, ValueError):
             return False
 
+    def _load_compat_path(self, path):
+        """Honor an explicit Part 3 loader override without globally enabling NPZ."""
+        resolved = str(Path(path).expanduser().resolve())
+        data = self._legacy_smart_loader(resolved)
+        if not isinstance(data, LFIRawData):
+            raise TypeError('smart_load compatibility loader must return LFIRawData.')
+        try:
+            loader = loader_for(resolved)
+        except ValueError:
+            # The explicit override already loaded an extension outside the
+            # registry (e.g. Part 3 NPZ). Do not catch/retry its loading errors.
+            key = (resolved, 'part3-smart-load-compat', local_data_key(resolved))
+        else:
+            key = (resolved, loader.name, loader.make_data_key(resolved))
+        hash(key)
+        return data, key
+
     def open_file(self, path):
         self.volume_panel.reset_calibration()
         self.volume_timer.stop()
@@ -434,7 +471,7 @@ class MainWindow(QtWidgets.QMainWindow):
         backend = self.preprocessor
         params = deepcopy(self.preprocess_params) if self.dev_params else {}
         def load():
-            raw, key = load_path(path)
+            raw, key = self._load_compat_path(path) if self._legacy_smart_loader is not None else load_path(path)
             processed = backend.preprocess(raw, params) if apply else raw
             return raw, processed, key
         self._submit('load', self.load_token, load)
@@ -701,7 +738,10 @@ class MainWindow(QtWidgets.QMainWindow):
         available = self.reconstruction_available()
         part3 = isinstance(self.reconstructor, Part3Reconstructor)
         self.volume_panel.set_calibration_available(part3 and self.data is not None)
-        self.volume_panel.set_reconstruction_available(available,
+        # The legacy launcher/test exposes the registered option before loading;
+        # actual reconstruction still requires data and the usual depth checks.
+        legacy_initial_option = self._legacy_smart_loader is not None and self.data is None and registered
+        self.volume_panel.set_reconstruction_available(available or legacy_initial_option,
             show_hint=registered and not part3 and self.data is not None and not available)
         has_manual = any(field.text().strip() for field in self.volume_panel.calibration_fields.values())
         self.volume_panel.calibration_error.setText(
