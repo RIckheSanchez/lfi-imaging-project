@@ -857,6 +857,8 @@ class MainWindow(QtWidgets.QMainWindow):
 def main():
     from .lfi_core.adapters.part2 import Part2Preprocessor
     register_preprocessor(Part2Preprocessor())
+    from .lfi_core.adapters.part3 import register_part3
+    register_part3()
     pg.setConfigOptions(imageAxisOrder='row-major', antialias=True)
     application = QtWidgets.QApplication(sys.argv)
     application.setApplicationName('LFI Viewer')
