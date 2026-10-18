@@ -1,0 +1,82 @@
+{
+  "frozen": true,
+  "executable": "/Users/vincent/Desktop/LFI Viewer/dist/LFI Viewer.app/Contents/MacOS/LFI Viewer",
+  "architecture": "arm64",
+  "platform": "cocoa",
+  "errors": [],
+  "validation_mode": "automated Cocoa widget/worker validation",
+  "chip": {
+    "shape": [
+      70,
+      1400,
+      400
+    ],
+    "depth_mm": null,
+    "reconstruct_hidden": true,
+    "hint_hidden": true,
+    "status": "3D view uses the amplitude channel",
+    "csv_shortcut": "Meta+Shift+E"
+  },
+  "chip-2d": {
+    "saved": true
+  },
+  "chip-3d-no-calibration": {
+    "saved": true,
+    "context_valid": true,
+    "framebuffer_saved": true,
+    "framebuffer_colors": 169
+  },
+  "folder_path": "/Users/vincent/Desktop/LFI Viewer/Realdata/vegetable2026",
+  "folder_entry": "MainWindow.open_folder_dialog -> registered FrameFolderLoader",
+  "loaded_frame_ids": [
+    20,
+    21,
+    22,
+    23,
+    24
+  ],
+  "measured_shape": [
+    5,
+    400,
+    1300
+  ],
+  "phase_converted": false,
+  "user_inputs_for_validation": {
+    "z_start_mm": "30.05",
+    "z_step_mm": "0.1",
+    "first_frame_id": "21"
+  },
+  "assumption": "VALIDATION ASSUMPTION ONLY: frame 21 at 30.05 mm, step 0.1 mm; start-frame mapping UNCONFIRMED.",
+  "reconstructed_shape": [
+    5,
+    400,
+    1300
+  ],
+  "status": "3D: Part 3 depth reconstruction \u00b7 amplitude interpolated \u00b7 phase from nearest measured slice \u00b7 axes in sample indices (Z indexes the uniform depth grid; X/Y index measured pixels, not physical aspect)",
+  "ui_part3": {
+    "phase_policy": "nearest_measured_slice",
+    "amplitude_policy": "linear_depth_interpolation",
+    "axes": "sample_indices",
+    "z_grid": "uniform_depth",
+    "output_spacing_mm": 0.1
+  },
+  "vegetables-part3-assumption": {
+    "saved": true,
+    "context_valid": true,
+    "framebuffer_saved": true,
+    "framebuffer_colors": 57
+  },
+  "vegetables-isosurface-assumption": {
+    "saved": true,
+    "context_valid": true,
+    "framebuffer_saved": true,
+    "framebuffer_colors": 13
+  },
+  "vegetables-part3-cn-assumption": {
+    "saved": true,
+    "context_valid": true,
+    "framebuffer_saved": true,
+    "framebuffer_colors": 13
+  },
+  "elapsed_seconds": 7.552164833003189
+}

@@ -86,9 +86,11 @@ Both amplitude and phase must be present with compatible dimensions.
 - Direct File → Export CSV… (Cmd+Shift+E), export content preview, remembered export directory (Desktop initially), and Show in Finder after saving.
 - Selected-channel CSV (original measurements when preprocessing is off; processed values when on), colored pixel PNG/JPEG/TIFF and publication PNG
   with axes/colorbar. PNG/TIFF and publication PNG carry 300 DPI.
+- Optional Part 3 depth reconstruction: expand **Depth calibration** in the 3D tab, enter scan settings and confirm the start-frame mapping. Fields are blank and cleared on every file load. Valid metadata `depth_mm` is also accepted; no calibration is guessed.
+- Part 3 linearly interpolates amplitude onto a uniform depth grid and takes phase from the nearest measured slice; the 2D measured data remain unchanged. The 3D status explicitly identifies sample-index axes.
 - Thread-pool loading, slice/histogram preparation, backend processing, 3D
   computation and export, with busy state and readable error dialogs.
-- Part 2 is registered by the desktop entrypoint, with preprocessing initially off. Reconstruction controls require both a registered backend and one depth_mm value per slice; a calibration explanation is shown only when a real backend is registered and depth calibration is missing. Without a registered backend, both the control and explanation are hidden.
+- Part 2 is registered by the desktop entrypoint, with preprocessing initially off. Part 3 reconstruction controls require its registered backend and valid per-slice depth metadata or a complete user-entered calibration. Without calibration the v1.3 reconstruction option and hint stay hidden; a collapsed Depth calibration section is available on the 3D tab when Part 3 is registered.
 
 ## Tests
 
@@ -127,9 +129,11 @@ LFI_VALIDATE_FILE="$(pwd)/Realdata/chip_borad1.hdf5" \
 
 - Pixel size must be entered manually. The supplied scan files contain no
   calibration metadata; no 10 μm step or 100 kHz rate is inferred.
-- 3D has no physical Z spacing. XYZ coordinates are sensor/sample indices.
+- 3D axes remain sample indices, including the uniform depth-grid index after Part 3 reconstruction; rendering does not establish correct physical XYZ proportions.
 - Part 2 is available but optional; its default settings for the supplied three scans do not generate spatial_products, and their phase remains uncalibrated. Derived relative phase and processing quality are not physical calibration.
-- No real Part 3 reconstructor is registered in this release. The three supplied scans lack depth_mm; no Vegetables depth parameters are applied automatically.
+- Part 3 is registered optionally at startup and disabled safely if its import fails. Reconstruction remains unavailable without valid depth metadata or user-supplied calibration. The chip scan has no confirmed depth calibration. No Vegetables preset is applied.
+- Calibration must come from the user or acquisition metadata. Karl supplied start 30.05 mm and step 0.1 mm for Vegetables, but the frame ID at the start depth (20 or 21) is unresolved; confirm it before scientific use.
+- Part 3 output spacing is derived from the user step or the smallest interval between distinct metadata depths; the upstream slice-count safety limit still applies. Phase is copied from a nearest measured slice, not interpolated or converted to depth.
 - NPZ/handoff loading is not enabled until real data and phase-unit provenance are provided. Pixel/mask orientation and physical 3D calibration need team confirmation.
 - The loader retains complete amplitude/phase arrays in memory. Large scans
   require sufficient RAM; downsampling limits 3D display work, not load memory.
@@ -149,7 +153,7 @@ core. The lightweight `streamlit-final` tag identifies its pre-migration
 baseline. See `docs/backend-integration.md` for teammate integration and
 `docs/gaussian_preprocessor_example.py` for an inactive example. Existing
 `part1_data`, `part2_preprocess`, `part3_reconstruction` and `shared` modules
-remain available for team development. Part 1 import and the UI-side Part 2 adapter are wired into the desktop; Part 3 registration remains explicit.
+remain available for team development. Part 1 import and the UI-side Part 2 adapter are wired into the desktop; Part 3 has an optional UI adapter with explicit calibration gating.
 
 ## Part 3 imaging and reconstruction module
 
@@ -157,7 +161,7 @@ remain available for team development. Part 1 import and the UI-side Part 2 adap
 volumes: amplitude/phase display with explicit phase units, HSL fusion,
 physical-coordinate and depth-only resampling, NIfTI export, a reader for the
 Part 2 handoff, and a handoff check that writes a self-contained HTML report.
-It is not yet wired into the desktop backend. Details, API and validation:
+Its depth backend is connected through `part4_ui/lfi_core/adapters/part3.py`; calibration is required. Other Part 3 imaging/export features remain separate from the desktop UI. Details, API and validation:
 [docs/part3_rebuild.md](docs/part3_rebuild.md).
 
 ```sh

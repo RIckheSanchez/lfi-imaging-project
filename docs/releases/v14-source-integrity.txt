@@ -1,0 +1,17 @@
+gui_backend.py byte-for-byte identical to d741100: PASS
+handoff.resample_depth identical between 35413fb and d741100: PASS
+source blob:
+9d1083ead34ebba7ae22f26fa502b1a454a5d45f
+
+working blob:
+9d1083ead34ebba7ae22f26fa502b1a454a5d45f
+
+Part1/2 changes (must be empty):
+
+legacy launcher present (must be false):
+
+original branch:
+35413fb99875fdbefefa6b456cf5dad4a6a97b0c
+
+original tag:
+35413fb99875fdbefefa6b456cf5dad4a6a97b0c
