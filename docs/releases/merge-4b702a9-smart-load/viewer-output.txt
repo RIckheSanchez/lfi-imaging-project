@@ -1,0 +1,10 @@
+qt.qpa.fonts: Populating font family aliases took 26 ms. Replace uses of missing font family "Sans Serif" with one that exists to avoid this cost.
+This plugin does not support propagateSizeHints()
+This plugin does not support propagateSizeHints()
+[load_single_scan] Loading: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+This plugin does not support propagateSizeHints()
+/Users/vincent/Desktop/LFI Viewer/part1_data/loader.py:517: UserWarning: [loader] target=Chip: phase encoding 'zstack_unconfirmed' unconfirmed, keep raw codes (dtype=float64), not converted to radians.
+  phase, enc, converted = _apply_phase_encoding(
+[load_single_scan] Loaded → (70, 1400, 400) | format=hdf5_zstack | phase_encoding=zstack_unconfirmed converted=False
+This plugin does not support propagateSizeHints()
+VIEWER_AUDIT_PASS {"loaded_file": "/Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5", "shape": [70, 1400, 400], "slice_shape": [1400, 400], "status": "chip_borad1.hdf5 · 400 × 1400 · 70 层", "legacy_loader_installed": true, "reconstruction_available": false, "platform": "offscreen", "elapsed_seconds": 1.7209642919769976}

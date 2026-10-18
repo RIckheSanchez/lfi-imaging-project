@@ -1,0 +1,170 @@
+37 INFO: PyInstaller: 6.22.3, contrib hooks: 2026.8
+37 INFO: Python: 3.13.12
+44 INFO: Platform: macOS-15.5-arm64-arm-64bit-Mach-O
+44 INFO: Python environment: /private/tmp/lfi-v13-venv
+47 INFO: Removing temporary files and cleaning cache in /Users/vincent/Library/Application Support/pyinstaller
+97 INFO: Module search paths (PYTHONPATH):
+['/Users/vincent/Desktop/LFI Viewer',
+ '/opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python313.zip',
+ '/opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13',
+ '/opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/lib-dynload',
+ '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages',
+ '/Users/vincent/Desktop/LFI Viewer/packaging',
+ '/Users/vincent/Desktop/LFI Viewer',
+ '/Users/vincent/Desktop/LFI Viewer/part2_preprocess/src']
+204 INFO: Appending 'datas' from .spec
+204 INFO: checking Analysis
+204 INFO: Building Analysis because Analysis-00.toc is non existent
+204 INFO: Looking for Python shared library...
+207 INFO: Using Python shared library: /opt/homebrew/Cellar/python@3.13/3.13.12_1/Frameworks/Python.framework/Versions/3.13/Python
+207 INFO: Running Analysis Analysis-00.toc
+207 INFO: Target bytecode optimization level: 0
+207 INFO: Initializing module dependency graph...
+207 INFO: Initializing module graph hook caches...
+213 INFO: Analyzing modules for base_library.zip ...
+509 INFO: Processing standard module hook 'hook-encodings.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+604 INFO: Processing standard module hook 'hook-math.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+953 INFO: Processing standard module hook 'hook-heapq.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+1499 INFO: Processing standard module hook 'hook-pickle.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+2263 INFO: Caching module dependency graph...
+2280 INFO: Analyzing /Users/vincent/Desktop/LFI Viewer/packaging/entrypoint.py
+2317 INFO: Processing standard module hook 'hook-numpy.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+2493 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/pre_safe_import_module'
+2494 INFO: SetuptoolsInfo: initializing cached setuptools info...
+2783 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+2872 INFO: Processing standard module hook 'hook-xml.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+3010 INFO: Processing standard module hook 'hook-sysconfig.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+3018 INFO: Processing standard module hook 'hook-_osx_support.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+3020 INFO: Processing standard module hook 'hook-_ctypes.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+3358 INFO: Processing standard module hook 'hook-platform.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+3515 INFO: Processing standard module hook 'hook-webbrowser.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+4021 INFO: Processing standard module hook 'hook-difflib.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+4462 INFO: Processing standard module hook 'hook-PySide6.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+4544 INFO: Processing standard module hook 'hook-shiboken6.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+4656 INFO: Processing standard module hook 'hook-PySide6.QtNetwork.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+5158 INFO: Processing standard module hook 'hook-PySide6.QtCore.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+5656 INFO: Processing standard module hook 'hook-PySide6.QtGui.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+6164 INFO: Processing standard module hook 'hook-PySide6.QtWidgets.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+6256 INFO: Processing standard module hook 'hook-pyqtgraph.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+179 INFO: No OpenGL_accelerate module loaded: No module named 'OpenGL_accelerate'
+226 WARNING: Failed to collect submodules for 'pyqtgraph.jupyter' because importing 'pyqtgraph.jupyter' raised: ModuleNotFoundError: No module named 'jupyter_rfb'
+6670 INFO: hook-pyqtgraph: selected 'PySide6' as Qt bindings because hook for 'PySide6' has been run before.
+6730 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+6739 INFO: Processing standard module hook 'hook-PySide6.QtSvg.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+6827 INFO: Processing standard module hook 'hook-PySide6.QtOpenGLWidgets.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+6931 INFO: Processing standard module hook 'hook-PySide6.QtTest.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+7193 INFO: Processing standard module hook 'hook-scipy.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+7671 INFO: Processing standard module hook 'hook-scipy.special._ufuncs.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+7749 INFO: Processing standard module hook 'hook-scipy.linalg.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+8839 INFO: Processing standard module hook 'hook-scipy.spatial._ckdtree.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+8889 INFO: Processing standard module hook 'hook-matplotlib.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+9018 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/pre_safe_import_module'
+9211 INFO: Processing standard module hook 'hook-matplotlib.backend_bases.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+9294 INFO: Processing standard module hook 'hook-PIL.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+9349 INFO: Processing standard module hook 'hook-PIL.Image.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+9560 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+10016 INFO: Processing standard module hook 'hook-matplotlib.backends.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+10067 INFO: Processing standard module hook 'hook-matplotlib.pyplot.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+10139 INFO: Processing standard module hook 'hook-matplotlib.figure.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+10527 INFO: Processing standard module hook 'hook-dateutil.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+10569 INFO: Processing pre-safe-import-module hook 'hook-six.moves.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/pre_safe_import_module'
+11474 INFO: Processing pre-safe-import-module hook 'hook-gi.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/pre_safe_import_module'
+11783 INFO: Processing standard module hook 'hook-scipy.spatial.transform.rotation.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+12309 INFO: Processing standard module hook 'hook-scipy.stats._stats.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+12598 INFO: Processing standard module hook 'hook-scipy.sparse.csgraph.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+12963 INFO: Processing standard module hook 'hook-scipy.special._ellip_harm_2.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+13185 INFO: Processing standard module hook 'hook-h5py.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+13412 INFO: Processing standard module hook 'hook-matplotlib.backends.backend_qtagg.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+13415 INFO: Processing standard module hook 'hook-matplotlib.backends.qt_compat.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+13415 INFO: hook-matplotlib.backends.qt_compat: selected 'PySide6' as Qt bindings because hook for 'PySide6' has been run before.
+13470 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+14039 INFO: Processing standard module hook 'hook-scipy.io.matlab.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+14198 INFO: Processing standard module hook 'hook-skimage.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+14306 INFO: Processing standard module hook 'hook-skimage.measure.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+14475 INFO: Processing standard module hook 'hook-OpenGL.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+21 INFO: No OpenGL_accelerate module loaded: No module named 'OpenGL_accelerate'
+15139 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/pre_safe_import_module'
+15140 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
+15144 INFO: Processing standard module hook 'hook-setuptools.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+15150 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/pre_safe_import_module'
+15164 INFO: Processing pre-safe-import-module hook 'hook-jaraco.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/pre_safe_import_module'
+15164 INFO: Setuptools: 'jaraco' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco'!
+15169 INFO: Processing pre-safe-import-module hook 'hook-more_itertools.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/pre_safe_import_module'
+15170 INFO: Setuptools: 'more_itertools' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.more_itertools'!
+15270 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+15271 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/pre_safe_import_module'
+15275 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/pre_safe_import_module'
+15275 INFO: Setuptools: 'backports' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.backports'!
+15766 INFO: Processing pre-safe-import-module hook 'hook-wheel.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/pre_safe_import_module'
+15766 INFO: Setuptools: 'wheel' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.wheel'!
+16067 INFO: Processing standard module hook 'hook-skimage.filters.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+16432 INFO: Processing standard module hook 'hook-skimage.restoration.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+16614 INFO: Processing module hooks (post-graph stage)...
+16743 INFO: Processing standard module hook 'hook-skimage.exposure.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+16930 INFO: Processing standard module hook 'hook-skimage.morphology.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+17001 INFO: Processing standard module hook 'hook-skimage.draw.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+17194 INFO: Processing standard module hook 'hook-skimage.transform.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+17364 INFO: Processing standard module hook 'hook-skimage.feature.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+17623 INFO: Processing standard module hook 'hook-skimage.color.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+17873 INFO: Processing standard module hook 'hook-skimage.metrics.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/stdhooks'
+18188 WARNING: Hidden import "scipy.special._cdflib" not found!
+18468 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+18491 INFO: Processing standard module hook 'hook-matplotlib.backends.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+18491 INFO: Matplotlib backend selection method: automatic discovery of used backends
+18622 INFO: Trying determine the default backend as first importable candidate from the list: ['MacOSX', 'QtAgg', 'Qt5Agg', 'Gtk4Agg', 'Gtk3Agg', 'TkAgg', 'WxAgg']
+18931 INFO: Selected matplotlib backends: ['MacOSX']
+18931 INFO: Extra dists for selected matplotlib backends: []
+19966 INFO: Processing standard module hook 'hook-PySide6.QtOpenGL.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+20078 INFO: Processing standard module hook 'hook-PySide6.QtDBus.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+20185 INFO: Performing binary vs. data reclassification (439 entries)
+20249 INFO: Looking for ctypes DLLs
+20262 WARNING: Library user32 required via ctypes not found
+20383 INFO: Analyzing run-time hooks ...
+20386 INFO: Including run-time hook 'pyi_rth_inspect.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/rthooks'
+20388 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/rthooks'
+20389 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/rthooks'
+20390 INFO: Including run-time hook 'pyi_rth_mplconfig.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/rthooks'
+20390 INFO: Processing pre-find-module-path hook 'hook-_pyi_rth_utils.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/pre_find_module_path'
+20391 INFO: Processing standard module hook 'hook-_pyi_rth_utils.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks'
+20392 INFO: Including run-time hook 'pyi_rth_setuptools.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/rthooks'
+20393 INFO: Including run-time hook 'pyi_rth_pyside6.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/hooks/rthooks'
+20395 INFO: Including run-time hook 'pyi_rth_pyqtgraph_multiprocess.py' from '/private/tmp/lfi-v13-venv/lib/python3.13/site-packages/_pyinstaller_hooks_contrib/rthooks'
+20410 INFO: Creating base_library.zip...
+20420 INFO: Looking for dynamic libraries
+20903 INFO: Warnings written to /Users/vincent/Desktop/LFI Viewer/build/LFI Viewer/warn-LFI Viewer.txt
+20941 INFO: Graph cross-reference written to /Users/vincent/Desktop/LFI Viewer/build/LFI Viewer/xref-LFI Viewer.html
+21118 INFO: checking PYZ
+21118 INFO: Building PYZ because PYZ-00.toc is non existent
+21118 INFO: Building PYZ (ZlibArchive) /Users/vincent/Desktop/LFI Viewer/build/LFI Viewer/PYZ-00.pyz
+21999 INFO: Building PYZ (ZlibArchive) /Users/vincent/Desktop/LFI Viewer/build/LFI Viewer/PYZ-00.pyz completed successfully.
+22013 INFO: EXE target arch: arm64
+22013 INFO: Code signing identity: None
+22014 INFO: checking PKG
+22014 INFO: Building PKG because PKG-00.toc is non existent
+22014 INFO: Building PKG (CArchive) LFI Viewer.pkg
+22026 INFO: Building PKG (CArchive) LFI Viewer.pkg completed successfully.
+22026 INFO: Bootloader /private/tmp/lfi-v13-venv/lib/python3.13/site-packages/PyInstaller/bootloader/Darwin-64bit/runw
+22026 INFO: checking EXE
+22026 INFO: Building EXE because EXE-00.toc is non existent
+22026 INFO: Building EXE from EXE-00.toc
+22026 INFO: Copying bootloader EXE to /Users/vincent/Desktop/LFI Viewer/build/LFI Viewer/LFI Viewer
+22026 INFO: Converting EXE to target arch (arm64)
+22045 INFO: Removing signature(s) from EXE
+22061 INFO: Modifying Mach-O image UUID(s) in EXE
+22069 INFO: Appending PKG archive to EXE
+22074 INFO: Fixing EXE headers for code signing
+22076 INFO: Rewriting the executable's macOS SDK version (26.2.0) to match the SDK version of the Python library (15.4.0) in order to avoid inconsistent behavior and potential UI issues in the frozen application.
+22076 INFO: Re-signing the EXE
+22107 INFO: Building EXE from EXE-00.toc completed successfully.
+22111 INFO: checking COLLECT
+22112 INFO: Building COLLECT because COLLECT-00.toc is non existent
+22112 INFO: Removing dir /Users/vincent/Desktop/LFI Viewer/dist/LFI Viewer
+22168 INFO: Building COLLECT COLLECT-00.toc
+32848 INFO: Building COLLECT COLLECT-00.toc completed successfully.
+32858 INFO: checking BUNDLE
+32858 INFO: Building BUNDLE because BUNDLE-00.toc is non existent
+32858 INFO: Removing dir /Users/vincent/Desktop/LFI Viewer/dist/LFI Viewer.app
+32914 INFO: Building BUNDLE BUNDLE-00.toc
+36257 INFO: Signing the BUNDLE...
+36426 INFO: Building BUNDLE BUNDLE-00.toc completed successfully.
+36433 INFO: Build complete! The results are available in: /Users/vincent/Desktop/LFI Viewer/dist

@@ -1,0 +1,5 @@
+Manual CUA attempt: packaged app launched; Cmd+O opened native dialog.
+Go To sheet displayed a typed path, but Return/Escape reset its text to / instead of completing selection. Native AX open action did not advance.
+Manual OS-dialog completion is NOT claimed. No data were loaded in that test process; it was terminated before automated Cocoa validation.
+Automated native validation invokes MainWindow.open_folder_dialog with only the selection response supplied; the real FrameFolderLoader, real scans, widgets, backend worker and OpenGL viewport remain active.
+Vegetables screenshot hypothesis: frame 21 corresponds to Karl start 30.05 mm, step 0.1 mm. The start-frame mapping is UNCONFIRMED.

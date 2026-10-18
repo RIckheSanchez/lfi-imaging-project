@@ -1,0 +1,4 @@
+codesign --verify --deep --strict "dist/LFI Viewer.app"
+exit=0
+CFBundleShortVersionString=1.4
+Native frozen arm64 Cocoa validation: PASS (see screenshots/v14/native-report.json)

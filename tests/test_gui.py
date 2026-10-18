@@ -38,18 +38,19 @@ def load_mushroom(qtbot, window):
 
 def test_chip_load_responsive_and_screenshot(qtbot, window, monkeypatch):
     import part4_ui.app as module
-    original = module.smart_load
+    from part4_ui.lfi_core.loaders import HDF5Loader
+    original = HDF5Loader.load
     load_times = []
     worker_threads = []
     ticks = []
     main_thread = threading.get_ident()
-    def timed_load(path):
+    def timed_load(loader, path):
         worker_threads.append(threading.get_ident())
         start = time.perf_counter()
-        data = original(path)
+        data = original(loader, path)
         load_times.append((start, time.perf_counter()))
         return data
-    monkeypatch.setattr(module, 'smart_load', timed_load)
+    monkeypatch.setattr(HDF5Loader, 'load', timed_load)
     timer = QtCore.QTimer(window)
     timer.setInterval(10)
     timer.timeout.connect(lambda: ticks.append(time.perf_counter()))
@@ -101,6 +102,8 @@ def test_hover_click_waveform_and_language(qtbot, window):
     position = window.image_plot.mapFromScene(scene_point)
     qtbot.mouseClick(window.image_plot.viewport(), QtCore.Qt.MouseButton.LeftButton, pos=position)
     assert window.selected_pixel == (x, y)
+    assert window.tabs.currentIndex() == 0
+    qtbot.mouseClick(window.show_waveform, QtCore.Qt.MouseButton.LeftButton)
     assert window.tabs.currentIndex() == 2
     assert window.cross_x.value() == x + .5
     assert window.cross_y.value() == y + .5
@@ -223,6 +226,8 @@ def test_volume_mesh_worker_and_invalidation(qtbot, window, tmp_path):
             threads.append(threading.get_ident())
             return data
     window.reconstructor = Backend()
+    window.data.metadata['depth_mm'] = list(range(window.data.n_slices))
+    window.update_info()
     panel = window.volume_panel
     panel.reconstruct.setChecked(True)
     qtbot.mouseClick(panel.render_button, QtCore.Qt.MouseButton.LeftButton)
@@ -291,7 +296,8 @@ def test_colorbar_bounds_fit_and_loaded_status(qtbot, window):
     assert window.colorbar.levels() == tuple(map(float, (window.raw_slice.min(), window.raw_slice.max())))
 
 
-def test_backend_registration_controls_and_worker(qtbot, tmp_path):
+def test_backend_registration_controls_and_worker(qtbot, tmp_path, monkeypatch):
+    monkeypatch.setenv('LFI_DEV_PARAMS', '1')
     from part4_ui.lfi_core.backend import register_preprocessor, register_reconstructor
     calls = []
     class Backend:
@@ -309,13 +315,12 @@ def test_backend_registration_controls_and_worker(qtbot, tmp_path):
         widget.errors = []
         widget.show()
         assert widget.pre_group.isVisible()
-        assert not widget.volume_panel.reconstruct.isHidden()
+        assert widget.volume_panel.reconstruct.isHidden()
         widget.apply_preprocessing.setChecked(True)
         load_mushroom(qtbot, widget)
         assert calls[0][0] == 'preprocess'
         assert calls[0][1] != threading.get_ident()
         assert calls[0][2] == {'sigma': 1.5}
-        widget.volume_panel.reconstruct.setChecked(True)
         # Use a small multilayer scan to execute the registered reconstructor.
         path = tmp_path/'registered.hdf5'
         with h5py.File(path,'w') as handle:
@@ -324,6 +329,10 @@ def test_backend_registration_controls_and_worker(qtbot, tmp_path):
                 handle.create_dataset(f'phase/{index}', data=np.zeros((4,5)))
         widget.open_file(path)
         wait_ready(qtbot, widget)
+        widget.data.metadata['depth_mm'] = [1., 1.1, 1.2]
+        widget.update_info()
+        assert not widget.volume_panel.reconstruct.isHidden()
+        widget.volume_panel.reconstruct.setChecked(True)
         widget.request_volume()
         wait_ready(qtbot, widget)
         reconstruct_call = next(call for call in calls if call[0] == 'reconstruct')
@@ -465,3 +474,139 @@ def test_phase_labels_and_publication_metadata(qtbot, window, tmp_path, monkeypa
     assert window.histogram.getAxis('bottom').labelText == cn_label
     assert window.colorbar.axis.labelText == cn_label
     assert cn_label in window.pixel_label.text()
+
+
+def test_pixel_coordinates_and_keyboard(qtbot, window):
+    load_mushroom(qtbot, window)
+    window.pixel_x.setValue(3)
+    window.pixel_y.setValue(4)
+    assert window.selected_pixel == (3, 4)
+    assert window.cross_x.value() == 3.5
+    assert window.waveform_pixel.text() == 'Pixel X = 3, Y = 4'
+    assert np.array_equal(window.phase_plot.listDataItems()[0].yData, window.data.phase[:, 4, 3])
+    assert window.pixel_x.maximum() == window.data.width - 1
+    assert window.pixel_y.maximum() == window.data.height - 1
+    window.plot_host.setFocus()
+    qtbot.keyClick(window.plot_host, QtCore.Qt.Key.Key_Right)
+    assert window.selected_pixel == (4, 4)
+    qtbot.keyClick(window.plot_host, QtCore.Qt.Key.Key_Down)
+    assert window.selected_pixel == (4, 5)
+    qtbot.keyClick(window.plot_host, QtCore.Qt.Key.Key_Up)
+    assert window.selected_pixel == (4, 4)
+    window.tabs.setCurrentIndex(2)
+    window.waveform_tab.setFocus()
+    qtbot.keyClick(window.waveform_tab, QtCore.Qt.Key.Key_Left)
+    assert window.selected_pixel == (3, 4)
+    window.set_language('CN')
+    assert window.waveform_pixel.text() == '像素 X = 3, Y = 4'
+    window.tabs.setCurrentIndex(0)
+    window.plot_host.setFocus()
+    window.select_pixel(0, 0)
+    qtbot.keyClick(window.plot_host, QtCore.Qt.Key.Key_Left)
+    assert window.selected_pixel == (0, 0)
+
+
+def test_slice_index_z_value_linkage(qtbot, window, tmp_path):
+    path = tmp_path/'slices.hdf5'
+    with h5py.File(path, 'w') as f:
+        for z in [530, 540, 560, 600]:
+            f[f'amplitude/{z}'] = np.arange(30).reshape(5, 6) + z
+            f[f'phase/{z}'] = np.ones((5, 6))
+    window.open_file(str(path))
+    wait_ready(qtbot, window)
+    assert window.z_values.count() == window.data.n_slices
+    for control in (window.z_spin, window.z_slider, window.z_values):
+        if control is window.z_values:
+            control.setCurrentIndex(3)
+        else:
+            control.setValue(2 if control is window.z_slider else 1)
+        wait_ready(qtbot, window)
+        index = window.z_slider.value()
+        assert window.z_spin.value() == window.z_values.currentIndex() == index
+        assert window.z_values.currentText() == str(window.data.z_indices[index])
+        assert window.z_label.text() == f'Slice {index+1} of {window.data.n_slices} · Z = {window.data.z_indices[index]}'
+    window.set_language('CN')
+    assert window.slice_index_label.text() == '切片索引'
+    assert window.z_value_label.text() == 'Z 值'
+    assert window.z_label.wordWrap()
+
+
+def test_channel_specific_preprocessing_status(qtbot, window):
+    from part4_ui.lfi_core.adapters.part2 import Part2Preprocessor
+    window.preprocessor = Part2Preprocessor()
+    load_mushroom(qtbot, window)
+    window.apply_preprocessing.setChecked(True)
+    wait_ready(qtbot, window)
+    status = window.preprocessing_status.text()
+    assert 'Amplitude: pre-processed · baseline · input units' in status
+    assert 'Phase: unchanged · encoding unconfirmed, not unwrapped' in status
+    assert window.value_label() == 'Processed value'
+    window.channel.setCurrentIndex(1)
+    wait_ready(qtbot, window)
+    assert window.value_label() == 'Raw value'
+    state = window.data.metadata['ui_preprocessing']
+    state['normalisation'] = 'zscore'
+    state['amplitude_units'] = 'dimensionless'
+    state['channels']['phase'].update(processed=True, encoding_confirmed=True, unwrapping_status='unwrapped')
+    window.update_info()
+    assert 'zscore · dimensionless' in window.preprocessing_status.text()
+    assert 'Phase: pre-processed · encoding confirmed, unwrapped' in window.preprocessing_status.text()
+    assert window.value_label() == 'Processed value'
+    window.set_language('CN')
+    assert '编码已确认' in window.preprocessing_status.text()
+
+
+def test_volume_automatically_recomputes(qtbot, window, tmp_path):
+    path = tmp_path/'volume.hdf5'
+    rng = np.random.default_rng(5)
+    with h5py.File(path, 'w') as f:
+        for z in range(5):
+            f[f'amplitude/{z}'] = rng.random((15, 18))
+            f[f'phase/{z}'] = rng.random((15, 18))
+    window.open_file(str(path))
+    wait_ready(qtbot, window)
+    window.tabs.setCurrentIndex(1)
+    qtbot.waitUntil(lambda: window.volume_panel.result is not None, timeout=10000)
+    window.volume_panel.mode.setCurrentIndex(1)
+    assert window.volume_panel.busy.text()
+    qtbot.waitUntil(lambda: window.volume_panel.result is not None, timeout=10000)
+    assert window.volume_panel.result['mode'] == 'isosurface'
+    window.volume_panel.percentile.setValue(80)
+    assert window.volume_panel.busy.text()
+    qtbot.waitUntil(lambda: window.volume_panel.result is not None, timeout=10000)
+    assert not window.volume_panel.busy.text()
+    assert window.volume_panel.channel_notice.text() == '3D view uses the amplitude channel'
+    window.set_language('CN')
+    assert window.volume_panel.channel_notice.text() == '三维视图使用振幅通道'
+
+
+def test_direct_csv_export_remembers_directory(qtbot, window, tmp_path, monkeypatch):
+    import part4_ui.app as module
+    load_mushroom(qtbot, window)
+    window.channel.setCurrentIndex(1)
+    wait_ready(qtbot, window)
+    calls = []
+    output = tmp_path/'phase.csv'
+    def save(parent, title, filename, filters):
+        calls.append((title, filename, filters))
+        return str(output), filters
+    monkeypatch.setattr(QtWidgets.QFileDialog, 'getSaveFileName', save)
+    window.csv_action.trigger()
+    wait_ready(qtbot, window)
+    assert output.exists()
+    assert window.export_summary() in calls[0][0]
+    desktop = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.DesktopLocation)
+    assert Path(calls[0][1]).parent == Path(desktop)
+    assert window.settings.value('export_directory') == str(tmp_path)
+    assert str(output) in window.statusBar().currentMessage()
+    assert window.finder_button.isVisible()
+    opened = []
+    monkeypatch.setattr(module.subprocess, 'Popen', lambda args: opened.append(args))
+    window.finder_button.click()
+    assert opened == [['open', '-R', str(output)]]
+    window.export_csv_dialog()
+    wait_ready(qtbot, window)
+    assert Path(calls[1][1]).parent == tmp_path
+    assert window.csv_action.shortcut().toString() == 'Meta+Shift+E'
+    window.set_language('CN')
+    assert window.csv_action.text() == '导出 CSV…'

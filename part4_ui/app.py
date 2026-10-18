@@ -1,22 +1,42 @@
 """Launch with python -m part4_ui.app from the repository root."""
 import json
+import os
 from copy import deepcopy
 import sys
 import traceback
+import subprocess
 from pathlib import Path
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
 from .i18n import text
 from .lfi_core.phase_semantics import phase_label_key, phase_encoding_status
-from .lfi_core.data_io import smart_load, local_data_key
-from .lfi_core.processing import normalized_slice, adjust_slice, prepare_3d
+from .lfi_core.loaders import load_path, loader_for, get_loaders
+from .lfi_core.data_types import LFIRawData
+from .lfi_core.data_io import local_data_key
+from .lfi_core.processing import normalized_slice, adjust_slice, prepare_3d, finite_values, finite_range
 from .lfi_core.export import scale_bar, export_csv, pixel_image, publication_png
 from .lfi_core.backend import (IdentityPreprocessor, IdentityReconstructor,
-                               get_preprocessor_registration, get_reconstructor_registration)
+                               get_preprocessor_registration, get_reconstructor_registration, register_preprocessor)
 from .volume_panel import VolumePanel
+from .lfi_core.adapters.part3 import Part3Reconstructor, calibrated_depths
 
 COLORMAPS = ['Viridis', 'Plasma', 'Inferno', 'Magma', 'Turbo', 'Hot', 'Cool']
+
+
+def smart_load(path: str) -> LFIRawData:
+    """Part 3 viewer compatibility entry point; return data, not a cache-key pair.
+
+    Delegate to registered loaders for supported HDF5 files/frame folders and
+    explicit plugin formats. Loading and unsupported-path errors propagate;
+    no legacy format is guessed or silently retried through another backend.
+    The Part 3 launcher may explicitly replace this module-level callable before
+    constructing MainWindow to add its own NPZ/folder handling.
+    """
+    return load_path(path)[0]
+
+
+_DEFAULT_SMART_LOAD = smart_load
 
 
 class ImagePlotHost(QtWidgets.QWidget):
@@ -72,11 +92,15 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, settings=None, preprocessor=None, reconstructor=None):
         super().__init__()
         self.settings = settings or QtCore.QSettings('LFI', 'Viewer')
+        # Capture only an explicitly installed legacy Part 3 loader. Normal app
+        # loading, plugin identities and calibration gating remain unchanged.
+        self._legacy_smart_loader = smart_load if smart_load is not _DEFAULT_SMART_LOAD else None
         preprocessing = get_preprocessor_registration()
         reconstruction = get_reconstructor_registration()
         self.preprocessor = preprocessor or (preprocessing.implementation if preprocessing else IdentityPreprocessor())
         self.reconstructor = reconstructor or (reconstruction.implementation if reconstruction else IdentityReconstructor())
-        self.preprocess_params = deepcopy(preprocessing.params) if preprocessing else {}
+        self.dev_params = os.environ.get('LFI_DEV_PARAMS') == '1'
+        self.preprocess_params = deepcopy(preprocessing.params) if preprocessing and self.dev_params else {}
         self.reconstruction_params = deepcopy(reconstruction.params) if reconstruction else {}
         self.language = self.settings.value('language', 'EN')
         self.data = self.raw_data = None
@@ -99,6 +123,21 @@ class MainWindow(QtWidgets.QMainWindow):
     def tr_text(self, key):
         return text(key, self.language)
 
+    def value_label(self):
+        channel = 'phase' if self.channel.currentIndex() else 'amplitude'
+        state = self.data.metadata.get('ui_preprocessing', {}) if self.data is not None else {}
+        processed = state.get('channels', {}).get(channel, {}).get('processed', bool(state) and channel == 'amplitude')
+        return self.tr_text('processed_value' if processed else 'raw')
+
+    def pixel_value_text(self, value):
+        return f'{value:.6g}' if np.isfinite(value) else self.tr_text('missing_value')
+
+    def amplitude_label(self):
+        state = self.data.metadata.get('ui_preprocessing') if self.data is not None else None
+        if state:
+            return self.tr_text('amplitude_preprocessed_dimensionless' if state['amplitude_units'] == 'dimensionless' else 'amplitude_preprocessed')
+        return self.tr_text('amplitude')
+
     def phase_label(self):
         metadata = self.data.metadata if self.data is not None else {}
         return self.tr_text(phase_label_key(metadata))
@@ -111,6 +150,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.statusBar().addPermanentWidget(self.progress)
         self.busy_label = QtWidgets.QLabel()
         self.statusBar().addPermanentWidget(self.busy_label)
+        self.exported_path = None
+        self.finder_button = QtWidgets.QPushButton()
+        self.finder_button.hide()
+        self.finder_button.clicked.connect(self.show_in_finder)
+        self.statusBar().addPermanentWidget(self.finder_button)
         self.dock = QtWidgets.QDockWidget(self)
         self.dock.setObjectName('display_controls')
         dock_widget = QtWidgets.QWidget()
@@ -135,8 +179,16 @@ class MainWindow(QtWidgets.QMainWindow):
         z_layout = QtWidgets.QVBoxLayout(z_widget)
         z_layout.setContentsMargins(0, 0, 0, 0)
         z_layout.addWidget(self.z_slider)
+        self.slice_index_label = QtWidgets.QLabel()
+        z_layout.addWidget(self.slice_index_label)
         z_layout.addWidget(self.z_spin)
+        self.z_value_label = QtWidgets.QLabel()
+        self.z_values = QtWidgets.QComboBox()
+        z_layout.addWidget(self.z_value_label)
+        z_layout.addWidget(self.z_values)
+        self.z_values.currentIndexChanged.connect(self.z_slider.setValue)
         self.z_label = QtWidgets.QLabel()
+        self.z_label.setWordWrap(True)
         z_layout.addWidget(self.z_label)
         self.pixel_size = QtWidgets.QDoubleSpinBox()
         self.pixel_size.setDecimals(6)
@@ -159,8 +211,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.parameter.editingFinished.connect(self.update_preprocess_params)
         self.parameter_label = QtWidgets.QLabel()
         pre_layout.addWidget(self.apply_preprocessing)
+        self.preprocessing_status = QtWidgets.QLabel()
+        self.preprocessing_status.setWordWrap(True)
+        pre_layout.addWidget(self.preprocessing_status)
         pre_layout.addWidget(self.parameter_label)
         pre_layout.addWidget(self.parameter)
+        self.parameter_label.setVisible(self.dev_params)
+        self.parameter.setVisible(self.dev_params)
         self.pre_group.setVisible(not isinstance(self.preprocessor, IdentityPreprocessor))
         dock_layout.addWidget(self.pre_group)
         dock_layout.addStretch()
@@ -202,6 +259,26 @@ class MainWindow(QtWidgets.QMainWindow):
         self.pixel_label = QtWidgets.QLabel()
         pixel_layout = QtWidgets.QVBoxLayout(self.pixel_group)
         pixel_layout.addWidget(self.pixel_label)
+        coords = QtWidgets.QFormLayout()
+        self.pixel_x = QtWidgets.QSpinBox()
+        self.pixel_y = QtWidgets.QSpinBox()
+        for label, spin in [('X', self.pixel_x), ('Y', self.pixel_y)]:
+            spin.setRange(0, 0)
+            coords.addRow(label, spin)
+        pixel_layout.addLayout(coords)
+        self.pixel_x.valueChanged.connect(lambda x: self.select_pixel(x, self.selected_pixel[1]))
+        self.pixel_y.valueChanged.connect(lambda y: self.select_pixel(self.selected_pixel[0], y))
+        self.show_waveform = QtWidgets.QPushButton()
+        self.show_waveform.clicked.connect(lambda: self.tabs.setCurrentIndex(2))
+        pixel_layout.addWidget(self.show_waveform)
+        self.pixel_shortcuts = []
+        for key, dx, dy in [('Left', -1, 0), ('Right', 1, 0), ('Up', 0, -1), ('Down', 0, 1)]:
+            shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), self.plot_host)
+            shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(lambda dx=dx, dy=dy: self.select_pixel(
+                self.selected_pixel[0] + dx, self.selected_pixel[1] + dy))
+            self.pixel_shortcuts.append(shortcut)
+        self.plot_host.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
         self.histogram = pg.PlotWidget()
         self.histogram.setMinimumHeight(200)
         self.histogram_curve = self.histogram.plot(pen=pg.mkPen('#5bb8eb', width=2), fillLevel=0, brush=(91,184,235,60))
@@ -212,14 +289,21 @@ class MainWindow(QtWidgets.QMainWindow):
         info_widget.setMaximumWidth(480)
         slice_layout.addWidget(info_widget, 1)
         self.volume_panel = VolumePanel()
-        self.volume_panel.reconstruct.setVisible(not isinstance(self.reconstructor, IdentityReconstructor))
+        self.volume_panel.set_reconstruction_available(False)
         self.volume_panel.render_requested.connect(self.request_volume)
-        self.volume_panel.invalidated.connect(self.invalidate_volume)
+        self.volume_panel.calibration_changed.connect(self.calibration_changed)
+        self.volume_timer = QtCore.QTimer(self)
+        self.volume_timer.setSingleShot(True)
+        self.volume_timer.setInterval(180)
+        self.volume_timer.timeout.connect(self.request_volume)
+        self.volume_panel.invalidated.connect(self.schedule_volume)
         self.brightness.valueChanged.connect(self.invalidate_volume)
         self.contrast.valueChanged.connect(self.invalidate_volume)
         self.colormap.currentIndexChanged.connect(self.invalidate_volume)
         self.waveform_tab = QtWidgets.QWidget()
         wave_layout = QtWidgets.QVBoxLayout(self.waveform_tab)
+        self.waveform_pixel = QtWidgets.QLabel()
+        wave_layout.addWidget(self.waveform_pixel)
         self.amplitude_plot = pg.PlotWidget()
         self.phase_plot = pg.PlotWidget()
         wave_layout.addWidget(self.amplitude_plot)
@@ -227,6 +311,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.tabs.addTab(self.slice_tab, '')
         self.tabs.addTab(self.volume_panel, '')
         self.tabs.addTab(self.waveform_tab, '')
+        for key, dx, dy in [('Left', -1, 0), ('Right', 1, 0), ('Up', 0, -1), ('Down', 0, 1)]:
+            shortcut = QtGui.QShortcut(QtGui.QKeySequence(key), self.waveform_tab)
+            shortcut.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(lambda dx=dx, dy=dy: self.select_pixel(
+                self.selected_pixel[0] + dx, self.selected_pixel[1] + dy))
+            self.pixel_shortcuts.append(shortcut)
+        self.waveform_tab.setFocusPolicy(QtCore.Qt.FocusPolicy.StrongFocus)
+        self.tabs.currentChanged.connect(lambda index: self.schedule_volume() if index == 1 and self.volume_panel.result is None else None)
         self.channel.currentIndexChanged.connect(self.request_slice)
         self.brightness.valueChanged.connect(self.request_slice)
         self.contrast.valueChanged.connect(self.request_slice)
@@ -242,9 +334,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.file_menu = self.menuBar().addMenu(self.tr_text('file'))
         self.open_action = self.file_menu.addAction(self.tr_text('open'), self.open_dialog)
         self.open_action.setShortcut(QtGui.QKeySequence.StandardKey.Open)
+        self.folder_action = self.file_menu.addAction(self.tr_text('open_folder'), self.open_folder_dialog)
         self.recent_menu = self.file_menu.addMenu(self.tr_text('recent'))
         self.export_action = self.file_menu.addAction(self.tr_text('export'), self.export_dialog)
         self.export_action.setEnabled(self.data is not None)
+        self.csv_action = self.file_menu.addAction(self.tr_text('export_csv'), self.export_csv_dialog)
+        self.csv_action.setShortcut(QtGui.QKeySequence('Meta+Shift+E'))
+        self.csv_action.setEnabled(self.data is not None)
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.tr_text('quit'), self.close).setShortcut(QtGui.QKeySequence.StandardKey.Quit)
         view_menu = self.menuBar().addMenu(self.tr_text('view'))
@@ -269,21 +365,25 @@ class MainWindow(QtWidgets.QMainWindow):
         self.channel.setItemText(0, self.tr_text('amplitude'))
         self.channel.setItemText(1, self.tr_text('phase'))
         self.scale_hint.setText(self.tr_text('scale_hint'))
+        self.slice_index_label.setText(self.tr_text('slice_index'))
+        self.z_value_label.setText(self.tr_text('z_value'))
         self.pre_group.setTitle(self.tr_text('preprocessing'))
         self.apply_preprocessing.setText(self.tr_text('apply'))
         self.parameter_label.setText(self.tr_text('parameters'))
         self.scan_group.setTitle(self.tr_text('scan_info'))
+        self.finder_button.setText(self.tr_text('show_finder'))
         self.pixel_group.setTitle(self.tr_text('pixel_info'))
+        self.show_waveform.setText(self.tr_text('show_waveform'))
         for index, key in enumerate(('slice', 'volume', 'waveform')):
             self.tabs.setTabText(index, self.tr_text(key))
         self.volume_panel.set_language(language)
         self.image_plot.setLabel('bottom', self.tr_text('x'))
         self.image_plot.setLabel('left', self.tr_text('y'))
         self.histogram.setTitle(self.tr_text('histogram'))
-        self.histogram.setLabel('bottom', self.phase_label() if self.channel.currentIndex() else self.tr_text('intensity'))
+        self.update_histogram_label()
         self.histogram.setLabel('left', self.tr_text('count'))
         self.amplitude_plot.setLabel('bottom', self.tr_text('z_index'))
-        self.amplitude_plot.setLabel('left', self.tr_text('amplitude'))
+        self.amplitude_plot.setLabel('left', self.amplitude_label())
         self.phase_plot.setLabel('bottom', self.tr_text('z_index'))
         self.phase_plot.setLabel('left', self.phase_label())
         self._build_menus()
@@ -292,6 +392,12 @@ class MainWindow(QtWidgets.QMainWindow):
         self.update_colorbar()
         if self.jobs:
             self.busy_label.setText(self.tr_text('busy'))
+
+    def update_histogram_label(self):
+        self.histogram.setLabel('bottom', self.phase_label() if self.channel.currentIndex() else self.amplitude_label(), **{'font-size': '9pt'})
+        # AxisItem updates text without repositioning when its geometry is fixed.
+        # Re-run the public resize handler to center a changed, longer label.
+        self.histogram.getAxis('bottom').resizeEvent()
 
     def update_histogram_theme(self):
         palette = self.palette()
@@ -325,21 +431,55 @@ class MainWindow(QtWidgets.QMainWindow):
         if path:
             self.open_file(path)
 
+    def open_folder_dialog(self):
+        path = QtWidgets.QFileDialog.getExistingDirectory(self, self.tr_text('open_folder'))
+        if path:
+            self.open_file(path)
+
+    def accepts_path(self, path):
+        try:
+            loader_for(path)
+            return True
+        except (OSError, ValueError):
+            return False
+
+    def _load_compat_path(self, path):
+        """Honor an explicit Part 3 loader override without globally enabling NPZ."""
+        resolved = str(Path(path).expanduser().resolve())
+        data = self._legacy_smart_loader(resolved)
+        if not isinstance(data, LFIRawData):
+            raise TypeError('smart_load compatibility loader must return LFIRawData.')
+        try:
+            loader = loader_for(resolved)
+        except ValueError:
+            # The explicit override already loaded an extension outside the
+            # registry (e.g. Part 3 NPZ). Do not catch/retry its loading errors.
+            key = (resolved, 'part3-smart-load-compat', local_data_key(resolved))
+        else:
+            key = (resolved, loader.name, loader.make_data_key(resolved))
+        hash(key)
+        return data, key
+
     def open_file(self, path):
+        self.volume_panel.reset_calibration()
+        self.volume_timer.stop()
+        self.volume_panel.set_reconstruction_available(False)
         self.load_token += 1
         self.slice_token += 1
         self.invalidate_volume()
         apply = self.apply_preprocessing.isChecked()
         backend = self.preprocessor
-        params = deepcopy(self.preprocess_params)
+        params = deepcopy(self.preprocess_params) if self.dev_params else {}
         def load():
-            key = local_data_key(path)
-            raw = smart_load(key[0])
+            raw, key = self._load_compat_path(path) if self._legacy_smart_loader is not None else load_path(path)
             processed = backend.preprocess(raw, params) if apply else raw
             return raw, processed, key
         self._submit('load', self.load_token, load)
 
     def update_preprocess_params(self):
+        if not self.dev_params:
+            self.preprocess_params = {}
+            return
         try:
             params = json.loads(self.parameter.text())
             if not isinstance(params, dict):
@@ -358,7 +498,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.invalidate_volume()
         raw, key = self.raw_data, self.data_key
         apply, backend = self.apply_preprocessing.isChecked(), self.preprocessor
-        params = deepcopy(self.preprocess_params)
+        params = deepcopy(self.preprocess_params) if self.dev_params else {}
         self._submit('reprocess', self.load_token,
                      lambda: backend.preprocess(raw, params) if apply else raw)
 
@@ -398,7 +538,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.settings.setValue('recent_files', [self.data_key[0]] + [p for p in recent if p != self.data_key[0]][:4])
                 self.update_recent()
                 self.export_action.setEnabled(True)
+                self.csv_action.setEnabled(True)
                 self.volume_panel.set_data_available(self.data.n_slices > 1)
+                self.sync_z_values()
                 self.update_info()
                 self.statusBar().showMessage(self.loaded_status())
                 self.request_slice()
@@ -423,9 +565,11 @@ class MainWindow(QtWidgets.QMainWindow):
                                         maxXRange=self.data.width*1.04, maxYRange=self.data.height*1.04)
                     self.fit_next_slice = True
                 self.volume_panel.set_data_available(self.data.n_slices > 1)
+                self.sync_z_values()
                 self.update_info()
                 self.request_slice()
             elif kind == 'slice' and token == self.slice_token:
+                self.colorbar.show()
                 self.raw_slice, self.adjusted, counts, edges = value
                 cmap = pg.colormap.get(self.colormap.currentText().lower(), source='matplotlib')
                 self.image.setLookupTable(cmap.getLookupTable(0., 1., 256))
@@ -433,16 +577,19 @@ class MainWindow(QtWidgets.QMainWindow):
                 if self.fit_next_slice:
                     self.fit_view()
                     self.fit_next_slice = False
-                self.histogram.setLabel('bottom', self.phase_label() if self.channel.currentIndex() else self.tr_text('intensity'))
+                self.update_histogram_label()
                 self.histogram_curve.setData((edges[:-1] + edges[1:]) / 2, counts)
                 self.update_colorbar()
                 self.update_scale()
                 self.select_pixel(*self.selected_pixel, switch_tab=False)
                 self.update_info()
             elif kind == 'volume' and token == self.volume_token:
+                self.volume_panel.busy.clear()
                 self.volume_panel.show_result(value)
             elif kind == 'export':
-                self.statusBar().showMessage(f"{self.tr_text('export_done')}: {value}", 10000)
+                self.exported_path = str(value)
+                self.finder_button.show()
+                self.statusBar().showMessage(f"{self.tr_text('export_done')}: {value}")
         except Exception as error:
             self.show_error(str(error))
 
@@ -455,6 +602,14 @@ class MainWindow(QtWidgets.QMainWindow):
             return
         if kind == 'volume' and token != self.volume_token:
             return
+        if kind == 'volume':
+            self.volume_panel.busy.clear()
+        if kind == 'slice':
+            self.raw_slice = self.adjusted = None
+            self.image.clear()
+            self.histogram_curve.clear()
+            self.colorbar.hide()
+            self.pixel_label.setText(self.tr_text('no_finite_values'))
         key = {'reprocess': 'render_error', 'load': 'load_error', 'slice': 'render_error', 'export': 'export_error', 'volume': '3d_error'}[kind]
         self.show_error(f'{self.tr_text(key)}:\n{error}')
 
@@ -469,11 +624,21 @@ class MainWindow(QtWidgets.QMainWindow):
             self.busy_label.clear()
             self.workers.clear()
             if self.data is not None:
-                self.statusBar().showMessage(self.loaded_status())
+                self.statusBar().showMessage(
+                    f"{self.tr_text('export_done')}: {self.exported_path}" if self.exported_path else self.loaded_status())
+
+    def sync_z_values(self):
+        with QtCore.QSignalBlocker(self.z_values):
+            self.z_values.clear()
+            self.z_values.addItems([str(z) for z in self.data.z_indices])
+            self.z_values.setCurrentIndex(self.z_slider.value())
 
     def _z_changed(self, index):
         with QtCore.QSignalBlocker(self.z_spin):
             self.z_spin.setValue(index)
+        with QtCore.QSignalBlocker(self.z_values):
+            self.z_values.setCurrentIndex(index)
+        self.update_info()
         self.request_slice()
 
     def request_slice(self, *args):
@@ -486,7 +651,7 @@ class MainWindow(QtWidgets.QMainWindow):
         def process():
             normalized, _, _ = normalized_slice(data, z, channel)
             raw = data.get_slice(z)[channel]
-            counts, edges = np.histogram(np.asarray(raw, dtype=np.float64), bins=50)
+            counts, edges = np.histogram(finite_values(raw), bins=50)
             return raw, adjust_slice(normalized, brightness, contrast), counts, edges
         self._submit('slice', self.slice_token, process)
 
@@ -494,21 +659,32 @@ class MainWindow(QtWidgets.QMainWindow):
         self.volume_token += 1
         self.volume_panel.clear_result()
 
+    def schedule_volume(self):
+        self.invalidate_volume()
+        if self.data is not None and self.data.n_slices > 1:
+            self.volume_panel.busy.setText(self.tr_text('busy'))
+            self.volume_timer.start()
+
     def request_volume(self):
         if self.data is None or self.data.n_slices < 2:
             return
+        self.volume_timer.stop()
+        self.volume_panel.busy.setText(self.tr_text('busy'))
         self.volume_token += 1
         token = self.volume_token
         data, backend = self.data, self.reconstructor
-        apply = self.volume_panel.reconstruct.isChecked()
-        params = deepcopy(self.reconstruction_params)
+        apply = self.volume_panel.reconstruct.isChecked() and self.reconstruction_available()
+        params = self.depth_reconstruction_params() if apply else {}
         mode = 'isosurface' if self.volume_panel.mode.currentIndex() else 'volume'
         percentile = self.volume_panel.percentile.value()
         colormap = self.colormap.currentText()
         brightness, contrast = self.brightness.value(), self.contrast.value()
         def compute():
             reconstructed = backend.reconstruct(data, params) if apply else data
-            return prepare_3d(reconstructed, mode, percentile, colormap, brightness, contrast)
+            result = prepare_3d(reconstructed, mode, percentile, colormap, brightness, contrast)
+            if apply and 'ui_part3' in reconstructed.metadata:
+                result['ui_part3'] = deepcopy(reconstructed.metadata['ui_part3'])
+            return result
         self._submit('volume', token, compute)
 
     def fit_view(self):
@@ -522,29 +698,87 @@ class MainWindow(QtWidgets.QMainWindow):
         positions = np.linspace(0, 1, 256)
         colors = cmap.map(adjust_slice(positions, self.brightness.value(), self.contrast.value()), mode='byte')
         self.colorbar.setColorMap(pg.ColorMap(positions, colors))
-        minimum, maximum = float(self.raw_slice.min()), float(self.raw_slice.max())
+        minimum, maximum = finite_range(self.raw_slice)
         self.colorbar.setLevels((minimum, maximum if maximum > minimum else minimum+1))
-        self.colorbar.axis.setLabel(self.phase_label() if self.channel.currentIndex() else self.tr_text('amplitude'))
+        self.colorbar.axis.setLabel(self.phase_label() if self.channel.currentIndex() else self.amplitude_label())
 
     def loaded_status(self):
         data = self.data
-        return f"{Path(data.file_path).name} · {data.width} × {data.height} · {data.n_slices} {self.tr_text('slices')}"
+        return f"{Path(data.file_path).name} · {data.width} × {data.height} · {data.n_slices} {self.tr_text('slice_count_suffix')}"
+
+    def depth_reconstruction_params(self):
+        params = deepcopy(self.reconstruction_params)
+        if isinstance(self.reconstructor, Part3Reconstructor):
+            params.update(self.volume_panel.calibration_parameters())
+        return params
+
+    def calibration_changed(self):
+        was_enabled = self.volume_panel.reconstruct.isChecked()
+        self.update_info()
+        if was_enabled:
+            self.schedule_volume()
+
+    def reconstruction_available(self):
+        if self.data is None or isinstance(self.reconstructor, IdentityReconstructor):
+            return False
+        if isinstance(self.reconstructor, Part3Reconstructor):
+            try:
+                calibrated_depths(self.data, self.depth_reconstruction_params())
+                return True
+            except (TypeError, ValueError, OverflowError):
+                return False
+        depth = self.data.metadata.get('depth_mm')
+        try:
+            return depth is not None and len(depth) == self.data.n_slices
+        except TypeError:
+            return False
 
     def update_info(self):
+        registered = not isinstance(self.reconstructor, IdentityReconstructor)
+        available = self.reconstruction_available()
+        part3 = isinstance(self.reconstructor, Part3Reconstructor)
+        self.volume_panel.set_calibration_available(part3 and self.data is not None)
+        # The legacy launcher/test exposes the registered option before loading;
+        # actual reconstruction still requires data and the usual depth checks.
+        legacy_initial_option = self._legacy_smart_loader is not None and self.data is None and registered
+        self.volume_panel.set_reconstruction_available(available or legacy_initial_option,
+            show_hint=registered and not part3 and self.data is not None and not available)
+        has_manual = any(field.text().strip() for field in self.volume_panel.calibration_fields.values())
+        self.volume_panel.calibration_error.setText(
+            self.tr_text('invalid_depth_calibration') if part3 and has_manual and not available else '')
         if self.data is None:
             return
         data = self.data
+        state = data.metadata.get('ui_preprocessing', {})
+        self.preprocessing_status.setVisible(bool(state))
+        if state:
+            channels = state.get('channels', {})
+            amp = self.tr_text('preprocessed' if channels.get('amplitude', {}).get('processed', True) else 'unchanged')
+            phase = channels.get('phase', {})
+            phase_state = self.tr_text('preprocessed' if phase.get('processed') else 'unchanged')
+            encoding = self.tr_text('encoding_confirmed' if phase.get('encoding_confirmed') else 'encoding_unconfirmed')
+            unwrap = phase.get('unwrapping_status', 'unknown')
+            unwrap_text = unwrap if phase.get('processed') else self.tr_text('not_unwrapped')
+            units = state.get('amplitude_units', 'unknown')
+            units = self.tr_text(units) if units in ('dimensionless', 'input units') else units
+            self.preprocessing_status.setText(
+                f"{self.tr_text('amplitude')}: {amp} · {state.get('normalisation', 'unknown')} · {units}\n"
+                f"{self.tr_text('phase')}: {phase_state} · {encoding}, {unwrap_text}")
         rows = [('target', data.target_type), ('size', f'{data.width} × {data.height}'),
                 ('slices', data.n_slices), ('z_range', f'{data.z_indices[0]} → {data.z_indices[-1]}'),
                 ('filename', Path(data.file_path).name),
                 ('phase_status', phase_encoding_status(data.metadata))]
         self.scan_label.setText('\n'.join(f'{self.tr_text(key)}: {value}' for key, value in rows))
         self.phase_plot.setLabel('left', self.phase_label())
-        self.z_label.setText(f"{self.tr_text('z')}: {data.z_indices[self.z_slider.value()]}")
+        self.amplitude_plot.setLabel('left', self.amplitude_label())
+        self.channel.setItemText(0, self.tr_text('amplitude'))
+        self.channel.setToolTip(self.amplitude_label())
+        self.z_label.setText(self.tr_text('slice_position').format(number=self.z_slider.value()+1, total=data.n_slices, z=data.z_indices[self.z_slider.value()]))
         if self.raw_slice is not None:
             x, y = self.selected_pixel
-            label = self.phase_label() if self.channel.currentIndex() else self.tr_text('amplitude')
-            self.pixel_label.setText(f"X: {x}   Y: {y}\n{label}\n{self.tr_text('raw')}: {self.raw_slice[y, x]:.6g}")
+            self.waveform_pixel.setText(self.tr_text('waveform_pixel').format(x=x, y=y))
+            label = self.phase_label() if self.channel.currentIndex() else self.amplitude_label()
+            self.pixel_label.setText(f"X: {x}   Y: {y}\n{label}\n{self.value_label()}: {self.pixel_value_text(self.raw_slice[y, x])}")
 
     def _pixel_at(self, position):
         if self.raw_slice is None or not self.image.sceneBoundingRect().contains(position):
@@ -559,7 +793,7 @@ class MainWindow(QtWidgets.QMainWindow):
         pixel = self._pixel_at(position)
         if pixel is not None:
             x, y = pixel
-            self.statusBar().showMessage(f"x={x}  y={y}  {self.tr_text('raw')}={self.raw_slice[y, x]:.6g}")
+            self.statusBar().showMessage(f"x={x}  y={y}  {self.value_label()}={self.pixel_value_text(self.raw_slice[y, x])}")
 
     def click_pixel(self, event):
         if event.button() != QtCore.Qt.MouseButton.LeftButton:
@@ -567,14 +801,21 @@ class MainWindow(QtWidgets.QMainWindow):
         pixel = self._pixel_at(event.scenePos())
         if pixel is not None:
             event.accept()
+            self.plot_host.setFocus()
             self.select_pixel(*pixel)
 
-    def select_pixel(self, x, y, switch_tab=True):
+    def select_pixel(self, x, y, switch_tab=False):
         if self.raw_slice is None:
             return
         x = max(0, min(int(x), self.data.width - 1))
         y = max(0, min(int(y), self.data.height - 1))
         self.selected_pixel = (x, y)
+        with QtCore.QSignalBlocker(self.pixel_x), QtCore.QSignalBlocker(self.pixel_y):
+            self.pixel_x.setRange(0, self.data.width - 1)
+            self.pixel_y.setRange(0, self.data.height - 1)
+            self.pixel_x.setValue(x)
+            self.pixel_y.setValue(y)
+        self.waveform_pixel.setText(self.tr_text('waveform_pixel').format(x=x, y=y))
         self.cross_x.setPos(x + .5)
         self.cross_y.setPos(y + .5)
         self.cross_x.show()
@@ -603,13 +844,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.scale_item.text.setText(label)
 
     def dragEnterEvent(self, event):
-        if any(url.isLocalFile() and Path(url.toLocalFile()).suffix.lower() in ('.h5', '.hdf5')
+        if any(url.isLocalFile() and self.accepts_path(url.toLocalFile())
                for url in event.mimeData().urls()):
             event.acceptProposedAction()
 
     def dropEvent(self, event):
         for url in event.mimeData().urls():
-            if url.isLocalFile() and Path(url.toLocalFile()).suffix.lower() in ('.h5', '.hdf5'):
+            if url.isLocalFile() and self.accepts_path(url.toLocalFile()):
                 self.open_file(url.toLocalFile())
                 event.acceptProposedAction()
                 break
@@ -632,13 +873,30 @@ class MainWindow(QtWidgets.QMainWindow):
         if dialog.exec() != QtWidgets.QDialog.DialogCode.Accepted:
             return
         image_format = ['CSV', 'PNG', 'JPEG', 'TIFF', 'publication'][formats.currentIndex()]
+        self.save_export_dialog(image_format)
+
+    def export_csv_dialog(self):
+        if self.data is not None:
+            self.save_export_dialog('CSV')
+
+    def export_summary(self):
+        channel = self.tr_text('phase' if self.channel.currentIndex() else 'amplitude')
+        return f'{channel} · Z = {self.data.z_indices[self.z_slider.value()]} · {self.data.width} × {self.data.height}'
+
+    def save_export_dialog(self, image_format):
         channel = 'phase' if self.channel.currentIndex() else 'amplitude'
         z = self.data.z_indices[self.z_slider.value()]
         extension = 'png' if image_format == 'publication' else image_format.lower()
         filename = f'lfi_{channel}_z{z}.{extension}'
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, self.tr_text('export'), filename, f'{image_format} (*.{extension})')
+        directory = self.settings.value('export_directory', QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.DesktopLocation))
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(self, f"{self.tr_text('export')} · {self.export_summary()}", str(Path(directory)/filename), f'{image_format} (*.{extension})')
         if path:
+            self.settings.setValue('export_directory', str(Path(path).parent))
             self.export_to(path, image_format)
+
+    def show_in_finder(self):
+        if self.exported_path:
+            subprocess.Popen(['open', '-R', self.exported_path])
 
     def export_to(self, path, image_format):
         data = self.data
@@ -646,7 +904,7 @@ class MainWindow(QtWidgets.QMainWindow):
         channel = 'phase' if self.channel.currentIndex() else 'amplitude'
         brightness, contrast = self.brightness.value(), self.contrast.value()
         colormap, pixel_size = self.colormap.currentText(), self.pixel_size.value()
-        color_label = self.phase_label() if channel == 'phase' else self.tr_text('intensity')
+        color_label = self.phase_label() if channel == 'phase' else self.amplitude_label()
         x_label, y_label = self.tr_text('x'), self.tr_text('y')
         def save():
             if image_format == 'CSV':
@@ -668,6 +926,10 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 def main():
+    from .lfi_core.adapters.part2 import Part2Preprocessor
+    register_preprocessor(Part2Preprocessor())
+    from .lfi_core.adapters.part3 import register_part3
+    register_part3()
     pg.setConfigOptions(imageAxisOrder='row-major', antialias=True)
     application = QtWidgets.QApplication(sys.argv)
     application.setApplicationName('LFI Viewer')

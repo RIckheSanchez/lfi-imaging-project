@@ -1,0 +1,81 @@
+Matplotlib is building the font cache; this may take a moment.
+part1_data/loader.py:517: UserWarning: [loader] target=Chip: phase encoding 'zstack_unconfirmed' unconfirmed, keep raw codes (dtype=float64), not converted to radians.
+  phase, enc, converted = _apply_phase_encoding(
+2026-10-18 04:46:33.373 LFI Viewer[85815:7261285] error messaging the mach port for IMKCFRunLoopWakeUpReliable
+[load_single_scan] Loading: /Users/vincent/Desktop/LFI Viewer/Realdata/chip_borad1.hdf5
+[load_single_scan] Loaded → (70, 1400, 400) | format=hdf5_zstack | phase_encoding=zstack_unconfirmed converted=False
+{
+  "architecture": "arm64",
+  "frozen": true,
+  "executable": "/Users/vincent/Desktop/LFI Viewer/dist/LFI Viewer.app/Contents/MacOS/LFI Viewer",
+  "qt_platform": "cocoa",
+  "errors": [],
+  "qt_messages": [],
+  "preprocessing-off": {
+    "shape": [
+      70,
+      1400,
+      400
+    ],
+    "amplitude_label": "Amplitude",
+    "phase_converted": false,
+    "elapsed_seconds": 1.7447051250201184,
+    "saved": true
+  },
+  "preprocessing_control_visible": true,
+  "developer_parameters_hidden": true,
+  "preprocess_params": {},
+  "preprocessing-on": {
+    "shape": [
+      70,
+      1400,
+      400
+    ],
+    "amplitude_label": "Amplitude (pre-processed, dimensionless)",
+    "colorbar_label": "Amplitude (pre-processed, dimensionless)",
+    "phase_converted": false,
+    "product": {
+      "amplitude_product": "output.amplitude",
+      "normalisation": "zscore",
+      "amplitude_units": "dimensionless",
+      "channels": {
+        "amplitude": {
+          "processed": true
+        },
+        "phase": {
+          "processed": false,
+          "encoding_confirmed": false,
+          "unwrapping_status": "withheld_unconfirmed_encoding"
+        }
+      }
+    },
+    "elapsed_seconds": 2.315254457993433,
+    "saved": true
+  },
+  "bundle-volume": {
+    "context_valid": true,
+    "framebuffer_saved": true,
+    "sampled_framebuffer_colors": 167,
+    "window_saved": true
+  },
+  "reconstruction_control_hidden": true,
+  "reconstruction_hint_visible": false,
+  "reconstruction_hint": "Reconstruction needs slice depth calibration (depth_mm).",
+  "bundle-isosurface": {
+    "context_valid": true,
+    "framebuffer_saved": true,
+    "sampled_framebuffer_colors": 28,
+    "window_saved": true
+  },
+  "automatic-percentile-busy": true,
+  "bundle-percentile": {
+    "context_valid": true,
+    "framebuffer_saved": true,
+    "sampled_framebuffer_colors": 31,
+    "window_saved": true
+  },
+  "export-summary": "Phase \u00b7 Z = 560 \u00b7 400 \u00d7 1400",
+  "export-dialog-title": "Export\u2026 \u00b7 Phase \u00b7 Z = 560 \u00b7 400 \u00d7 1400",
+  "export-dialog-qt": true,
+  "elapsed_seconds": 13.306275958020706
+}
