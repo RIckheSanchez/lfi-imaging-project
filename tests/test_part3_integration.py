@@ -110,10 +110,10 @@ def test_legal_calibration_shows_option(qtbot, window, folder):
     enter(panel)
     assert window.reconstruction_available()
     assert not panel.reconstruct.isHidden()
-    assert panel.reconstruct.text() == 'Use Part 3 depth reconstruction'
+    assert panel.reconstruct.text() == 'Use Part 3 relative-focus reconstruction'
     assert not panel.calibration_error.text()
     window.set_language('CN')
-    assert panel.reconstruct.text() == '使用 Part 3 深度重建'
+    assert panel.reconstruct.text() == '使用 Part 3 相对焦点位置重建'
     assert panel.channel_notice.text() == '三维视图使用振幅通道'
 
 
