@@ -110,17 +110,17 @@ def test_legal_calibration_shows_option(qtbot, window, folder):
     enter(panel)
     assert window.reconstruction_available()
     assert not panel.reconstruct.isHidden()
-    assert panel.reconstruct.text() == 'Use Part 3 depth reconstruction'
+    assert panel.reconstruct.text() == 'Use Part 3 relative-focus reconstruction'
     assert not panel.calibration_error.text()
     window.set_language('CN')
-    assert panel.reconstruct.text() == '使用 Part 3 深度重建'
+    assert panel.reconstruct.text() == '使用 Part 3 相对焦点位置重建'
     assert panel.channel_notice.text() == '三维视图使用振幅通道'
 
 
 @pytest.mark.parametrize('values', [('', '2', '21'), ('10', '', '21'), ('10', '2', ''),
     ('-1', '2', '21'), ('0', '2', '21'), ('10', '0', '21'), ('10', '-2', '21'),
     ('nan', '2', '21'), ('10', 'inf', '21'), ('10', '2', 'nan'), ('no', '2', '21'),
-    ('10', '2', '20'), ('10', '2', '26'), ('10', '2', '22'), ('10', '2', '21.5'),
+    ('10', '2', '20.5'), ('10', '2', 'inf'),
     ('1', '2', '25')])
 def test_invalid_calibration_rejected(window, scan, values):
     window.data = scan
@@ -193,7 +193,7 @@ def test_folder_end_to_end_and_reset(qtbot, window, folder, tmp_path, monkeypatc
     assert window.volume_panel.result['original_shape'] == (5, 6, 7)
     assert 'phase from nearest measured slice' in window.volume_panel.channel_notice.text()
     assert 'axes in sample indices' in window.volume_panel.channel_notice.text()
-    assert 'uniform depth grid' in window.volume_panel.channel_notice.text()
+    assert 'uniform relative focus position grid' in window.volume_panel.channel_notice.text()
     assert 'Physical XYZ proportions are not represented' in window.volume_panel.hint.text()
     assert 'unknown' not in window.volume_panel.hint.text()
     np.testing.assert_array_equal(window.data.amplitude, original)
@@ -228,3 +228,25 @@ def test_metadata_enables_ui_without_manual(window, scan):
     window.volume_panel.calibration_fields['z_start_mm'].setText('10')
     assert not window.reconstruction_available()
     assert window.volume_panel.reconstruct.isHidden()
+
+
+@pytest.mark.parametrize('first_frame, expected', [(21, 30.15), (100, 38.05)])
+def test_reference_frame_need_not_be_loaded(scan, first_frame, expected):
+    scan.z_indices = list(range(first_frame, first_frame + 5))
+    scan.amplitude = np.repeat(scan.amplitude[:1], 5, axis=0)
+    scan.phase = np.repeat(scan.phase[:1], 5, axis=0)
+    params = {'z_start_mm': 30.05, 'z_step_mm': 0.1, 'first_frame_id': 20}
+    positions, spacing = part3.calibrated_depths(scan, params)
+    assert positions[0] == pytest.approx(expected)
+    np.testing.assert_allclose(np.diff(positions), 0.1)
+    assert spacing == pytest.approx(0.1)
+    out = part3.Part3Reconstructor().reconstruct(scan, params)
+    assert out.metadata['depth_mm'][0] == pytest.approx(expected)
+    assert out.amplitude.shape == (5, 6, 7)
+
+
+@pytest.mark.parametrize('start', [0.1, 0.05])
+def test_nonpositive_mapped_focus_position_rejected(scan, start):
+    with pytest.raises(ValueError, match='positive relative focus position'):
+        part3.calibrated_depths(scan, {
+            'z_start_mm': start, 'z_step_mm': 0.1, 'first_frame_id': 22})
