@@ -8,7 +8,7 @@ CALIBRATION_KEYS = ('z_start_mm', 'z_step_mm', 'first_frame_id')
 
 
 def calibrated_depths(data, params=None):
-    """Validate explicit scan depths or a complete user-supplied frame mapping.
+    """Validate relative focus positions or a complete user-supplied frame mapping.
 
     Manual mappings override metadata only when all three fields are supplied.
     An incomplete/invalid mapping must never silently fall back to metadata.
@@ -23,12 +23,12 @@ def calibrated_depths(data, params=None):
             raise ValueError('Enter z_start_mm, z_step_mm and first_frame_id together.')
         start, step, first = (float(params[k]) for k in CALIBRATION_KEYS)
         if not np.isfinite([start, step, first]).all() or start <= 0 or step <= 0:
-            raise ValueError('Start depth and depth step must be finite positive numbers.')
-        if not first.is_integer() or first not in ids:
-            raise ValueError('first_frame_id must be an integer matching a loaded frame ID.')
+            raise ValueError('Start focus position and focus step must be finite positive numbers.')
+        if not first.is_integer():
+            raise ValueError('first_frame_id must be a finite integer reference frame ID.')
         depth = start + (ids - first) * step
         if np.any(depth <= 0):
-            raise ValueError('The mapping must give every loaded frame a positive depth.')
+            raise ValueError('The mapping must give every loaded frame a positive relative focus position.')
         spacing = step
     else:
         depth = np.asarray(data.metadata.get('depth_mm', []), dtype=float)
