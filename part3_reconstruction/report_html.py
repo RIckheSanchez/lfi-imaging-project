@@ -247,8 +247,9 @@ Command: <code>{_e(' '.join(sys.argv) or 'python -m part3_reconstruction handoff
     parts.append("<h2>7. Open questions</h2><ul>"
                  "<li>Pixel size in millimetres: the length of one mirror step at the sample is not recorded.</li>"
                  "<li>Phase scale of &pi;/8192 rad per code: supported by the code range, not yet confirmed.</li>"
-                 "<li>Depth: z is the beam focus, moved 0.1 mm deeper per frame from the surface (confirmed by the "
-                 "acquisition team); how much signal at each focus comes from inside the sample is not known.</li>"
+                 "<li>Depth: z is the beam-focus position, 30.05 mm at frame 20 and 0.1 mm deeper per frame "
+                 "(confirmed by the acquisition team; start and stop are relative readings of the scanning mirror); "
+                 "how much signal at each focus comes from inside the sample is not known.</li>"
                  "<li>Leaf: whether the 91 images are a time or a depth series.</li></ul>")
 
     frame_rows = [[_e(r["file"]), r.get("frame_id", ""), "yes" if r.get("phase_available") else "no",
