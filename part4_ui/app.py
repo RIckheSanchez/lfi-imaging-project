@@ -2,6 +2,7 @@
 import json
 from html import escape
 import os
+import ntpath
 from copy import deepcopy
 import sys
 import traceback
@@ -343,14 +344,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.export_action = self.file_menu.addAction(self.tr_text('export'), self.export_dialog)
         self.export_action.setEnabled(self.data is not None)
         self.csv_action = self.file_menu.addAction(self.tr_text('export_csv'), self.export_csv_dialog)
-        self.csv_action.setShortcut(QtGui.QKeySequence('Meta+Shift+E'))
+        self.csv_action.setShortcut(QtGui.QKeySequence('Ctrl+Shift+E'))
         self.csv_action.setEnabled(self.data is not None)
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.tr_text('quit'), self.close).setShortcut(QtGui.QKeySequence.StandardKey.Quit)
         view_menu = self.menuBar().addMenu(self.tr_text('view'))
         view_menu.addAction(self.dock.toggleViewAction())
         self.fit_action = view_menu.addAction(self.tr_text('fit'), self.fit_view)
-        self.fit_action.setShortcut(QtGui.QKeySequence('Meta+0'))
+        self.fit_action.setShortcut(QtGui.QKeySequence('Ctrl+0'))
         language_menu = self.menuBar().addMenu(self.tr_text('language'))
         language_menu.addAction('English', lambda: self.set_language('EN'))
         language_menu.addAction('中文', lambda: self.set_language('CN'))
@@ -375,7 +376,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_preprocessing.setText(self.tr_text('apply'))
         self.parameter_label.setText(self.tr_text('parameters'))
         self.scan_group.setTitle(self.tr_text('scan_info'))
-        self.finder_button.setText(self.tr_text('show_finder'))
+        reveal_key = {'darwin': 'show_finder', 'win32': 'show_explorer'}.get(sys.platform, 'show_folder')
+        self.finder_button.setText(self.tr_text(reveal_key))
         self.pixel_group.setTitle(self.tr_text('pixel_info'))
         self.show_waveform.setText(self.tr_text('show_waveform'))
         for index, key in enumerate(('slice', 'volume', 'waveform')):
@@ -898,15 +900,30 @@ class MainWindow(QtWidgets.QMainWindow):
         z = self.data.z_indices[self.z_slider.value()]
         extension = 'png' if image_format == 'publication' else image_format.lower()
         filename = f'lfi_{channel}_z{z}.{extension}'
-        directory = self.settings.value('export_directory', QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.DesktopLocation))
+        directory = self.settings.value('export_directory', '')
+        if not directory or not Path(directory).is_dir():
+            directory = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.DesktopLocation)
+            if not directory or not Path(directory).is_dir():
+                directory = str(Path.home())
         path, _ = QtWidgets.QFileDialog.getSaveFileName(self, f"{self.tr_text('export')} · {self.export_summary()}", str(Path(directory)/filename), f'{image_format} (*.{extension})')
         if path:
             self.settings.setValue('export_directory', str(Path(path).parent))
             self.export_to(path, image_format)
 
     def show_in_finder(self):
-        if self.exported_path:
-            subprocess.Popen(['open', '-R', self.exported_path])
+        if not self.exported_path:
+            return
+        try:
+            if sys.platform == 'darwin':
+                subprocess.Popen(['open', '-R', self.exported_path])
+            elif sys.platform == 'win32':
+                subprocess.Popen(['explorer', '/select,' + ntpath.normpath(self.exported_path)])
+            else:
+                folder = str(Path(self.exported_path).resolve().parent)
+                if not QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(folder)):
+                    self.statusBar().showMessage(self.tr_text('reveal_error'))
+        except Exception as error:
+            self.statusBar().showMessage(f"{self.tr_text('reveal_error')}: {error}")
 
     def export_to(self, path, image_format):
         data = self.data

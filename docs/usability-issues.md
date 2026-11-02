@@ -34,6 +34,6 @@ Resolution: each channel now has a bold heading, separate state/detail lines and
 - Status: Resolved.
 - Observed: native trackpad pinch was ignored; two-finger scrolling barely changed camera distance.
 - Cause: pyqtgraph 0.14 wheel handling preferred the horizontal angle delta and did not handle native zoom gestures.
-- Resolution: a GLViewWidget subclass handles native pinch, prefers nonzero pixel deltas for trackpads and uses the dominant scroll axis. Camera distance is clamped to 0.05–50 times the largest volume dimension. Ctrl+wheel still changes FOV. Bilingual Zoom in/out controls support Cmd+= and Cmd+-.
+- Resolution: a GLViewWidget subclass handles native pinch, prefers nonzero pixel deltas for trackpads and uses the dominant scroll axis. Camera distance is clamped to 0.05–50 times the largest volume dimension. Ctrl+wheel still changes FOV. Bilingual Zoom in/out controls support Cmd/Ctrl+= and Cmd/Ctrl+-.
 - Validation: pytest-qt sends synthetic native pinch and mouse/trackpad wheel events and checks zoom direction, dominant-axis selection, distance limits and Ctrl+wheel behavior; panel controls and shortcuts have regression coverage.
 - Scope: source fix only; no app rebuild, tag or merge. Physical trackpad behavior still needs confirmation in the live macOS app.

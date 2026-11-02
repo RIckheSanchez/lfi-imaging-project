@@ -1,7 +1,7 @@
 # LFI Viewer
 
-LFI Viewer is a macOS desktop application for exploring Laser Feedback
-Interferometry scans. It uses PySide6 and pyqtgraph, with a shared Python core
+LFI Viewer is a desktop application for exploring Laser Feedback
+Interferometry scans on macOS and Windows. It uses PySide6 and pyqtgraph, with a shared Python core
 for HDF5 loading, processing and export. The project is part of the University
 of Queensland imaging thesis supervised by Karl Bertling.
 
@@ -23,6 +23,31 @@ or `python3`. For example:
 ```sh
 LFI_PYTHON=/path/to/environment/bin/python ./run.sh
 ```
+
+## Run on Windows
+
+Install Python 3.11, then use PowerShell or Command Prompt from the repository root:
+
+```sh
+python -m pip install -r requirements.txt
+python -m part4_ui.app
+```
+
+To build an onedir, windowed application **on Windows**:
+
+```sh
+python -m pip install -r requirements.txt -r requirements-dev.txt
+python -m PyInstaller --clean --noconfirm "LFI Viewer Windows.spec"
+```
+
+Run `dist/LFI Viewer/LFI Viewer.exe`. Distribute the entire `dist/LFI Viewer/`
+folder, including `_internal`, rather than the executable alone. This Windows
+build is configured but has not yet been validated on a Windows machine locally.
+The POSIX `run.sh` helper is optional on macOS; use the module command above on Windows.
+
+Shortcuts use Command on macOS and Ctrl on Windows: Fit to window is
+**Cmd/Ctrl+0**, CSV export is **Cmd/Ctrl+Shift+E**, and 3D zoom is
+**Cmd/Ctrl+=** / **Cmd/Ctrl+-**.
 
 ## Run the macOS application
 
@@ -70,7 +95,7 @@ Both amplitude and phase must be present with compatible dimensions.
 - English and Chinese interface switching.
 - Amplitude/phase selection, brightness, contrast, and seven colormaps.
 - Linked Z slider, zero-based slice index and actual Z value selector; slice position is displayed one-based without physical Z units.
-- Aspect-locked 2D image with bounded pan/zoom and **Fit to window** / Cmd+0.
+- Aspect-locked 2D image with bounded pan/zoom and **Fit to window** / Cmd/Ctrl+0.
 - Colorbar with the selected data range and the effective display color transform.
 - Optional Part 2 preprocessing, enabled through its checkbox. JSON configuration overrides are available only with LFI_DEV_PARAMS=1; the default uses {}. Per-channel status reports normalization, units and phase provenance from metadata. Amplitude labels identify preprocessing and dimensionless zscore output; phase units follow conversion metadata.
 - Missing samples are ignored in display/histograms, transparent in PNG/TIFF and volumes, and retained as nan in CSV. All-missing channels produce an error.
@@ -83,7 +108,7 @@ Both amplitude and phase must be present with compatible dimensions.
   Outer-to-inner mesh opacity is 0.12, 0.30 and 0.60. Volume clips its sampled
   values to the 1st–99.5th percentile range before normalization and uses a
   quadratic opacity transfer function. Isosurface controls are hidden in Volume mode.
-- Direct File → Export CSV… (Cmd+Shift+E), export content preview, remembered export directory (Desktop initially), and Show in Finder after saving.
+- Direct File → Export CSV… (Cmd/Ctrl+Shift+E), export content preview, remembered export directory (Desktop initially, with a home-directory fallback), and Show in Finder (macOS), Show in Explorer (Windows), or Show in folder (other platforms) after saving.
 - Selected-channel CSV (original measurements when preprocessing is off; processed values when on), colored pixel PNG/JPEG/TIFF and publication PNG
   with axes/colorbar. PNG/TIFF and publication PNG carry 300 DPI.
 - Optional Part 3 depth reconstruction: expand **Depth calibration** in the 3D tab, enter scan settings and confirm the start-frame mapping. Fields are blank and cleared on every file load. Valid metadata `depth_mm` is also accepted; no calibration is guessed.
@@ -98,13 +123,23 @@ Install development dependencies and run the full pytest suite offscreen:
 
 ```sh
 python -m pip install -r requirements.txt -r requirements-dev.txt
-QT_QPA_PLATFORM=offscreen PYTHONDONTWRITEBYTECODE=1 python -m pytest -q
+python -B -m pytest -q -rs
 ```
+
+The tests select Qt’s offscreen platform by default; CI also sets
+`QT_QPA_PLATFORM=offscreen` explicitly. The command above works in macOS shells
+and Windows PowerShell/Command Prompt.
 
 Tests use the local sample files `Realdata/mushroom.hdf5` and
 `Realdata/chip_borad1.hdf5` and `Realdata/pure marble_29.hdf5`. `Realdata/` is ignored by Git; obtain these scan
 fixtures separately when cloning the project. GUI tests use pytest-qt and
-exercise worker-thread execution, interaction, exports, loader/backend registration, NaN handling and preprocessing state preservation. Root pytest also discovers Part 1, Part 2 and Part 3 tests. Missing real-data fixtures and the absent Part 2 vendored loader cause documented skips. The chip test saves an offscreen screenshot.
+exercise worker-thread execution, interaction, exports, loader/backend registration, NaN handling and preprocessing state preservation. Root pytest also discovers Part 1, Part 2 and Part 3 tests. Missing real-data fixtures and the absent Part 2 vendored loader cause documented skips. Screenshot and timing tests write only to pytest temporary directories; tracked evidence is never overwritten.
+
+CI in `.github/workflows/ci.yml` runs the full pytest suite on macOS and Windows
+with Python 3.11 and `QT_QPA_PLATFORM=offscreen`. The Windows job also builds and
+uploads the onedir application. Local research files are not committed: tests
+requiring unavailable scans are explicitly skipped; synthetic tests remain active.
+See [platform audit](docs/cross-platform.md) for checks and validation scope.
 
 To test the retained Streamlit prototype as well:
 
@@ -139,7 +174,7 @@ LFI_VALIDATE_FILE="$(pwd)/Realdata/chip_borad1.hdf5" \
   require sufficient RAM; downsampling limits 3D display work, not load memory.
 - 3D is amplitude-based. Flat/degenerate or single-layer data may not define
   valid isosurfaces. Mode and percentile changes refresh automatically; brightness, contrast and colormap changes require Render / Refresh 3D again.
-- The local bundle is arm64 only and has not been tested on other macOS machines.
+- The existing macOS bundle is arm64 only and has not been tested on other Macs. Windows packaging and CI are configured; a successful Windows CI/native run is still needed to establish Windows deployment.
 
 ## Architecture
 

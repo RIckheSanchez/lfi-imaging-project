@@ -1,0 +1,42 @@
+name: CI
+
+on: [push, pull_request, workflow_dispatch]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Run full test suite
+        run: python -m pytest -q -rs
+      - name: Check tests preserve tracked files
+        run: git diff --exit-code
+      - name: Build Windows bundle
+        if: runner.os == 'Windows'
+        run: python -m PyInstaller --clean --noconfirm "LFI Viewer Windows.spec"
+      - name: Upload Windows bundle
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: LFI-Viewer-Windows
+          path: dist/LFI Viewer/
+          if-no-files-found: error

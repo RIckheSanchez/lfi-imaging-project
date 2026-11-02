@@ -91,8 +91,8 @@ def test_uncalibrated_chip_contract_keeps_v13(qtbot, window, folder):
     assert not panel.calibration_toggle.isChecked() and panel.calibration_body.isHidden()
     assert all(field.text() == '' for field in panel.calibration_fields.values())
     assert panel.channel_notice.text() == '3D view uses the amplitude channel'
-    assert window.csv_action.shortcut().toString() == 'Meta+Shift+E'
-    assert window.fit_action.shortcut().toString() == 'Meta+0'
+    assert window.csv_action.shortcut().toString() == 'Ctrl+Shift+E'
+    assert window.fit_action.shortcut().toString() == 'Ctrl+0'
     assert window.show_waveform.text() == 'Show waveform'
     window.tabs.setCurrentIndex(1)
     qtbot.waitUntil(lambda: panel.result is not None, timeout=10000)

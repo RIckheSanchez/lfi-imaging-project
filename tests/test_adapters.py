@@ -86,7 +86,7 @@ def ready(qtbot,window):
 
 
 @pytest.mark.parametrize('name',['chip_borad1.hdf5','mushroom.hdf5','pure marble_29.hdf5'])
-def test_real_part2_toggle_worker_and_labels(qtbot,adapter_window,monkeypatch,name):
+def test_real_part2_toggle_worker_and_labels(qtbot,adapter_window,monkeypatch,name,tmp_path,real_file):
     window=adapter_window
     backend=Part2Preprocessor()
     original=backend.preprocess
@@ -99,9 +99,9 @@ def test_real_part2_toggle_worker_and_labels(qtbot,adapter_window,monkeypatch,na
     monkeypatch.setattr(backend,'preprocess',observed)
     window.preprocessor=backend
     window.pre_group.show()
-    start=time.perf_counter();window.open_file(str(ROOT/'Realdata'/name));ready(qtbot,window)
+    start=time.perf_counter();window.open_file(str(real_file(name)));ready(qtbot,window)
     load_elapsed=time.perf_counter()-start
-    output=ROOT/'docs/screenshots/v12-labels';output.mkdir(parents=True,exist_ok=True)
+    output=tmp_path/'v12-labels';output.mkdir(parents=True,exist_ok=True)
     slug=Path(name).stem.replace(' ','_')
     assert window.amplitude_label()=='Amplitude'
     window.grab().save(str(output/(slug+'-off.png')))
@@ -177,14 +177,14 @@ def test_folder_loader_public_api_and_identity(frame_folder):
     assert len(load_path(frame_folder)[1][2])==4
 
 
-def test_open_folder_dialog_recent_and_dispatch(qtbot,adapter_window,frame_folder,monkeypatch):
+def test_open_folder_dialog_recent_and_dispatch(qtbot,adapter_window,frame_folder,monkeypatch,real_file):
     window=adapter_window
     monkeypatch.setattr(QtWidgets.QFileDialog,'getExistingDirectory',lambda *args:str(frame_folder))
     window.folder_action.trigger();ready(qtbot,window)
     assert window.data.z_indices==[21,22,30]
     assert window.settings.value('recent_files',[],type=list)[0]==str(frame_folder)
     assert window.accepts_path(str(frame_folder))
-    window.open_file(str(ROOT/'Realdata/mushroom.hdf5'));ready(qtbot,window)
+    window.open_file(str(real_file('mushroom.hdf5')));ready(qtbot,window)
     assert window.data.width==1300
     next(action for action in window.recent_menu.actions() if action.text()==str(frame_folder)).trigger()
     ready(qtbot,window)
@@ -238,7 +238,7 @@ def test_reconstruction_requires_backend_and_matching_depth(qtbot,tmp_path,monke
 
 
 @pytest.mark.parametrize('env_value', [None, '0', '1'])
-def test_developer_parameters_visibility_and_worker_defaults(qtbot,tmp_path,monkeypatch,env_value):
+def test_developer_parameters_visibility_and_worker_defaults(qtbot,tmp_path,monkeypatch,env_value,real_file):
     from part4_ui.lfi_core.backend import register_preprocessor
     if env_value is None:monkeypatch.delenv('LFI_DEV_PARAMS',raising=False)
     else:monkeypatch.setenv('LFI_DEV_PARAMS',env_value)
@@ -260,7 +260,7 @@ def test_developer_parameters_visibility_and_worker_defaults(qtbot,tmp_path,monk
         window.parameter.setText('{"edited":3}')
         window.update_preprocess_params()
         window.apply_preprocessing.setChecked(True)
-        window.open_file(str(ROOT/'Realdata/mushroom.hdf5'));ready(qtbot,window)
+        window.open_file(str(real_file('mushroom.hdf5')));ready(qtbot,window)
         assert calls[0][0]!=threading.get_ident()
         assert calls[0][1]==({'edited':3} if enabled else {})
         window.apply_preprocessing.setChecked(False);ready(qtbot,window)
