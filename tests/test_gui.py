@@ -537,9 +537,30 @@ def test_channel_specific_preprocessing_status(qtbot, window):
     load_mushroom(qtbot, window)
     window.apply_preprocessing.setChecked(True)
     wait_ready(qtbot, window)
-    status = window.preprocessing_status.text()
-    assert 'Amplitude: pre-processed · baseline · input units' in status
-    assert 'Phase: unchanged · encoding unconfirmed, not unwrapped' in status
+    def status_lines():
+        document = QtGui.QTextDocument()
+        document.setHtml(window.preprocessing_status.text())
+        return document.toPlainText().splitlines()
+    assert status_lines() == ['Amplitude', 'pre-processed', 'baseline · input units',
+                              'Phase', 'unchanged', 'encoding unconfirmed · not unwrapped']
+    assert window.preprocessing_status.textFormat() == QtCore.Qt.TextFormat.RichText
+    assert '<b>Amplitude</b>' in window.preprocessing_status.text()
+    assert '<b>Phase</b>' in window.preprocessing_status.text()
+    assert 'not&nbsp;unwrapped' in window.preprocessing_status.text()
+    # At sidebar width, the complete phrase must stay on the same layout line.
+    document = QtGui.QTextDocument()
+    document.setHtml(window.preprocessing_status.text())
+    document.setTextWidth(220)
+    document.documentLayout().documentSize()
+    block = document.begin()
+    while block.isValid():
+        layout = block.layout()
+        for index in range(layout.lineCount()):
+            line = layout.lineAt(index)
+            rendered = block.text()[line.textStart():line.textStart()+line.textLength()]
+            if 'unwrapped' in rendered:
+                assert 'not\u00a0unwrapped' in rendered
+        block = block.next()
     assert window.value_label() == 'Processed value'
     window.channel.setCurrentIndex(1)
     wait_ready(qtbot, window)
@@ -549,8 +570,8 @@ def test_channel_specific_preprocessing_status(qtbot, window):
     state['amplitude_units'] = 'dimensionless'
     state['channels']['phase'].update(processed=True, encoding_confirmed=True, unwrapping_status='unwrapped')
     window.update_info()
-    assert 'zscore · dimensionless' in window.preprocessing_status.text()
-    assert 'Phase: pre-processed · encoding confirmed, unwrapped' in window.preprocessing_status.text()
+    assert status_lines() == ['Amplitude', 'pre-processed', 'zscore · dimensionless',
+                              'Phase', 'pre-processed', 'encoding confirmed · unwrapped']
     assert window.value_label() == 'Processed value'
     window.set_language('CN')
     assert '编码已确认' in window.preprocessing_status.text()
@@ -610,3 +631,25 @@ def test_direct_csv_export_remembers_directory(qtbot, window, tmp_path, monkeypa
     assert window.csv_action.shortcut().toString() == 'Meta+Shift+E'
     window.set_language('CN')
     assert window.csv_action.text() == '导出 CSV…'
+
+
+
+def test_crosshair_outline_survives_channels_and_colormaps(qtbot, window):
+    load_mushroom(qtbot, window)
+    window.select_pixel(12, 23)
+    for channel in range(2):
+        window.channel.setCurrentIndex(channel)
+        for colormap in range(window.colormap.count()):
+            window.colormap.setCurrentIndex(colormap)
+            wait_ready(qtbot, window)
+            assert window.selected_pixel == (12, 23)
+            for foreground, outline, position in (
+                    (window.cross_x, window.cross_outline_x, 12.5),
+                    (window.cross_y, window.cross_outline_y, 23.5)):
+                assert foreground.isVisible() and outline.isVisible()
+                assert foreground.value() == outline.value() == position
+                assert foreground.pen.color() == QtGui.QColor('white')
+                assert outline.pen.color() == QtGui.QColor('#111111')
+                assert outline.pen.widthF() > foreground.pen.widthF()
+                assert foreground.pen.isCosmetic() and outline.pen.isCosmetic()
+                assert foreground.zValue() > outline.zValue() > window.image.zValue()

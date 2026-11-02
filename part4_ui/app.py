@@ -1,5 +1,6 @@
 """Launch with python -m part4_ui.app from the repository root."""
 import json
+from html import escape
 import os
 from copy import deepcopy
 import sys
@@ -213,6 +214,7 @@ class MainWindow(QtWidgets.QMainWindow):
         pre_layout.addWidget(self.apply_preprocessing)
         self.preprocessing_status = QtWidgets.QLabel()
         self.preprocessing_status.setWordWrap(True)
+        self.preprocessing_status.setTextFormat(QtCore.Qt.TextFormat.RichText)
         pre_layout.addWidget(self.preprocessing_status)
         pre_layout.addWidget(self.parameter_label)
         pre_layout.addWidget(self.parameter)
@@ -234,12 +236,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.invertY(True)
         self.image = pg.ImageItem(axisOrder='row-major')
         self.image_plot.addItem(self.image)
-        self.cross_x = pg.InfiniteLine(angle=90, pen=pg.mkPen('#ffcf57', width=1))
-        self.cross_y = pg.InfiniteLine(angle=0, pen=pg.mkPen('#ffcf57', width=1))
-        self.image_plot.addItem(self.cross_x)
-        self.image_plot.addItem(self.cross_y)
-        self.cross_x.hide()
-        self.cross_y.hide()
+        self.cross_outline_x = pg.InfiniteLine(angle=90, pen=pg.mkPen('#111111', width=5))
+        self.cross_outline_y = pg.InfiniteLine(angle=0, pen=pg.mkPen('#111111', width=5))
+        self.cross_x = pg.InfiniteLine(angle=90, pen=pg.mkPen('white', width=2))
+        self.cross_y = pg.InfiniteLine(angle=0, pen=pg.mkPen('white', width=2))
+        for line in (self.cross_outline_x, self.cross_outline_y, self.cross_x, self.cross_y):
+            line.setZValue(11 if line in (self.cross_x, self.cross_y) else 10)
+            self.image_plot.addItem(line)
+            line.hide()
         self.image_plot.scene().sigMouseMoved.connect(self.hover_pixel)
         self.image_plot.scene().sigMouseClicked.connect(self.click_pixel)
         self.colorbar = pg.ColorBarItem(values=(0,1), interactive=False, colorMapMenu=False)
@@ -761,9 +765,13 @@ class MainWindow(QtWidgets.QMainWindow):
             unwrap_text = unwrap if phase.get('processed') else self.tr_text('not_unwrapped')
             units = state.get('amplitude_units', 'unknown')
             units = self.tr_text(units) if units in ('dimensionless', 'input units') else units
+            # Keep channel headings distinct and the unwrap phrase on one line.
+            unwrap_html = escape(unwrap_text).replace(' ', '&nbsp;')
             self.preprocessing_status.setText(
-                f"{self.tr_text('amplitude')}: {amp} · {state.get('normalisation', 'unknown')} · {units}\n"
-                f"{self.tr_text('phase')}: {phase_state} · {encoding}, {unwrap_text}")
+                f'<p style="margin-top:0; margin-bottom:10px"><b>{escape(self.tr_text("amplitude"))}</b><br>'
+                f'{escape(amp)}<br>{escape(str(state.get("normalisation", "unknown")))} · {escape(units)}</p>'
+                f'<p style="margin:0"><b>{escape(self.tr_text("phase"))}</b><br>'
+                f'{escape(phase_state)}<br>{escape(encoding)} · {unwrap_html}</p>')
         rows = [('target', data.target_type), ('size', f'{data.width} × {data.height}'),
                 ('slices', data.n_slices), ('z_range', f'{data.z_indices[0]} → {data.z_indices[-1]}'),
                 ('filename', Path(data.file_path).name),
@@ -816,10 +824,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.pixel_x.setValue(x)
             self.pixel_y.setValue(y)
         self.waveform_pixel.setText(self.tr_text('waveform_pixel').format(x=x, y=y))
-        self.cross_x.setPos(x + .5)
-        self.cross_y.setPos(y + .5)
-        self.cross_x.show()
-        self.cross_y.show()
+        for line in (self.cross_outline_x, self.cross_x):
+            line.setPos(x + .5)
+            line.show()
+        for line in (self.cross_outline_y, self.cross_y):
+            line.setPos(y + .5)
+            line.show()
         self.update_info()
         self.amplitude_plot.clear()
         self.phase_plot.clear()

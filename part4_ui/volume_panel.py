@@ -5,6 +5,42 @@ import pyqtgraph.opengl as gl
 from .i18n import text
 
 
+class ZoomableGLViewWidget(gl.GLViewWidget):
+    """Handle macOS pinch and pixel scrolling as well as mouse-wheel zoom."""
+    def __init__(self, *args, **kwargs):
+        self.volume_extent = 1000.0
+        super().__init__(*args, **kwargs)
+
+    def set_volume_size(self, shape):
+        self.volume_extent = max(1.0, float(max(shape)))
+
+    def zoom(self, factor):
+        self.opts['distance'] = float(np.clip(
+            self.opts['distance'] * factor,
+            self.volume_extent * .05, self.volume_extent * 50))
+        self.update()
+
+    def event(self, event):
+        if (event.type() == QtCore.QEvent.Type.NativeGesture and
+                event.gestureType() == QtCore.Qt.NativeGestureType.ZoomNativeGesture):
+            self.zoom(1 - event.value())
+            event.accept()
+            return True
+        return super().event(event)
+
+    def wheelEvent(self, event):
+        pixels = event.pixelDelta()
+        delta = pixels if not pixels.isNull() else event.angleDelta()
+        amount = delta.y() if abs(delta.y()) >= abs(delta.x()) else delta.x()
+        factor = (.99 if not pixels.isNull() else .999) ** amount
+        if event.modifiers() & QtCore.Qt.KeyboardModifier.ControlModifier:
+            self.opts['fov'] *= factor
+            self.update()
+        else:
+            self.zoom(factor)
+        event.accept()
+
+
 class VolumePanel(QtWidgets.QWidget):
     render_requested = QtCore.Signal()
     invalidated = QtCore.Signal()
@@ -41,6 +77,8 @@ class VolumePanel(QtWidgets.QWidget):
         self.reconstruct.hide()
         self.render_button = QtWidgets.QPushButton()
         self.reset_button = QtWidgets.QPushButton()
+        self.zoom_in_button = QtWidgets.QPushButton()
+        self.zoom_out_button = QtWidgets.QPushButton()
         toolbar.addWidget(self.mode)
         toolbar.addWidget(self.percentile_label)
         toolbar.addWidget(self.percentile)
@@ -48,6 +86,8 @@ class VolumePanel(QtWidgets.QWidget):
         toolbar.addWidget(self.reconstruct)
         toolbar.addStretch()
         toolbar.addWidget(self.render_button)
+        toolbar.addWidget(self.zoom_in_button)
+        toolbar.addWidget(self.zoom_out_button)
         toolbar.addWidget(self.reset_button)
         layout.addLayout(toolbar)
         self.hint = QtWidgets.QLabel()
@@ -91,8 +131,12 @@ class VolumePanel(QtWidgets.QWidget):
         layout.addWidget(self.info)
         self.render_button.setEnabled(False)
         self.reset_button.setEnabled(False)
+        self.zoom_in_button.setEnabled(False)
+        self.zoom_out_button.setEnabled(False)
         self.render_button.clicked.connect(self.render_requested)
         self.reset_button.clicked.connect(self.reset_camera)
+        self.zoom_in_button.clicked.connect(lambda: self.zoom_camera(.8))
+        self.zoom_out_button.clicked.connect(lambda: self.zoom_camera(1.25))
         self.mode.currentIndexChanged.connect(self.update_mode_controls)
         self.mode.currentIndexChanged.connect(self.invalidate)
         self.percentile.valueChanged.connect(self.invalidate)
@@ -105,8 +149,13 @@ class VolumePanel(QtWidgets.QWidget):
         self.update_channel_notice()
         for widget, key in [(self.percentile_label, 'iso_percentile'),
                             (self.reconstruct, 'apply_reconstruction'),
-                            (self.render_button, 'render_3d'), (self.reset_button, 'reset_camera')]:
+                            (self.render_button, 'render_3d'), (self.reset_button, 'reset_camera'),
+                            (self.zoom_in_button, 'zoom_in'), (self.zoom_out_button, 'zoom_out')]:
             widget.setText(text(key, language))
+        # setText clears button shortcuts; restore them after translation.
+        # Qt maps Ctrl shortcuts to Command on macOS (QKeySequence convention).
+        self.zoom_in_button.setShortcut(QtGui.QKeySequence('Ctrl+='))
+        self.zoom_out_button.setShortcut(QtGui.QKeySequence('Ctrl+-'))
         self.calibration_toggle.setText(text('depth_calibration', language))
         self.calibration_note.setText(text('depth_calibration_note', language))
         for key, label in self.calibration_labels.items():
@@ -178,6 +227,8 @@ class VolumePanel(QtWidgets.QWidget):
         self.update_channel_notice()
         self.info.clear()
         self.reset_button.setEnabled(False)
+        self.zoom_in_button.setEnabled(False)
+        self.zoom_out_button.setEnabled(False)
 
     def set_data_available(self, available):
         self.clear_result()
@@ -192,7 +243,7 @@ class VolumePanel(QtWidgets.QWidget):
         # QOpenGLWidget is unsupported by Qt's offscreen platform. Construct real
         # GL items but do not create an OpenGL viewport there; avoid native crashes.
         if self.scene is None and QtWidgets.QApplication.platformName() != 'offscreen':
-            self.scene = gl.GLViewWidget()
+            self.scene = ZoomableGLViewWidget()
             self.scene.setBackgroundColor('#151d2c')
             self.viewport_layout.addWidget(self.scene)
             self.placeholder.hide()
@@ -223,9 +274,17 @@ class VolumePanel(QtWidgets.QWidget):
                 self.scene.addItem(annotation)
         self.center = QtGui.QVector3D((x-1)/2, (y-1)/2, (z-1)/2)
         self.distance = max(x, y, z) * 1.5
+        if self.scene is not None:
+            self.scene.set_volume_size(result['original_shape'])
         self.reset_camera()
         self.reset_button.setEnabled(True)
+        self.zoom_in_button.setEnabled(True)
+        self.zoom_out_button.setEnabled(True)
         self._update_info()
+
+    def zoom_camera(self, factor):
+        if self.scene is not None:
+            self.scene.zoom(factor)
 
     def reset_camera(self):
         if self.scene is not None:

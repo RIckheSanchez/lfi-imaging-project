@@ -41,6 +41,8 @@ STRINGS = {
     'iso_percentile': ('Isomin percentile', '等值面下限百分位'),
     'apply_reconstruction': ('Apply reconstruction', '应用重建'),
     'render_3d': ('Render / Refresh 3D', '渲染 / 刷新三维'),
+    'zoom_in': ('Zoom in', '放大'),
+    'zoom_out': ('Zoom out', '缩小'),
     'reset_camera': ('Reset Camera', '重置视角'),
     '3d_hint': ('Amplitude volume · drag to rotate, wheel to zoom. Coordinates are sensor pixels; physical Z spacing is unknown.', '振幅体数据 · 拖动旋转，滚轮缩放。坐标为传感器像素，物理 Z 间距未知。'),
     '3d_start': ('Load a multilayer scan and click Render / Refresh 3D.', '加载多层数据后点击“渲染 / 刷新三维”。'),
