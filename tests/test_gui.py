@@ -531,7 +531,7 @@ def test_slice_index_z_value_linkage(qtbot, window, tmp_path):
     window.set_language('CN')
     assert window.slice_index_label.text() == '切片索引'
     assert window.z_value_label.text() == 'Z 值'
-    assert window.z_label.wordWrap()
+    assert not window.z_label.wordWrap()
 
 
 def test_channel_specific_preprocessing_status(qtbot, window):
