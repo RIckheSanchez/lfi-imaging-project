@@ -62,3 +62,15 @@ Resolution: each channel now has a bold heading, separate state/detail lines and
 - The button requires a rendered result and a viewport; it is disabled again on clear and always disabled offscreen.
 - Validation: button lifecycle, naming, sidecar fields and mocked framebuffer PNG save/cancel/failure paths. This automated offscreen coverage does not by itself establish native OpenGL capture; native capture was checked manually on a physical Windows 11 machine on 4 November 2026 (non-blank PNG and sidecar).
 - No commit, tag, merge or application rebuild performed.
+
+
+## UI-006 · 2D plot resizes while browsing slices
+
+- Found: post-release manual testing on macOS against v1.5-final.
+- Status: resolved in the 1.5.1 source update.
+- Reproduction: fixed 1440 × 900 MainWindow, synthetic 70-slice data with widely varying magnitudes, selected pixel and an EN/CN slice sweep. Geometry records are written to pytest tmp_path by tests/test_slice_layout.py.
+- Before fix (automated native Cocoa reproduction): the Chinese slice sweep changed the left dock width between 277 and 294 logical pixels and plot_host width between 699 and 716. The right panel remained 390 pixels wide. This identifies the left dock’s text-dependent size hints as the principal cause, rather than changing image dimensions or right-panel width in this case.
+- Additional finding: offscreen Qt’s CJK fallback made non-native menu/status bars 2 pixels taller after changing language, affecting the plot height independently of slice text.
+- Fix: the slice-position label stays on one line with a precomputed minimum width covering the largest slice number and the widest rendered Z value, plus a margin. The dock reserves both EN/CN widths and remains manually resizable. Scan, pixel, preprocessing and waveform labels ignore horizontal text size hints and wrap without eliding their contents. Non-native bars reserve CJK fallback height; native macOS menus remain OS-managed.
+- Validation: tests/test_slice_layout.py checks constant plot_host geometry across all 70 slices and both EN/CN modes, single-line slice text fitting its available width and height, sufficient height for all four wrapped labels, and deliberate dock resizing remaining possible and stable during subsequent slice/language changes. Geometry records are temporary test outputs; absolute dimensions depend on font/platform and the reserved dock width.
+- Version: part4_ui identity and macOS PyInstaller metadata updated to 1.5.1. No app rebuild, commit, tag or merge performed.

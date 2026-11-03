@@ -125,6 +125,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self._build_ui()
         self.set_language(self.language)
         self.statusBar().showMessage(self.tr_text('ready'))
+        # Non-native chrome must reserve CJK fallback height before translation
+        # changes its size hints; native macOS menus remain managed by the OS.
+        if not self.menuBar().isNativeMenuBar():
+            for bar in (self.menuBar(), self.statusBar()):
+                metrics = bar.fontMetrics()
+                fallback_height = max(0, metrics.boundingRect('中文').height() - metrics.height())
+                bar.setMinimumHeight(bar.sizeHint().height() + fallback_height)
 
     def tr_text(self, key):
         return text(key, self.language)
@@ -164,6 +171,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.dock = QtWidgets.QDockWidget(self)
         self.dock.setObjectName('display_controls')
         dock_widget = QtWidgets.QWidget()
+        dock_widget.setMinimumWidth(300)
         dock_layout = QtWidgets.QVBoxLayout(dock_widget)
         self.form = QtWidgets.QFormLayout()
         self.labels = {}
@@ -195,7 +203,8 @@ class MainWindow(QtWidgets.QMainWindow):
         z_layout.addWidget(self.z_values)
         self.z_values.currentIndexChanged.connect(self.z_slider.setValue)
         self.z_label = QtWidgets.QLabel()
-        self.z_label.setWordWrap(True)
+        self.z_label.setSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
+        self.z_label.setWordWrap(False)
         z_layout.addWidget(self.z_label)
         self.pixel_size = QtWidgets.QDoubleSpinBox()
         self.pixel_size.setLocale(QtCore.QLocale.c())
@@ -220,6 +229,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.parameter_label = QtWidgets.QLabel()
         pre_layout.addWidget(self.apply_preprocessing)
         self.preprocessing_status = QtWidgets.QLabel()
+        self.preprocessing_status.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Preferred)
         self.preprocessing_status.setWordWrap(True)
         self.preprocessing_status.setTextFormat(QtCore.Qt.TextFormat.RichText)
         pre_layout.addWidget(self.preprocessing_status)
@@ -262,12 +272,15 @@ class MainWindow(QtWidgets.QMainWindow):
         info_layout = QtWidgets.QVBoxLayout(info_widget)
         self.scan_group = QtWidgets.QGroupBox()
         self.scan_label = QtWidgets.QLabel()
+        self.scan_label.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Preferred)
         self.scan_label.setWordWrap(True)
         self.scan_label.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
         scan_layout = QtWidgets.QVBoxLayout(self.scan_group)
         scan_layout.addWidget(self.scan_label)
         self.pixel_group = QtWidgets.QGroupBox()
         self.pixel_label = QtWidgets.QLabel()
+        self.pixel_label.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Preferred)
+        self.pixel_label.setWordWrap(True)
         pixel_layout = QtWidgets.QVBoxLayout(self.pixel_group)
         pixel_layout.addWidget(self.pixel_label)
         coords = QtWidgets.QFormLayout()
@@ -317,6 +330,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.waveform_tab = QtWidgets.QWidget()
         wave_layout = QtWidgets.QVBoxLayout(self.waveform_tab)
         self.waveform_pixel = QtWidgets.QLabel()
+        self.waveform_pixel.setSizePolicy(QtWidgets.QSizePolicy.Policy.Ignored, QtWidgets.QSizePolicy.Policy.Preferred)
+        self.waveform_pixel.setWordWrap(True)
         wave_layout.addWidget(self.waveform_pixel)
         self.amplitude_plot = pg.PlotWidget()
         self.phase_plot = pg.PlotWidget()
@@ -749,6 +764,30 @@ class MainWindow(QtWidgets.QMainWindow):
         except TypeError:
             return False
 
+    def update_slice_label_width(self):
+        if self.data is None:
+            return
+        signature = (id(self.data), self.language, self.z_label.font().toString())
+        if getattr(self, '_slice_label_width_signature', None) == signature:
+            return
+        self._slice_label_width_signature = signature
+        metrics = self.z_label.fontMetrics()
+        widths = {}
+        for language in ('EN', 'CN'):
+            template = text('slice_position', language)
+            widths[language] = max(metrics.horizontalAdvance(template.format(
+                number=self.data.n_slices, total=self.data.n_slices, z=z))
+                for z in self.data.z_indices) + 12
+        self.z_label.setMinimumWidth(max(widths.values()))
+        self.z_label.setFixedHeight(max(metrics.boundingRect(text('slice_position', language)).height()
+                                        for language in ('EN', 'CN')))
+        # Reserve both translations so switching language cannot squeeze the plot.
+        label_width = max(metrics.horizontalAdvance(text(key, language))
+                          for key in self.labels for language in ('EN', 'CN'))
+        margins = self.dock.widget().layout().contentsMargins()
+        self.dock.widget().setMinimumWidth(max(300, max(widths.values()) + label_width
+            + max(0, self.form.horizontalSpacing()) + margins.left() + margins.right() + 32))
+
     def update_info(self):
         registered = not isinstance(self.reconstructor, IdentityReconstructor)
         available = self.reconstruction_available()
@@ -765,6 +804,7 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.data is None:
             return
         data = self.data
+        self.update_slice_label_width()
         state = data.metadata.get('ui_preprocessing', {})
         self.preprocessing_status.setVisible(bool(state))
         if state:
