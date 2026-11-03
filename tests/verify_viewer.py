@@ -166,4 +166,7 @@ for i in range(5):
  del loaded
  print('TIMING',i+1,elapsed)
 print('RESULT',json.dumps({'seconds':times,'mean':float(np.mean(times)),'population_std':float(np.std(times)),'sample_std':float(np.std(times,ddof=1)),'python':sys.version,'platform':platform.platform()}))
-print(subprocess.check_output(['system_profiler','SPHardwareDataType'],text=True).split('Serial Number')[0])
+if sys.platform == 'darwin':
+    print(subprocess.check_output(['system_profiler','SPHardwareDataType'],text=True).split('Serial Number')[0])
+else:
+    print('Hardware:', platform.machine(), platform.processor())

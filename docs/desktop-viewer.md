@@ -12,7 +12,7 @@ for the retained legacy frontend and its AppTest script; the desktop entry point
 and shared core do not import either package.
 
 ```sh
-QT_QPA_PLATFORM=offscreen python -m pytest -q -s
+python -B -m pytest -q -s
 python tests/verify_viewer.py
 streamlit run legacy/streamlit_app.py
 ```
@@ -62,10 +62,12 @@ Tests exercise actual mouse clicks and raw hover coordinates, language,
 phase/adjustment/zoom preservation, scale enable/disable, recent-file persistence,
 worker exports, readable load failures, preprocessing thread identity, and the
 real chip loader. The chip test uses a 10 ms QTimer to confirm GUI events continue
-through `smart_load`, and saves `docs/screenshots/chip_desktop.png` using QWidget.grab.
+through `smart_load`, and saves a screenshot under pytest `tmp_path` using QWidget.grab. Historical captures under `docs/screenshots/` are not overwritten.
 Native file dialogs are mocked in offscreen tests; drag/drop handler behavior is
 covered. These tests do not establish native macOS dialog appearance or OpenGL
 3D behavior. Qt's offscreen `propagateSizeHints` messages are expected warnings.
 
 Test logs for each stage are in `tests/stage*-output.txt` or
 `tests/stage*-pytest-output.txt` / `tests/stage*-legacy-output.txt`.
+
+Current cross-platform setup, shortcuts, packaging and audit: [cross-platform.md](cross-platform.md).

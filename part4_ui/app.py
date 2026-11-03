@@ -1,6 +1,8 @@
 """Launch with python -m part4_ui.app from the repository root."""
 import json
+from html import escape
 import os
+import ntpath
 from copy import deepcopy
 import sys
 import traceback
@@ -9,13 +11,17 @@ from pathlib import Path
 import numpy as np
 from PySide6 import QtCore, QtGui, QtWidgets
 import pyqtgraph as pg
+from . import APP_NAME, __version__
+from .qt_style import select_qt_style
 from .i18n import text
 from .lfi_core.phase_semantics import phase_label_key, phase_encoding_status
 from .lfi_core.loaders import load_path, loader_for, get_loaders
 from .lfi_core.data_types import LFIRawData
 from .lfi_core.data_io import local_data_key
 from .lfi_core.processing import normalized_slice, adjust_slice, prepare_3d, finite_values, finite_range
-from .lfi_core.export import scale_bar, export_csv, pixel_image, publication_png
+from .lfi_core.export import (scale_bar, export_csv, pixel_image, publication_png,
+                              scan_export_metadata, view_png_filename,
+                              view_export_metadata, format_export_metadata)
 from .lfi_core.backend import (IdentityPreprocessor, IdentityReconstructor,
                                get_preprocessor_registration, get_reconstructor_registration, register_preprocessor)
 from .volume_panel import VolumePanel
@@ -173,6 +179,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.colormap.addItems(COLORMAPS)
         self.z_slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
         self.z_spin = QtWidgets.QSpinBox()
+        self.z_spin.setLocale(QtCore.QLocale.c())
         self.z_slider.setRange(0, 0)
         self.z_spin.setRange(0, 0)
         z_widget = QtWidgets.QWidget()
@@ -191,6 +198,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.z_label.setWordWrap(True)
         z_layout.addWidget(self.z_label)
         self.pixel_size = QtWidgets.QDoubleSpinBox()
+        self.pixel_size.setLocale(QtCore.QLocale.c())
         self.pixel_size.setDecimals(6)
         self.pixel_size.setRange(0, 1e9)
         for key, widget in [('channel', self.channel), ('brightness', self.brightness),
@@ -213,6 +221,7 @@ class MainWindow(QtWidgets.QMainWindow):
         pre_layout.addWidget(self.apply_preprocessing)
         self.preprocessing_status = QtWidgets.QLabel()
         self.preprocessing_status.setWordWrap(True)
+        self.preprocessing_status.setTextFormat(QtCore.Qt.TextFormat.RichText)
         pre_layout.addWidget(self.preprocessing_status)
         pre_layout.addWidget(self.parameter_label)
         pre_layout.addWidget(self.parameter)
@@ -234,12 +243,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.view.invertY(True)
         self.image = pg.ImageItem(axisOrder='row-major')
         self.image_plot.addItem(self.image)
-        self.cross_x = pg.InfiniteLine(angle=90, pen=pg.mkPen('#ffcf57', width=1))
-        self.cross_y = pg.InfiniteLine(angle=0, pen=pg.mkPen('#ffcf57', width=1))
-        self.image_plot.addItem(self.cross_x)
-        self.image_plot.addItem(self.cross_y)
-        self.cross_x.hide()
-        self.cross_y.hide()
+        self.cross_outline_x = pg.InfiniteLine(angle=90, pen=pg.mkPen('#111111', width=5))
+        self.cross_outline_y = pg.InfiniteLine(angle=0, pen=pg.mkPen('#111111', width=5))
+        self.cross_x = pg.InfiniteLine(angle=90, pen=pg.mkPen('white', width=2))
+        self.cross_y = pg.InfiniteLine(angle=0, pen=pg.mkPen('white', width=2))
+        for line in (self.cross_outline_x, self.cross_outline_y, self.cross_x, self.cross_y):
+            line.setZValue(11 if line in (self.cross_x, self.cross_y) else 10)
+            self.image_plot.addItem(line)
+            line.hide()
         self.image_plot.scene().sigMouseMoved.connect(self.hover_pixel)
         self.image_plot.scene().sigMouseClicked.connect(self.click_pixel)
         self.colorbar = pg.ColorBarItem(values=(0,1), interactive=False, colorMapMenu=False)
@@ -261,7 +272,9 @@ class MainWindow(QtWidgets.QMainWindow):
         pixel_layout.addWidget(self.pixel_label)
         coords = QtWidgets.QFormLayout()
         self.pixel_x = QtWidgets.QSpinBox()
+        self.pixel_x.setLocale(QtCore.QLocale.c())
         self.pixel_y = QtWidgets.QSpinBox()
+        self.pixel_y.setLocale(QtCore.QLocale.c())
         for label, spin in [('X', self.pixel_x), ('Y', self.pixel_y)]:
             spin.setRange(0, 0)
             coords.addRow(label, spin)
@@ -291,6 +304,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.volume_panel = VolumePanel()
         self.volume_panel.set_reconstruction_available(False)
         self.volume_panel.render_requested.connect(self.request_volume)
+        self.volume_panel.export_requested.connect(self.export_3d_view_dialog)
         self.volume_panel.calibration_changed.connect(self.calibration_changed)
         self.volume_timer = QtCore.QTimer(self)
         self.volume_timer.setSingleShot(True)
@@ -339,14 +353,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.export_action = self.file_menu.addAction(self.tr_text('export'), self.export_dialog)
         self.export_action.setEnabled(self.data is not None)
         self.csv_action = self.file_menu.addAction(self.tr_text('export_csv'), self.export_csv_dialog)
-        self.csv_action.setShortcut(QtGui.QKeySequence('Meta+Shift+E'))
+        self.csv_action.setShortcut(QtGui.QKeySequence('Ctrl+Shift+E'))
         self.csv_action.setEnabled(self.data is not None)
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.tr_text('quit'), self.close).setShortcut(QtGui.QKeySequence.StandardKey.Quit)
         view_menu = self.menuBar().addMenu(self.tr_text('view'))
         view_menu.addAction(self.dock.toggleViewAction())
         self.fit_action = view_menu.addAction(self.tr_text('fit'), self.fit_view)
-        self.fit_action.setShortcut(QtGui.QKeySequence('Meta+0'))
+        self.fit_action.setShortcut(QtGui.QKeySequence('Ctrl+0'))
         language_menu = self.menuBar().addMenu(self.tr_text('language'))
         language_menu.addAction('English', lambda: self.set_language('EN'))
         language_menu.addAction('中文', lambda: self.set_language('CN'))
@@ -371,7 +385,8 @@ class MainWindow(QtWidgets.QMainWindow):
         self.apply_preprocessing.setText(self.tr_text('apply'))
         self.parameter_label.setText(self.tr_text('parameters'))
         self.scan_group.setTitle(self.tr_text('scan_info'))
-        self.finder_button.setText(self.tr_text('show_finder'))
+        reveal_key = {'darwin': 'show_finder', 'win32': 'show_explorer'}.get(sys.platform, 'show_folder')
+        self.finder_button.setText(self.tr_text(reveal_key))
         self.pixel_group.setTitle(self.tr_text('pixel_info'))
         self.show_waveform.setText(self.tr_text('show_waveform'))
         for index, key in enumerate(('slice', 'volume', 'waveform')):
@@ -682,6 +697,7 @@ class MainWindow(QtWidgets.QMainWindow):
         def compute():
             reconstructed = backend.reconstruct(data, params) if apply else data
             result = prepare_3d(reconstructed, mode, percentile, colormap, brightness, contrast)
+            result['percentile_range'] = (percentile, 99.5) if mode == 'isosurface' else (1, 99.5)
             if apply and 'ui_part3' in reconstructed.metadata:
                 result['ui_part3'] = deepcopy(reconstructed.metadata['ui_part3'])
             return result
@@ -761,9 +777,13 @@ class MainWindow(QtWidgets.QMainWindow):
             unwrap_text = unwrap if phase.get('processed') else self.tr_text('not_unwrapped')
             units = state.get('amplitude_units', 'unknown')
             units = self.tr_text(units) if units in ('dimensionless', 'input units') else units
+            # Keep channel headings distinct and the unwrap phrase on one line.
+            unwrap_html = escape(unwrap_text).replace(' ', '&nbsp;')
             self.preprocessing_status.setText(
-                f"{self.tr_text('amplitude')}: {amp} · {state.get('normalisation', 'unknown')} · {units}\n"
-                f"{self.tr_text('phase')}: {phase_state} · {encoding}, {unwrap_text}")
+                f'<p style="margin-top:0; margin-bottom:10px"><b>{escape(self.tr_text("amplitude"))}</b><br>'
+                f'{escape(amp)}<br>{escape(str(state.get("normalisation", "unknown")))} · {escape(units)}</p>'
+                f'<p style="margin:0"><b>{escape(self.tr_text("phase"))}</b><br>'
+                f'{escape(phase_state)}<br>{escape(encoding)} · {unwrap_html}</p>')
         rows = [('target', data.target_type), ('size', f'{data.width} × {data.height}'),
                 ('slices', data.n_slices), ('z_range', f'{data.z_indices[0]} → {data.z_indices[-1]}'),
                 ('filename', Path(data.file_path).name),
@@ -816,10 +836,12 @@ class MainWindow(QtWidgets.QMainWindow):
             self.pixel_x.setValue(x)
             self.pixel_y.setValue(y)
         self.waveform_pixel.setText(self.tr_text('waveform_pixel').format(x=x, y=y))
-        self.cross_x.setPos(x + .5)
-        self.cross_y.setPos(y + .5)
-        self.cross_x.show()
-        self.cross_y.show()
+        for line in (self.cross_outline_x, self.cross_x):
+            line.setPos(x + .5)
+            line.show()
+        for line in (self.cross_outline_y, self.cross_y):
+            line.setPos(y + .5)
+            line.show()
         self.update_info()
         self.amplitude_plot.clear()
         self.phase_plot.clear()
@@ -888,27 +910,80 @@ class MainWindow(QtWidgets.QMainWindow):
         z = self.data.z_indices[self.z_slider.value()]
         extension = 'png' if image_format == 'publication' else image_format.lower()
         filename = f'lfi_{channel}_z{z}.{extension}'
-        directory = self.settings.value('export_directory', QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.DesktopLocation))
+        directory = self.export_directory()
         path, _ = QtWidgets.QFileDialog.getSaveFileName(self, f"{self.tr_text('export')} · {self.export_summary()}", str(Path(directory)/filename), f'{image_format} (*.{extension})')
         if path:
             self.settings.setValue('export_directory', str(Path(path).parent))
             self.export_to(path, image_format)
 
+    def export_directory(self):
+        directory = self.settings.value('export_directory', '')
+        if not directory or not Path(directory).is_dir():
+            directory = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.DesktopLocation)
+            if not directory or not Path(directory).is_dir():
+                directory = str(Path.home())
+        return directory
+
+    def export_3d_view_dialog(self):
+        panel = self.volume_panel
+        if self.data is None or not panel.can_export_view():
+            return
+        try:
+            # QOpenGLWidget capture belongs on the GUI thread, before a modal
+            # dialog can process queued renders that change the visible result.
+            image = panel.scene.grabFramebuffer()
+            if image.isNull():
+                raise ValueError('The 3D viewport framebuffer is unavailable.')
+            result = panel.result
+            metadata = view_export_metadata(self.data, self.z_slider.value(), result)
+            metadata['Framebuffer shape'] = f'{image.height()} rows (Y) x {image.width()} columns (X)'
+            sidecar = format_export_metadata(metadata)
+            filename = view_png_filename(self.data.file_path, result['mode'])
+            path, _ = QtWidgets.QFileDialog.getSaveFileName(
+                self, self.tr_text('export_3d'), str(Path(self.export_directory()) / filename), 'PNG (*.png)')
+            if not path:
+                return
+            output = Path(path)
+            if output.suffix.lower() != '.png':
+                output = output.with_suffix('.png')
+            self.settings.setValue('export_directory', str(output.parent))
+            def save():
+                if not image.save(str(output), 'PNG'):
+                    raise OSError(f'Could not save PNG: {output}')
+                output.with_suffix('.txt').write_text(sidecar, encoding='utf-8')
+                return str(output)
+            self._submit('export', 0, save)
+        except Exception as error:
+            self.show_error(f"{self.tr_text('export_error')}: {error}")
+
     def show_in_finder(self):
-        if self.exported_path:
-            subprocess.Popen(['open', '-R', self.exported_path])
+        if not self.exported_path:
+            return
+        try:
+            if sys.platform == 'darwin':
+                subprocess.Popen(['open', '-R', self.exported_path])
+            elif sys.platform == 'win32':
+                subprocess.Popen(['explorer', '/select,' + ntpath.normpath(self.exported_path)])
+            else:
+                folder = str(Path(self.exported_path).resolve().parent)
+                if not QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(folder)):
+                    self.statusBar().showMessage(self.tr_text('reveal_error'))
+        except Exception as error:
+            self.statusBar().showMessage(f"{self.tr_text('reveal_error')}: {error}")
 
     def export_to(self, path, image_format):
         data = self.data
-        z = data.z_indices[self.z_slider.value()]
+        slice_index = self.z_slider.value()
+        z = data.z_indices[slice_index]
         channel = 'phase' if self.channel.currentIndex() else 'amplitude'
         brightness, contrast = self.brightness.value(), self.contrast.value()
         colormap, pixel_size = self.colormap.currentText(), self.pixel_size.value()
         color_label = self.phase_label() if channel == 'phase' else self.amplitude_label()
         x_label, y_label = self.tr_text('x'), self.tr_text('y')
+        metadata = scan_export_metadata(data, slice_index, channel) if image_format == 'CSV' else None
         def save():
             if image_format == 'CSV':
-                Path(path).write_text(export_csv(data.get_slice(z)[channel]))
+                Path(path).write_text(export_csv(data.get_slice(z)[channel], metadata), encoding='utf-8')
             else:
                 norm, _, _ = normalized_slice(data, z, channel)
                 adjusted = adjust_slice(norm, brightness, contrast)
@@ -926,13 +1001,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 def main():
+    QtCore.QLocale.setDefault(QtCore.QLocale.c())
     from .lfi_core.adapters.part2 import Part2Preprocessor
     register_preprocessor(Part2Preprocessor())
     from .lfi_core.adapters.part3 import register_part3
     register_part3()
     pg.setConfigOptions(imageAxisOrder='row-major', antialias=True)
     application = QtWidgets.QApplication(sys.argv)
-    application.setApplicationName('LFI Viewer')
+    application.setApplicationName(APP_NAME)
+    application.setApplicationVersion(__version__)
+    style = select_qt_style(sys.platform, os.environ.get('LFI_QT_STYLE'))
+    if style:
+        application.setStyle(style)
     window = MainWindow()
     def handle_exception(error_type, value, trace):
         traceback.print_exception(error_type, value, trace)

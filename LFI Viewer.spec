@@ -18,5 +18,5 @@ exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name='LFI Viewer',
 coll = COLLECT(exe, a.binaries, a.datas, strip=False, upx=False, name='LFI Viewer')
 app = BUNDLE(coll, name='LFI Viewer.app', icon=None,
              bundle_identifier='au.edu.uq.lfi.viewer',
-             info_plist={'CFBundleShortVersionString': '1.4',
+             info_plist={'CFBundleShortVersionString': '1.5',
                          'NSHighResolutionCapable': True})

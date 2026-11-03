@@ -14,8 +14,8 @@ from part4_ui.lfi_core.backend import IdentityPreprocessor, IdentityReconstructo
 ROOT = Path(__file__).resolve().parents[1]
 
 @pytest.fixture(scope='module')
-def mushroom():
-    return smart_load(str(ROOT/'Realdata/mushroom.hdf5'))
+def mushroom(real_file):
+    return smart_load(str(real_file('mushroom.hdf5')))
 
 @pytest.mark.parametrize('channel', ['amplitude', 'phase'])
 def test_csv_roundtrip(mushroom, channel):
@@ -68,9 +68,9 @@ def test_source_switch_and_keys(tmp_path, mushroom):
     assert upload_data_key('a.hdf5', b'abc') == ('upload', 'a.hdf5', 3, hashlib.sha1(b'abc').hexdigest())
 
 
-def test_upload_cleanup_and_identity(tmp_path, monkeypatch):
+def test_upload_cleanup_and_identity(tmp_path, monkeypatch, real_file):
     monkeypatch.setattr('tempfile.tempdir', str(tmp_path))
-    content = (ROOT/'Realdata/mushroom.hdf5').read_bytes()
+    content = real_file('mushroom.hdf5').read_bytes()
     data, key = load_uploaded_bytes('mushroom.hdf5', content)
     assert key == upload_data_key('mushroom.hdf5', content)
     assert data.target_type == 'Mushroom'
@@ -162,10 +162,10 @@ def test_phase_semantics_unknown_and_confirmed():
 
 
 @pytest.mark.parametrize('name', ['chip_borad1.hdf5', 'mushroom.hdf5', 'pure marble_29.hdf5'])
-def test_pre_migration_numeric_baseline(name):
+def test_pre_migration_numeric_baseline(name, real_file):
     import json
     baseline = json.loads((ROOT/'tests/v11-loader-baseline.json').read_text())[name]
-    data = smart_load(str(ROOT/'Realdata'/name))
+    data = smart_load(str(real_file(name)))
     assert list(data.amplitude.shape) == baseline['shape']
     assert data.z_indices == baseline['z_indices']
     for channel in ('amplitude', 'phase'):

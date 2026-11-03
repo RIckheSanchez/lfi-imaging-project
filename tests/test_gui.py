@@ -32,11 +32,14 @@ def wait_ready(qtbot, window):
 
 
 def load_mushroom(qtbot, window):
-    window.open_file(str(ROOT/'Realdata/mushroom.hdf5'))
+    path = ROOT/'Realdata/mushroom.hdf5'
+    if not path.is_file():
+        pytest.skip('Local real-data fixture unavailable: mushroom.hdf5')
+    window.open_file(str(path))
     wait_ready(qtbot, window)
 
 
-def test_chip_load_responsive_and_screenshot(qtbot, window, monkeypatch):
+def test_chip_load_responsive_and_screenshot(qtbot, window, monkeypatch, tmp_path, real_file):
     import part4_ui.app as module
     from part4_ui.lfi_core.loaders import HDF5Loader
     original = HDF5Loader.load
@@ -55,7 +58,7 @@ def test_chip_load_responsive_and_screenshot(qtbot, window, monkeypatch):
     timer.setInterval(10)
     timer.timeout.connect(lambda: ticks.append(time.perf_counter()))
     timer.start()
-    window.open_file(str(ROOT/'Realdata/chip_borad1.hdf5'))
+    window.open_file(str(real_file('chip_borad1.hdf5')))
     assert window.progress.isVisible()
     wait_ready(qtbot, window)
     timer.stop()
@@ -69,7 +72,7 @@ def test_chip_load_responsive_and_screenshot(qtbot, window, monkeypatch):
     assert window.view.state['aspectLocked']
     assert window.z_spin.maximum() == 69
     assert np.array_equal(window.raw_slice, window.data.amplitude[0])
-    screenshots = ROOT/'docs/screenshots'
+    screenshots = tmp_path/'screenshots'
     screenshots.mkdir(parents=True, exist_ok=True)
     qtbot.wait(100)
     assert window.grab().save(str(screenshots/'chip_desktop.png'))
@@ -138,8 +141,8 @@ def test_adjustments_phase_and_scale(qtbot, window):
     assert window.scale_hint.isVisible()
 
 
-def test_native_dialog_and_drop(qtbot, window, monkeypatch):
-    path = str(ROOT/'Realdata/mushroom.hdf5')
+def test_native_dialog_and_drop(qtbot, window, monkeypatch, real_file):
+    path = str(real_file('mushroom.hdf5'))
     monkeypatch.setattr(QtWidgets.QFileDialog, 'getOpenFileName', lambda *args: (path, ''))
     window.open_dialog()
     wait_ready(qtbot, window)
@@ -537,9 +540,30 @@ def test_channel_specific_preprocessing_status(qtbot, window):
     load_mushroom(qtbot, window)
     window.apply_preprocessing.setChecked(True)
     wait_ready(qtbot, window)
-    status = window.preprocessing_status.text()
-    assert 'Amplitude: pre-processed · baseline · input units' in status
-    assert 'Phase: unchanged · encoding unconfirmed, not unwrapped' in status
+    def status_lines():
+        document = QtGui.QTextDocument()
+        document.setHtml(window.preprocessing_status.text())
+        return document.toPlainText().splitlines()
+    assert status_lines() == ['Amplitude', 'pre-processed', 'baseline · input units',
+                              'Phase', 'unchanged', 'encoding unconfirmed · not unwrapped']
+    assert window.preprocessing_status.textFormat() == QtCore.Qt.TextFormat.RichText
+    assert '<b>Amplitude</b>' in window.preprocessing_status.text()
+    assert '<b>Phase</b>' in window.preprocessing_status.text()
+    assert 'not&nbsp;unwrapped' in window.preprocessing_status.text()
+    # At sidebar width, the complete phrase must stay on the same layout line.
+    document = QtGui.QTextDocument()
+    document.setHtml(window.preprocessing_status.text())
+    document.setTextWidth(220)
+    document.documentLayout().documentSize()
+    block = document.begin()
+    while block.isValid():
+        layout = block.layout()
+        for index in range(layout.lineCount()):
+            line = layout.lineAt(index)
+            rendered = block.text()[line.textStart():line.textStart()+line.textLength()]
+            if 'unwrapped' in rendered:
+                assert 'not\u00a0unwrapped' in rendered
+        block = block.next()
     assert window.value_label() == 'Processed value'
     window.channel.setCurrentIndex(1)
     wait_ready(qtbot, window)
@@ -549,8 +573,8 @@ def test_channel_specific_preprocessing_status(qtbot, window):
     state['amplitude_units'] = 'dimensionless'
     state['channels']['phase'].update(processed=True, encoding_confirmed=True, unwrapping_status='unwrapped')
     window.update_info()
-    assert 'zscore · dimensionless' in window.preprocessing_status.text()
-    assert 'Phase: pre-processed · encoding confirmed, unwrapped' in window.preprocessing_status.text()
+    assert status_lines() == ['Amplitude', 'pre-processed', 'zscore · dimensionless',
+                              'Phase', 'pre-processed', 'encoding confirmed · unwrapped']
     assert window.value_label() == 'Processed value'
     window.set_language('CN')
     assert '编码已确认' in window.preprocessing_status.text()
@@ -596,17 +620,36 @@ def test_direct_csv_export_remembers_directory(qtbot, window, tmp_path, monkeypa
     assert output.exists()
     assert window.export_summary() in calls[0][0]
     desktop = QtCore.QStandardPaths.writableLocation(QtCore.QStandardPaths.StandardLocation.DesktopLocation)
-    assert Path(calls[0][1]).parent == Path(desktop)
+    expected_directory = Path(desktop) if desktop and Path(desktop).is_dir() else Path.home()
+    assert Path(calls[0][1]).parent == expected_directory
     assert window.settings.value('export_directory') == str(tmp_path)
     assert str(output) in window.statusBar().currentMessage()
     assert window.finder_button.isVisible()
-    opened = []
-    monkeypatch.setattr(module.subprocess, 'Popen', lambda args: opened.append(args))
-    window.finder_button.click()
-    assert opened == [['open', '-R', str(output)]]
     window.export_csv_dialog()
     wait_ready(qtbot, window)
     assert Path(calls[1][1]).parent == tmp_path
-    assert window.csv_action.shortcut().toString() == 'Meta+Shift+E'
+    assert window.csv_action.shortcut().toString() == 'Ctrl+Shift+E'
     window.set_language('CN')
     assert window.csv_action.text() == '导出 CSV…'
+
+
+
+def test_crosshair_outline_survives_channels_and_colormaps(qtbot, window):
+    load_mushroom(qtbot, window)
+    window.select_pixel(12, 23)
+    for channel in range(2):
+        window.channel.setCurrentIndex(channel)
+        for colormap in range(window.colormap.count()):
+            window.colormap.setCurrentIndex(colormap)
+            wait_ready(qtbot, window)
+            assert window.selected_pixel == (12, 23)
+            for foreground, outline, position in (
+                    (window.cross_x, window.cross_outline_x, 12.5),
+                    (window.cross_y, window.cross_outline_y, 23.5)):
+                assert foreground.isVisible() and outline.isVisible()
+                assert foreground.value() == outline.value() == position
+                assert foreground.pen.color() == QtGui.QColor('white')
+                assert outline.pen.color() == QtGui.QColor('#111111')
+                assert outline.pen.widthF() > foreground.pen.widthF()
+                assert foreground.pen.isCosmetic() and outline.pen.isCosmetic()
+                assert foreground.zValue() > outline.zValue() > window.image.zValue()
