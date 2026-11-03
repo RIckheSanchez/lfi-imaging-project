@@ -76,6 +76,18 @@ QDesktopServices. Local tests cannot establish Windows-native behavior or a
 successful Windows bundle build; those require the Windows CI/native run.
 No historical macOS validation is presented as Windows validation.
 
+## Native Windows verification
+
+On 4 November 2026 the CI-built `LFI-Viewer-Windows` bundle (commit `9dcf8b6`,
+GitHub Actions run 41655868750) was tested manually on a physical Windows 11
+machine with Chinese regional settings. The full checklist passed: launch,
+language switching, file open (dialog, drag and drop, recent files), 2D slice
+navigation and display controls, pixel selection and waveform, preprocessing,
+3D rendering, rotation and zoom (mouse, touchpad, buttons and shortcuts), image
+and CSV export (including the CSV header), 3D view PNG export, Show in Explorer,
+and the Ctrl+0 / Ctrl+Shift+E shortcuts. This testing found UI-004 (native
+digit substitution in spin boxes), which is fixed and re-verified.
+
 
 ## Local verification
 

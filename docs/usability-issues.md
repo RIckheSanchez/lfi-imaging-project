@@ -41,12 +41,12 @@ Resolution: each channel now has a bold heading, separate state/detail lines and
 
 ## UI-004 · Native digit substitution in Windows spin boxes
 
-- Status: fixed, pending verification on Windows.
+- Status: resolved; verified on a physical Windows 11 machine on 4 November 2026 (CI build of commit `9dcf8b6`, GitHub Actions run 41655868750). The slice index, pixel size, pixel X/Y and 3D percentile spin boxes all display ASCII digits.
 - Reported environment: Windows with Chinese regional settings and native digit substitution (Windows 11, PySide6 6.12).
 - Root cause (corrected from the user’s Windows diagnosis): Qt spin boxes format values with the system locale. Native digit substitution produces numerals such as 〇, 五三三 and 三〇三; some glyphs appear rotated. Python-formatted labels are unaffected. The earlier windows11-style painting diagnosis was incorrect, and switching to Fusion did not fix the issue.
 - Fix: main() sets QLocale.c() as the default before creating any widgets, on every platform. Every QSpinBox/QDoubleSpinBox in part4_ui also explicitly receives QLocale.c(), including X/Y, slice index, pixel size and 3D percentile. Numeric text uses ASCII digits and a decimal point, independently of startup order or English/Chinese UI selection.
 - Style policy: native style on every platform unless LFI_QT_STYLE is explicitly set; the Windows Fusion default has been removed. The style override remains for optional appearance/diagnosis, not as the locale fix.
-- Validation: app-level tests set ar_EG (native digits) and de_DE (decimal comma), construct MainWindow directly, and check the lineEdit().text() of all spin boxes with known values. Each test restores the previous default locale. Windows-native verification is still required.
+- Validation: app-level tests set ar_EG (native digits) and de_DE (decimal comma), construct MainWindow directly, and check the lineEdit().text() of all spin boxes with known values. Each test restores the previous default locale. Native verification on Windows 11 is recorded in the status above.
 
 ## UI-005 · CSV exports lack identifying metadata
 
@@ -60,5 +60,5 @@ Resolution: each channel now has a bold heading, separate state/detail lines and
 - Added bilingual Export 3D view… control next to the 3D camera controls.
 - Saves grabFramebuffer() as PNG at the current camera angle, plus a same-stem .txt provenance sidecar including mode, percentile thresholds/values and downsampling step. Reuses export directory fallback and file reveal.
 - The button requires a rendered result and a viewport; it is disabled again on clear and always disabled offscreen.
-- Validation: button lifecycle, naming, sidecar fields and mocked framebuffer PNG save/cancel/failure paths. This automated offscreen coverage does not claim native OpenGL capture or Windows verification.
+- Validation: button lifecycle, naming, sidecar fields and mocked framebuffer PNG save/cancel/failure paths. This automated offscreen coverage does not by itself establish native OpenGL capture; native capture was checked manually on a physical Windows 11 machine on 4 November 2026 (non-blank PNG and sidecar).
 - No commit, tag, merge or application rebuild performed.
