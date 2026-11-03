@@ -68,6 +68,7 @@ class VolumePanel(QtWidgets.QWidget):
         self.percentile = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
         self.percentile.setMaximumWidth(140)
         self.percentile_value = QtWidgets.QSpinBox()
+        self.percentile_value.setLocale(QtCore.QLocale.c())
         self.percentile_value.setRange(0, 99)
         self.percentile_value.setValue(90)
         self.percentile.valueChanged.connect(self.percentile_value.setValue)

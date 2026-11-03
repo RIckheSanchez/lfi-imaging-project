@@ -1,4 +1,4 @@
-"""Style selection is pure; Fusion checks do not claim Windows glyph validation."""
+"""Styles are opt-in; explicit Fusion overrides preserve existing plot colors."""
 import numpy as np
 import pytest
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -8,15 +8,15 @@ from part4_ui.lfi_core.data_types import LFIRawData
 
 
 @pytest.mark.parametrize('platform,override,expected', [
-    ('win32', None, 'Fusion'), ('darwin', None, None), ('linux', None, None),
+    ('win32', None, None), ('darwin', None, None), ('linux', None, None),
     ('win32', 'windows11', 'windows11'), ('darwin', 'Fusion', 'Fusion'),
-    ('win32', '  Fusion  ', 'Fusion'), ('win32', '', 'Fusion'), ('darwin', ' ', None),
+    ('win32', '  Fusion  ', 'Fusion'), ('win32', '', None), ('darwin', ' ', None),
 ])
 def test_select_qt_style(platform, override, expected):
     assert select_qt_style(platform, override) == expected
 
 
-def test_fusion_spinboxes_palette_and_dark_plot(qapp, qtbot, tmp_path):
+def test_explicit_fusion_override_preserves_palette_and_dark_plot(qapp, qtbot, tmp_path):
     previous = qapp.style().objectName()
     palette = QtGui.QPalette(qapp.palette())
     try:

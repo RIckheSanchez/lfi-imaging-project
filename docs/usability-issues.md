@@ -39,13 +39,14 @@ Resolution: each channel now has a bold heading, separate state/detail lines and
 - Scope: source fix only; no app rebuild, tag or merge. Physical trackpad behavior still needs confirmation in the live macOS app.
 
 
-## UI-004 · Garbled Windows spin-box digits
+## UI-004 · Native digit substitution in Windows spin boxes
 
 - Status: fixed, pending verification on Windows.
-- Reported environment: Windows 11, PySide6 6.12, default `windows11` style.
-- Observed: QSpinBox/QDoubleSpinBox digits are painted as garbled glyphs while labels and combo boxes remain correct. Not reproduced on macOS; the style-painting cause is suspected, not established here.
-- Fix: select Fusion on win32 before creating MainWindow; macOS keeps its native default. LFI_QT_STYLE can override the selection for diagnosis or force Fusion on macOS.
-- Validation: pure platform/override cases, Fusion spin-box values, dark plot colors and palette-aware histogram checks. No additional UI restyling; Windows-native verification is still required.
+- Reported environment: Windows with Chinese regional settings and native digit substitution (Windows 11, PySide6 6.12).
+- Root cause (corrected from the user’s Windows diagnosis): Qt spin boxes format values with the system locale. Native digit substitution produces numerals such as 〇, 五三三 and 三〇三; some glyphs appear rotated. Python-formatted labels are unaffected. The earlier windows11-style painting diagnosis was incorrect, and switching to Fusion did not fix the issue.
+- Fix: main() sets QLocale.c() as the default before creating any widgets, on every platform. Every QSpinBox/QDoubleSpinBox in part4_ui also explicitly receives QLocale.c(), including X/Y, slice index, pixel size and 3D percentile. Numeric text uses ASCII digits and a decimal point, independently of startup order or English/Chinese UI selection.
+- Style policy: native style on every platform unless LFI_QT_STYLE is explicitly set; the Windows Fusion default has been removed. The style override remains for optional appearance/diagnosis, not as the locale fix.
+- Validation: app-level tests set ar_EG (native digits) and de_DE (decimal comma), construct MainWindow directly, and check the lineEdit().text() of all spin boxes with known values. Each test restores the previous default locale. Windows-native verification is still required.
 
 ## UI-005 · CSV exports lack identifying metadata
 

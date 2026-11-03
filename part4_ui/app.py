@@ -179,6 +179,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.colormap.addItems(COLORMAPS)
         self.z_slider = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
         self.z_spin = QtWidgets.QSpinBox()
+        self.z_spin.setLocale(QtCore.QLocale.c())
         self.z_slider.setRange(0, 0)
         self.z_spin.setRange(0, 0)
         z_widget = QtWidgets.QWidget()
@@ -197,6 +198,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.z_label.setWordWrap(True)
         z_layout.addWidget(self.z_label)
         self.pixel_size = QtWidgets.QDoubleSpinBox()
+        self.pixel_size.setLocale(QtCore.QLocale.c())
         self.pixel_size.setDecimals(6)
         self.pixel_size.setRange(0, 1e9)
         for key, widget in [('channel', self.channel), ('brightness', self.brightness),
@@ -270,7 +272,9 @@ class MainWindow(QtWidgets.QMainWindow):
         pixel_layout.addWidget(self.pixel_label)
         coords = QtWidgets.QFormLayout()
         self.pixel_x = QtWidgets.QSpinBox()
+        self.pixel_x.setLocale(QtCore.QLocale.c())
         self.pixel_y = QtWidgets.QSpinBox()
+        self.pixel_y.setLocale(QtCore.QLocale.c())
         for label, spin in [('X', self.pixel_x), ('Y', self.pixel_y)]:
             spin.setRange(0, 0)
             coords.addRow(label, spin)
@@ -997,6 +1001,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
 def main():
+    QtCore.QLocale.setDefault(QtCore.QLocale.c())
     from .lfi_core.adapters.part2 import Part2Preprocessor
     register_preprocessor(Part2Preprocessor())
     from .lfi_core.adapters.part3 import register_part3

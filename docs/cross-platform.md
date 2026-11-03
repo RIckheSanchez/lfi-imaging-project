@@ -113,16 +113,27 @@ macOS spec, scientific processing implementations and acquisition data were not
 changed.
 
 
-## Windows spin-box style workaround (UI-004)
+## Numeric locale policy and optional styles (UI-004)
 
-Before creating the main window, the normal application entrypoint selects
-**Fusion** on Windows. This works around the reported garbled spin-box digits
-with PySide6 6.12 and Windows 11's default `windows11` style. macOS keeps its
-native style by default. No other palette, font or plot-color restyling is applied.
-The pure `select_qt_style(platform, override)` function selects the style;
-`LFI_QT_STYLE` overrides it on either platform (blank means the normal default).
+The Windows spin-box issue was a numeric-locale problem, not a windows11-style
+painting defect. With Chinese regional settings and native digit substitution,
+Qt spin boxes displayed native numerals (sometimes rotated); switching to
+Fusion did not fix it. Python-formatted labels were unaffected.
 
-For diagnosis in Windows PowerShell:
+The normal entrypoint calls `QLocale.setDefault(QLocale.c())` before any widget
+is created, on **every platform**. All QSpinBox/QDoubleSpinBox widgets also have
+an explicit C locale, including pixel X/Y, slice index, pixel size and the 3D
+percentile control. Qt numeric fields therefore use ASCII digits and `.` as
+the decimal separator, even when MainWindow is created without main(). This
+numeric policy does not change the app’s English/Chinese text selection.
+
+The native application style is preserved on both Windows and macOS by default.
+`select_qt_style` returns no style unless `LFI_QT_STYLE` has a nonblank value.
+Fusion is **not** the Windows default. An explicit style override is still
+available for optional appearance changes or diagnosis; it does not disable the
+C numeric locale policy.
+
+For an explicit style override in Windows PowerShell:
 
 ```powershell
 $env:LFI_QT_STYLE = 'windows11'
@@ -130,14 +141,18 @@ python -m part4_ui.app
 Remove-Item Env:LFI_QT_STYLE
 ```
 
-To force Fusion from a macOS shell:
+To explicitly request Fusion on macOS:
 
 ```sh
 LFI_QT_STYLE=Fusion python -m part4_ui.app
 ```
 
-Use a style available on that OS; `windows11` is a Windows diagnostic override.
-Selection is unit-tested, and the Fusion palette is checked with the existing
-dark image plot and palette-aware histogram. Actual Windows glyph rendering
-remains **fixed, pending verification on Windows**; a macOS preview cannot
-establish that the Windows-specific defect is gone.
+Use a style available on the host OS. Style selection tests cover native
+defaults on all platforms and explicit overrides. App-level numeric-locale
+tests set ar_EG and de_DE before constructing MainWindow, check every spin
+box’s lineEdit().text(), and restore the default locale after each test.
+The previous Fusion/dark-plot palette check remains an explicit override check,
+not evidence that style selection fixes native digit substitution.
+
+UI-004 remains **fixed, pending verification on Windows**. These locale tests
+do not claim a native Windows reproduction or a confirmed Windows deployment.
