@@ -267,3 +267,43 @@ Optional: `napari` and `SimpleITK` enable `--napari` and the NIfTI check behind
 - Karl Bertling: project supervision.
 
 University of Queensland — academic use.
+
+
+## CSV provenance and reading exports
+
+Desktop CSV exports (both the export dialog and Cmd/Ctrl+Shift+E) begin with
+`# ` comment lines recording app name/version, local ISO 8601 export timestamp
+with UTC offset, source file name, target, channel and raw/pre-processed state,
+zero-based slice index, actual Z value, rows (Y)/columns (X), channel-specific
+preprocessing/normalisation/units, and phase encoding/unwrap status for phase.
+Commas in header values are replaced by semicolons; line breaks are flattened,
+so Excel displays each metadata comment as one cell in the first rows.
+The following numeric matrix is unchanged and still uses `%.6g`.
+
+```python
+import numpy as np
+matrix = np.loadtxt('lfi_phase_z545.csv', delimiter=',')
+
+import pandas as pd
+frame = pd.read_csv('lfi_phase_z545.csv', comment='#', header=None)
+```
+
+NumPy skips the comments directly. Pandas needs both `comment='#'` and
+`header=None`; Excel shows the comments above the matrix. Existing Python callers
+of `export_csv(array)` still receive the original numeric-only output; callers
+can opt in with `export_csv(array, metadata=...)`.
+
+## Export the current 3D view
+
+After rendering a 3D result, use **Export 3D view…** beside the zoom/reset controls.
+The PNG is the viewport framebuffer at its current camera angle, including the
+visible 3D axes; it is not a new reconstruction or a high-resolution re-render.
+The default name is `lfi_3d_<mode>_<source-stem>.png`. The remembered export
+folder and Desktop/home fallback are shared with slice exports. After saving,
+the existing Finder/Explorer/folder action reveals the PNG.
+
+A `.txt` sidecar with the same stem records source/channel provenance, selected
+2D slice context (the PNG contains the whole rendered volume), 3D mode,
+percentile thresholds and values, downsampling step, rendered dimensions and
+framebuffer size. Metadata reflects the captured result. The button is disabled
+on the offscreen platform, where there is no OpenGL viewport.

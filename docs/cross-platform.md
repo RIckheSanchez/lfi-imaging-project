@@ -111,3 +111,33 @@ Pre-existing local edits to `docs/releases/v1.4-part3-integration.md` and
 `docs/releases/v14-native-output.txt` were preserved byte-for-byte. The existing
 macOS spec, scientific processing implementations and acquisition data were not
 changed.
+
+
+## Windows spin-box style workaround (UI-004)
+
+Before creating the main window, the normal application entrypoint selects
+**Fusion** on Windows. This works around the reported garbled spin-box digits
+with PySide6 6.12 and Windows 11's default `windows11` style. macOS keeps its
+native style by default. No other palette, font or plot-color restyling is applied.
+The pure `select_qt_style(platform, override)` function selects the style;
+`LFI_QT_STYLE` overrides it on either platform (blank means the normal default).
+
+For diagnosis in Windows PowerShell:
+
+```powershell
+$env:LFI_QT_STYLE = 'windows11'
+python -m part4_ui.app
+Remove-Item Env:LFI_QT_STYLE
+```
+
+To force Fusion from a macOS shell:
+
+```sh
+LFI_QT_STYLE=Fusion python -m part4_ui.app
+```
+
+Use a style available on that OS; `windows11` is a Windows diagnostic override.
+Selection is unit-tested, and the Fusion palette is checked with the existing
+dark image plot and palette-aware histogram. Actual Windows glyph rendering
+remains **fixed, pending verification on Windows**; a macOS preview cannot
+establish that the Windows-specific defect is gone.

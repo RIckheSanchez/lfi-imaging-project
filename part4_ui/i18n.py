@@ -10,6 +10,7 @@ STRINGS = {
     'use_part3': ('Use Part 3 relative-focus reconstruction', '使用 Part 3 相对焦点位置重建'),
     '3d_part3_status': ('3D: Part 3 relative focus position reconstruction · amplitude interpolated · phase from nearest measured slice · axes in sample indices (Z indexes the uniform relative focus position grid; X/Y index measured pixels, not physical aspect)', '三维：Part 3 相对焦点位置重建 · 振幅插值 · 相位取最近实测切片 · 坐标轴为样本索引（Z 为均匀相对焦点位置网格索引；X/Y 为实测像素索引，不代表物理比例）'),
     'waveform_pixel': ('Pixel X = {x}, Y = {y}', '像素 X = {x}, Y = {y}'),
+    'export_3d': ('Export 3D view…', '导出三维视图…'),
     'export_csv': ('Export CSV…', '导出 CSV…'),
     'show_explorer': ('Show in Explorer', '在资源管理器中显示'),
     'show_folder': ('Show in folder', '在文件夹中显示'),

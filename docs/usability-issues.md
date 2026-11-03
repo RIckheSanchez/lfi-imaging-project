@@ -37,3 +37,27 @@ Resolution: each channel now has a bold heading, separate state/detail lines and
 - Resolution: a GLViewWidget subclass handles native pinch, prefers nonzero pixel deltas for trackpads and uses the dominant scroll axis. Camera distance is clamped to 0.05–50 times the largest volume dimension. Ctrl+wheel still changes FOV. Bilingual Zoom in/out controls support Cmd/Ctrl+= and Cmd/Ctrl+-.
 - Validation: pytest-qt sends synthetic native pinch and mouse/trackpad wheel events and checks zoom direction, dominant-axis selection, distance limits and Ctrl+wheel behavior; panel controls and shortcuts have regression coverage.
 - Scope: source fix only; no app rebuild, tag or merge. Physical trackpad behavior still needs confirmation in the live macOS app.
+
+
+## UI-004 · Garbled Windows spin-box digits
+
+- Status: fixed, pending verification on Windows.
+- Reported environment: Windows 11, PySide6 6.12, default `windows11` style.
+- Observed: QSpinBox/QDoubleSpinBox digits are painted as garbled glyphs while labels and combo boxes remain correct. Not reproduced on macOS; the style-painting cause is suspected, not established here.
+- Fix: select Fusion on win32 before creating MainWindow; macOS keeps its native default. LFI_QT_STYLE can override the selection for diagnosis or force Fusion on macOS.
+- Validation: pure platform/override cases, Fusion spin-box values, dark plot colors and palette-aware histogram checks. No additional UI restyling; Windows-native verification is still required.
+
+## UI-005 · CSV exports lack identifying metadata
+
+- Status: resolved.
+- Fix: both desktop CSV entry points prepend comma-free `# ` metadata comments covering identity/version, timestamp, source, target, channel, processing state, slice/Z, shape, normalisation/units and phase provenance. Header line breaks are flattened.
+- Compatibility: numeric matrix bytes and `%.6g` format are unchanged; pure export_csv callers can omit metadata for the original output. NumPy reads directly; pandas uses comment="#" and header=None; Excel shows comments as initial rows.
+- Validation: numeric byte comparison, NumPy roundtrip, optional pandas reader, channel-specific provenance, header fields and both export entry points. Test files use tmp_path.
+
+## Feature · Export the current 3D viewport
+
+- Added bilingual Export 3D view… control next to the 3D camera controls.
+- Saves grabFramebuffer() as PNG at the current camera angle, plus a same-stem .txt provenance sidecar including mode, percentile thresholds/values and downsampling step. Reuses export directory fallback and file reveal.
+- The button requires a rendered result and a viewport; it is disabled again on clear and always disabled offscreen.
+- Validation: button lifecycle, naming, sidecar fields and mocked framebuffer PNG save/cancel/failure paths. This automated offscreen coverage does not claim native OpenGL capture or Windows verification.
+- No commit, tag, merge or application rebuild performed.

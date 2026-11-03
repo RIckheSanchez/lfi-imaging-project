@@ -43,6 +43,7 @@ class ZoomableGLViewWidget(gl.GLViewWidget):
 
 class VolumePanel(QtWidgets.QWidget):
     render_requested = QtCore.Signal()
+    export_requested = QtCore.Signal()
     invalidated = QtCore.Signal()
     calibration_changed = QtCore.Signal()
 
@@ -77,6 +78,7 @@ class VolumePanel(QtWidgets.QWidget):
         self.reconstruct.hide()
         self.render_button = QtWidgets.QPushButton()
         self.reset_button = QtWidgets.QPushButton()
+        self.export_button = QtWidgets.QPushButton()
         self.zoom_in_button = QtWidgets.QPushButton()
         self.zoom_out_button = QtWidgets.QPushButton()
         toolbar.addWidget(self.mode)
@@ -89,6 +91,7 @@ class VolumePanel(QtWidgets.QWidget):
         toolbar.addWidget(self.zoom_in_button)
         toolbar.addWidget(self.zoom_out_button)
         toolbar.addWidget(self.reset_button)
+        toolbar.addWidget(self.export_button)
         layout.addLayout(toolbar)
         self.hint = QtWidgets.QLabel()
         self.hint.setWordWrap(True)
@@ -133,8 +136,10 @@ class VolumePanel(QtWidgets.QWidget):
         self.reset_button.setEnabled(False)
         self.zoom_in_button.setEnabled(False)
         self.zoom_out_button.setEnabled(False)
+        self.export_button.setEnabled(False)
         self.render_button.clicked.connect(self.render_requested)
         self.reset_button.clicked.connect(self.reset_camera)
+        self.export_button.clicked.connect(self.export_requested)
         self.zoom_in_button.clicked.connect(lambda: self.zoom_camera(.8))
         self.zoom_out_button.clicked.connect(lambda: self.zoom_camera(1.25))
         self.mode.currentIndexChanged.connect(self.update_mode_controls)
@@ -150,7 +155,8 @@ class VolumePanel(QtWidgets.QWidget):
         for widget, key in [(self.percentile_label, 'iso_percentile'),
                             (self.reconstruct, 'apply_reconstruction'),
                             (self.render_button, 'render_3d'), (self.reset_button, 'reset_camera'),
-                            (self.zoom_in_button, 'zoom_in'), (self.zoom_out_button, 'zoom_out')]:
+                            (self.zoom_in_button, 'zoom_in'), (self.zoom_out_button, 'zoom_out'),
+                            (self.export_button, 'export_3d')]:
             widget.setText(text(key, language))
         # setText clears button shortcuts; restore them after translation.
         # Qt maps Ctrl shortcuts to Command on macOS (QKeySequence convention).
@@ -229,6 +235,7 @@ class VolumePanel(QtWidgets.QWidget):
         self.reset_button.setEnabled(False)
         self.zoom_in_button.setEnabled(False)
         self.zoom_out_button.setEnabled(False)
+        self.export_button.setEnabled(False)
 
     def set_data_available(self, available):
         self.clear_result()
@@ -280,7 +287,12 @@ class VolumePanel(QtWidgets.QWidget):
         self.reset_button.setEnabled(True)
         self.zoom_in_button.setEnabled(True)
         self.zoom_out_button.setEnabled(True)
+        self.export_button.setEnabled(self.can_export_view())
         self._update_info()
+
+    def can_export_view(self):
+        return (self.result is not None and self.scene is not None and
+                QtWidgets.QApplication.platformName() != 'offscreen')
 
     def zoom_camera(self, factor):
         if self.scene is not None:
